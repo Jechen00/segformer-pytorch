@@ -8,8 +8,9 @@ from torchvision.ops import StochasticDepth
 import numpy as np
 from itertools import islice
 from numbers import Real
-from typing import Sequence, Union, Tuple, List, Optional
+from typing import Sequence, Union, List, Optional
 
+from src.utils.common_types import SpatialSize 
 from src.utils.misc import make_tuple
 from src.models.modules import ChannelwiseLayerNorm, EfficientSelfAttention, MixFFN
 
@@ -107,8 +108,8 @@ class EncoderStage(nn.Module):
         self,
         in_channels: int,
         feature_dim: int,
-        patch_size: Union[int, Tuple[int, int]],
-        stride: Union[int, Tuple[int, int]],
+        patch_size: SpatialSize,
+        stride: SpatialSize,
         num_blks: int,
         num_heads: int,
         reduce_ratio: int,
@@ -157,8 +158,8 @@ class MixTransformer(nn.Module):
     Args:
         in_channels (int): Number of input channels.
         feature_dims (Sequence[int]): Dimension of output features (channels or embeddings) in each encoder stage.
-        patch_sizes (Sequence[Union[int, Tuple[int, int]]]): Patch size for the patch embedding in each encoder stage.
-        strides (Sequence[Union[int, Tuple[int, int]]]): Stride for the patch embedding in each encoder stage.
+        patch_sizes (Sequence[SpatialSize]): Patch size for the patch embedding in each encoder stage.
+        strides (Sequence[SpatialSize]): Stride for the patch embedding in each encoder stage.
         num_blks (Sequence[int]): Number of encoder blocks for each encoder stage.
         num_heads (Sequence[int]): Number of attention heads for the efficient self-attention in each encoder stage.
         reduce_ratios (Sequence[int]): Reduction ratio for the efficient self-attention in each encoder stage.
@@ -179,8 +180,8 @@ class MixTransformer(nn.Module):
         self,
         in_channels: int,
         feature_dims: Sequence[int],
-        patch_sizes: Sequence[Union[int, Tuple[int, int]]],
-        strides: Sequence[Union[int, Tuple[int, int]]],
+        patch_sizes: Sequence[SpatialSize],
+        strides: Sequence[SpatialSize],
         num_blks: Sequence[int],
         num_heads: Sequence[int],
         reduce_ratios: Sequence[int],

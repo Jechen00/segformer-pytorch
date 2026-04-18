@@ -4,8 +4,9 @@
 import torch
 from torch import nn
 
-from typing import Sequence, Tuple, Union, Optional
+from typing import Sequence, Optional
 
+from src.utils.common_types import SpatialSize
 from src.models.encoder import MixTransformer
 from src.models.decoder import MLPDecoder
 
@@ -48,8 +49,8 @@ class SegFormerDefault(EncoderDecoder):
         in_channels (int): Number of input channels
 
         feature_dims (Sequence[int]): Dimension of output features (channels or embeddings) in each encoder stage.
-        patch_sizes (Sequence[Union[int, Tuple[int, int]]]): Patch size for the patch embedding in each encoder stage.
-        strides (Sequence[Union[int, Tuple[int, int]]]): Stride for the patch embedding in each encoder stage.
+        patch_sizes (Sequence[SpatialSize]): Patch size for the patch embedding in each encoder stage.
+        strides (Sequence[SpatialSize]): Stride for the patch embedding in each encoder stage.
         num_blks (Sequence[int]): Number of encoder blocks for each encoder stage.
         num_heads (Sequence[int]): Number of attention heads for the efficient self-attention in each encoder stage.
         reduce_ratios (Sequence[int]): Reduction ratio for the efficient self-attention in each encoder stage.
@@ -79,8 +80,8 @@ class SegFormerDefault(EncoderDecoder):
         self, 
         in_channels: int,
         feature_dims: Sequence[int],
-        patch_sizes: Sequence[Union[int, Tuple[int, int]]],
-        strides: Sequence[Union[int, Tuple[int, int]]],
+        patch_sizes: Sequence[SpatialSize],
+        strides: Sequence[SpatialSize],
         num_blks: Sequence[int],
         num_heads: Sequence[int],
         reduce_ratios: Sequence[int],
