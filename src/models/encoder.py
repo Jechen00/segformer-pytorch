@@ -10,8 +10,8 @@ from itertools import islice
 from numbers import Real
 from typing import Sequence, Union, List, Optional
 
-from src.utils.common_types import SpatialSize 
-from src.utils.misc import make_tuple
+from src.ml_types import SpatialSize 
+from src.utils import make_tuple
 from src.models.modules import ChannelwiseLayerNorm, EfficientSelfAttention, MixFFN
 
 

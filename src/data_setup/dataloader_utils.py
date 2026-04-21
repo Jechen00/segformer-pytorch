@@ -8,8 +8,8 @@ from torch.utils.data import SequentialSampler, RandomSampler
 import warnings
 from typing import List, Union, Optional, Literal, Literal, Callable
 
-from src.utils.common_types import SpatialSize
-from src.utils import misc
+from src.ml_types import SpatialSize
+from src.utils import all_or_none
 from src.data_setup.multiscale import MultiScaleBatchSampler, MultiScaleWrapper
 
 
@@ -49,7 +49,7 @@ def build_dataloader(
                           Default is False.
         device (Union[torch.device, str]): Device to send batched tensors to. Default is 'cpu'.
     '''
-    if not misc.all_or_none(multiscale_interval, multiscale_sizes, resize_fn):
+    if not all_or_none(multiscale_interval, multiscale_sizes, resize_fn):
         raise ValueError(
             'multiscale_interval, multiscale_sizes, and resize_fn must either all be provided or all be None.'
         )

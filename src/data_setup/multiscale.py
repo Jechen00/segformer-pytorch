@@ -4,10 +4,13 @@
 from torch.utils.data import Dataset, Sampler
 
 import random, math
-from typing import List, Union, Tuple, Iterable, Iterator, Optional, Callable
+from typing import (
+    List, Union, Tuple, Optional,
+    Callable, Iterable, Iterator
+)
 
-from src.utils.common_types import SpatialSize
-from src.utils import misc
+from src.ml_types import SpatialSize
+from src.utils import make_tuple
 
 
 #####################################
@@ -88,7 +91,7 @@ class MultiScaleBatchSampler():
         self.sampler = sampler
         self.batch_size = batch_size
         self.multiscale_interval = multiscale_interval
-        self.multiscale_sizes = [misc.make_tuple(size) for size in multiscale_sizes]
+        self.multiscale_sizes = [make_tuple(size) for size in multiscale_sizes]
         self.drop_last = drop_last
 
     def __iter__(self) -> Iterator[List[Tuple[int, SpatialSize]]]:

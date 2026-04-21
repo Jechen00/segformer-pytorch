@@ -6,7 +6,8 @@ import numpy as np
 import random
 import os
 
-from typing import Union, Any
+from numbers import Real
+from typing import Union, Any, Literal
 
 
 #####################################
@@ -49,3 +50,23 @@ def set_seed(seed: int = 0):
     
     torch.use_deterministic_algorithms(True)
     os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+
+def apply_agg(arr: np.ndarray, agg: Literal['mean', 'min', 'max']) -> Real:
+    '''
+    Applies an aggregation function (mean, min, max) to a numpy array.
+
+    Args:
+        arr (np.ndarray): The numpy array to aggregate.
+        agg (Literal['mean', 'min', 'max']): The aggregation function to apply (mean, min, max).
+
+    Returns:
+        Real: A real numeric value from aggregating the numpy array.
+    '''
+    if agg == 'mean':
+        return arr.mean()
+    elif agg == 'min':
+        return arr.min()
+    elif agg == 'max':
+        return arr.max()
+    else:
+        raise ValueError(f'Unknown aggregation: {agg}')

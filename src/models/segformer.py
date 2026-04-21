@@ -6,7 +6,7 @@ from torch import nn
 
 from typing import Sequence, Optional
 
-from src.utils.common_types import SpatialSize
+from src.ml_types import SpatialSize
 from src.models.encoder import MixTransformer
 from src.models.decoder import MLPDecoder
 
