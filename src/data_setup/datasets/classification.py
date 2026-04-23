@@ -25,13 +25,13 @@ class HFClassificationDataset(Dataset):
                                            - image (ImageInput): Image sample.
                                            - label (Union[int, torch.Tensor]): Class label for the image.
         aug_transforms (Optional[v2.Compose]): Data augmentation pipeline applied to each image independently.
-                                               This should be compatible with the samples in hf_dataset 
+                                               This should be compatible with the samples in `hf_dataset`
                                                (e.g. accepts a dictionary input).
         base_transforms (Optional[v2.Compose]): Base transform pipeline separate from augmentation transforms.
-                                                This should be compatible with the samples in hf_dataset
+                                                This should be compatible with the samples in `hf_dataset`
                                                 (e.g. accepts a dictionary input).
-        base_first (bool): Whether to apply aug_transforms first (if provided) or base_transforms first (if provided).
-                           Default is False (aug_transforms are applied first).
+        base_first (bool): Whether to apply `aug_transforms` first (if provided) or `base_transforms` first (if provided).
+                           Default is `False` (`aug_transforms` are applied first).
     '''
     def __init__(
         self, 
@@ -53,6 +53,9 @@ class HFClassificationDataset(Dataset):
     
     def __getitem__(self, idx: int) -> dict:
         '''
+        Gets a sample dictionary containing image and label information,
+        given an index.
+
         Args:
             idx (int): Index of the sample to retrieve.
             
@@ -83,7 +86,7 @@ class HumanBinaryDataset(HFClassificationDataset):
     https://huggingface.co/datasets/prithivMLmods/Human-vs-NonHuman
 
     Note that the raw Hugging Face (HF) dataset does not have a training/validation split,
-    so it is created using the built-in train_test_split() method and a split seed.
+    so it is created using the built-in `train_test_split()` method and a split seed.
 
     Additionally, a letterbox transform (fill = 0) has already been applied to the images in the raw HF dataset.
 
@@ -92,23 +95,23 @@ class HumanBinaryDataset(HFClassificationDataset):
         - label (int): Class index for the image sample.
 
     Args:
-        split (Literal['train', 'val']): Whether to construct the training dataset ('train') or the validation dataset ('val').
+        split (Literal['train', 'val']): Whether to construct the training dataset (`train`) or the validation dataset (`val`).
         aug_transforms (Optional[v2.Compose]): Data augmentation pipeline applied to each image independently.
                                                This  need to be compatible with the samples of 
                                                the human vs non-human dataset 
-                                               (i.e. accepts the dictionary input with image and label keys).
+                                               (i.e. accepts the dictionary input with `image` and `label` keys).
         base_transforms (Optional[v2.Compose]): Base transform pipeline separate from augmentation transforms.
                                                 This need to be compatible with the samples of 
                                                 the human vs non-human dataset 
-                                                (i.e. accepts the dictionary input with image and label keys).
-        base_first (bool): Whether to apply aug_transforms first (if provided) or base_transforms first (if provided).
-                           Default is False (aug_transforms are applied first).
+                                                (i.e. accepts the dictionary input with `image` and `label` keys).
+        base_first (bool): Whether to apply `aug_transforms` first (if provided) or `base_transforms` first (if provided).
+                           Default is `False` (`aug_transforms` are applied first).
         train_size (float): The fraction of the raw dataset to use as the training dataset.
-                            The remaining fraction (1 - train_size) is used as the validation dataset.
-                            Default is 0.9 (90% of raw data for training, 10% of raw data for validation).
+                            The remaining fraction (`1 - train_size`) is used as the validation dataset.
+                            Default is `0.9` (90% of raw data for training, 10% of raw data for validation).
         split_seed (int): The random seed used to split the raw dataset into training/validation components.
                           Changing this will change what data is in the training/validation datasets.
-                          Default is 0.
+                          Default is `0`.
     '''
     def __init__(
         self, 

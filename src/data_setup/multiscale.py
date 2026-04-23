@@ -18,10 +18,29 @@ from src.utils import make_tuple
 #####################################
 class MultiScaleWrapper():
     '''
-    Expects the __getitem__ method to recive an integer index.
+    Wrapper used to enable multiscale training for a base dataset.
 
-    resize_fn must accept:
-        (item: dict, size: SpatialSize, **resize_kwargs)
+    Expects the `__getitem__` method of the base dataset to accept only an integer index.
+    The wrapper modifies `__getitem__` to accepts both integer indices and tuples of the form `(index, input_size)`,
+    where `index` is the image index and `input_size` is the size used for resizing in multiscale training.
+
+    Args:
+        dataset (Dataset): The base dataset to modify.
+        resize_fn (Callable): The resize function to use when resizing images.
+                              This function must accept:
+                                - item (dict): Dictionary containing the item information.
+                                               This always includes:
+                                                    - image (ImageInput): image sample.
+                                               It may also contain other keys depending on the task.
+                                               For example:
+                                                    - label (Union[int, torch.Tensor]): class index for image classification tasks.
+                                                    - mask (ImageInput): segmentation mask for image segmentation tasks.
+                                - size (SpatialSize): Size (height, width) used to resize `item['image']`.
+                                                      If `int`, size is assumed to be square.
+        default_size (Optional[SpatialSize]): A default size to use when `__getitem__` is called 
+                                              with only an integer index. 
+                                              If `None`, the default is that no resizing is applied.
+        resize_kwargs: Keyword arguments apart from `item` and `input_size` to use when calling `resize_fn`.
     '''
     def __init__(
         self,
@@ -39,11 +58,19 @@ class MultiScaleWrapper():
 
     def __getitem__(self, input_info: Union[int, Tuple[int, SpatialSize]]) -> dict:
         '''
+        Gets a sample dictionary containing image and label information, given an index.
+        Also optionally resizes the image if a size is provided.
+
         Args:
-            input_info (Union[int, Tuple[int, SpatialSize]]):
-            
+            input_info (Union[int, Tuple[int, SpatialSize]]): 
+                An image index (`int`) or a `tuple` of the form `(index, input_size)`.
+                If only an image index is provided, the returned image is resized using `default_size`.
+                If `(index, input_size)` is provided, the returned image is resized to `input_size`.
+
         Returns:
-            dict:
+            dict: Dictionary containing sample information.
+                  The exact keys depend on the task, but it always includes:
+                    - image (ImageInput): The resized image sample.
         '''
         if isinstance(input_info, int):
             idx, size = input_info, self.default_size
@@ -59,11 +86,11 @@ class MultiScaleWrapper():
 class MultiScaleBatchSampler():
     '''
     Batch sampler for multi-scale training.
-    At each iteration, this sampler yields a list of (samp_idx, input_size) pairs,
+    At each iteration, this sampler yields a list of `(samp_idx, input_size)` pairs,
     where input_size may change every multiscale_interval batches if enabled.
 
-    Note: The dataset in the dataloader must support receiving (samp_idx, input_size) in __getitem__.
-          This can be done by wrapping the dataset with MultiScaleWrapper.
+    Note: The dataset in the dataloader must support receiving `(samp_idx, input_size)` in `__getitem__`.
+          This can be done by wrapping the dataset with `MultiScaleWrapper`.
 
     Adapted from: https://github.com/CaoWGG/multi-scale-training/blob/master/batch_sampler.py
 
@@ -73,12 +100,12 @@ class MultiScaleBatchSampler():
         batch_size (int): Number of sample images per batch.
         multiscale_interval (int): Batch interval to change input size for multiscale training.
         multiscale_sizes (List[SpatialSize]): List of input sizes to use during multiscale training.
-                                              Elements can be ints (assumed square) or (height, width) tuples.
+                                              Elements can be `int` (assumed square) or `(height, width)` tuples.
         drop_last (bool): Whether to drop the last remaining samples in a dataset if 
-                          they cannot create a full batch of size batch_size.
-                          If False, the final batch may have size <= batch_size,
+                          they cannot create a full batch of size `batch_size`.
+                          If `False`, the final batch may have `size <= batch_size`,
                           increasing the total number of batches by at most one.
-                          Default is False.
+                          Default is `False`.
     '''
     def __init__(
         self,
@@ -96,15 +123,14 @@ class MultiScaleBatchSampler():
 
     def __iter__(self) -> Iterator[List[Tuple[int, SpatialSize]]]:
         '''
-        Creates an iterator that yields batches of (samp_idx, input_size) pairs.
-        Provides multiscale training by changing input_size every multiscale_interval batches.
+        Creates an iterator that yields batches of `(samp_idx, input_size)` pairs.
+        Provides multiscale training by changing `input_size` every `multiscale_interval` batches.
 
         Yields:
             batch (List[Tuple[int, SpatialSize]]): 
-                A list of (samp_idx, input_size) pairs.
+                A list of `(samp_idx, input_size)` pairs.
                     - samp_idx (int): Index of the image sample in the dataset.
-                    - input_size (SpatialSize): A tuple (height, width) indicating 
-                                                    the input size of the batch.
+                    - input_size (SpatialSize): A tuple `(height, width)` indicating the input size of the batch.
         '''
         batch = []
         num_batches = 0

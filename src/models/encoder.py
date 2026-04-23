@@ -30,13 +30,13 @@ class EncoderBlock(nn.Module):
         num_heads (int): Number of attention heads for efficient self-attention.
         reduce_ratio (int): Ratio used to reduce the spatial resolution (sequence length) of keys/values
                             before computing efficient self-attention.
-                            The sequence length is specifically reduced by a factor of roughly reduce_ratio**2.
-                            If reduce_ratio = 1, no reduction is applied.      
+                            The sequence length is specifically reduced by a factor of roughly `reduce_ratio**2`.
+                            If `reduce_ratio = 1`, no reduction is applied.      
         hid_dim (int): Number of hidden channels in intermediate layers of the mix-FFN.
         activation (optional, nn.Module): Activation function applied within the mix-FFN.
-                                          If None, defaults to GELU.
-        attn_dropout_prob (float): Dropout probability for the attention weights. Default is 0.0.
-        sdepth_prob (float): Stochastic depth probability to drop residuals in residual connections. Default is 0.0.
+                                          If `None`, defaults to GELU.
+        attn_dropout_prob (float): Dropout probability for the attention weights. Default is `0.0`.
+        sdepth_prob (float): Stochastic depth probability to drop residuals in residual connections. Default is `0.0`.
     '''
     def __init__(
         self, 
@@ -62,10 +62,10 @@ class EncoderBlock(nn.Module):
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         '''
         Args:
-            X (torch.Tensor): Input tensor of shape (batch_size, feature_dim, height, width)
+            X (torch.Tensor): Input tensor of shape `(batch_size, feature_dim, height, width)`.
             
         Returns:
-            torch.Tensor: Output tensor of shape (batch_size, feature_dim, height, width)
+            torch.Tensor: Output tensor of shape `(batch_size, feature_dim, height, width)`.
         '''
         X = X + self.sdepth(self.seq_attn(X))
         X = X + self.sdepth(self.seq_mix_ffn(X))
@@ -77,8 +77,8 @@ class EncoderStage(nn.Module):
     A single stage of the SegFormer Encoder.
     The structure is as follows:
         1) Patch embedding
-            - Non-overlapping: stride == patch_size
-            - Overlapping: stride < patch_size
+            - Non-overlapping: `stride == patch_size`
+            - Overlapping: `stride < patch_size`
         2) Sequence of encoder blocks (self-attention -> mix-FFN)
         
     Args:
@@ -86,23 +86,23 @@ class EncoderStage(nn.Module):
         feature_dim (int): Dimension of output features (channels for feature maps or embeddings for tokens).
         patch_size (int or tuple(int, int)): Spatial size of each patch region used to compute a embedding.
                                              This is the kernel size of a convolutional layer.
-                                             If int, assumed square.
+                                             If `int`, assumed square.
         stride (int or tuple(int, int)): Step size between patch regions.
-                                         If int, assumed square.
+                                         If `int`, assumed square.
         num_blks (int): Number of encoder blocks.
         num_heads (int): Number of attention heads for efficient self-attention.
         reduce_ratio (int): Ratio used to reduce the spatial resolution (sequence length) of keys/values
                             before computing efficient self-attention.
-                            Sequence length is reduced by roughly reduce_ratio**2.
-                            If reduce_ratio = 1, no reduction is applied.
+                            Sequence length is reduced by roughly `reduce_ratio**2`.
+                            If `reduce_ratio = 1`, no reduction is applied.
         hid_dim (int): Number of hidden channels in intermediate layers of the mix-FFN.
         activation (optional, nn.Module): Activation function applied within the mix-FFN.
-                                          If None, defaults to GELU.
-        attn_dropout_prob (float): Dropout probability for the attention weights. Default is 0.0.
+                                          If `None`, defaults to GELU.
+        attn_dropout_prob (float): Dropout probability for the attention weights. Default is `0.0`.
         sdepth_probs (float or Sequence[float]): Stochastic depth probability for each encoder block.
-                                                 If sequence, the length must equal num_blks.
-                                                 If float, the same value is used for all encoder blocks.
-                                                 Default is 0.0.
+                                                 If `Sequence[float]`, the length must equal `num_blks`.
+                                                 If `float`, the same value is used for all encoder blocks.
+                                                 Default is `0.0`.
     '''
     def __init__(
         self,
@@ -139,10 +139,10 @@ class EncoderStage(nn.Module):
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         '''
         Args:
-            X (torch.Tensor): Input tensor of shape (batch_size, in_channels, height, width)
+            X (torch.Tensor): Input tensor of shape `(batch_size, in_channels, height, width)`.
             
         Returns:
-            torch.Tensor: Output tensor of shape (batch_size, feature_dim, fmap_height, fmap_width)
+            torch.Tensor: Output tensor of shape `(batch_size, feature_dim, fmap_height, fmap_width)`.
         '''
         X = self.layer_norm1(self.patch_embed(X))
         for block in self.blocks:
@@ -165,14 +165,14 @@ class MixTransformer(nn.Module):
         reduce_ratios (Sequence[int]): Reduction ratio for the efficient self-attention in each encoder stage.
         hid_dims (Sequence[int]): Hidden dimension of the mix-FFN in each encoder stage.
         activations (optional, Sequence[nn.Module]): Activation function for the mix-FFN in each encoder stage.
-                                                     If None, defaults to GELU for each mix-FFN.
+                                                     If `None`, defaults to GELU for each mix-FFN.
         attn_dropout_probs (optional, Sequence[float]): Dropout probability for the attention weights
                                                         in each encoder stage.
-                                                        If None, defaults to 0.0 for all encoder stages.
+                                                        If `None`, defaults to `0.0` for all encoder stages.
         max_sdepth_prob (float): Maximum stochastic depth probability.
-                                 The probability starts at 0.0 and linearly increases across all encoder blocks,
-                                 reaching max_sdepth_prob at the final block of the final stage.
-                                 Default is 0.0.
+                                 The probability starts at `0.0` and linearly increases across all encoder blocks,
+                                 reaching `max_sdepth_prob` at the final block of the final stage.
+                                 Default is `0.0`.
                                  
     Note: All sequence inputs must have the same length.
     '''
@@ -231,11 +231,11 @@ class MixTransformer(nn.Module):
     def forward(self, X: torch.Tensor) -> List[torch.Tensor]:
         '''
         Args:
-            X (torch.Tensor): Input tensor of shape (batch_size, in_channels, height, width)
+            X (torch.Tensor): Input tensor of shape `(batch_size, in_channels, height, width)`.
             
         Returns:
             List[torch.Tensor]: List of output tensors from each encoder stage.
-                                The i-th tensor has shape (batch_size, feature_dim[i], fmap_height, fmap_width).
+                                The i-th tensor has shape `(batch_size, feature_dim[i], fmap_height, fmap_width)`.
         '''
         outs = []
         for stage in self.stages:

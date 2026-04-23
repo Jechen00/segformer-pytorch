@@ -25,10 +25,10 @@ class MLPDecoder(nn.Module):
         num_classes (int): Number of segmentation classes.
         activation (optional, nn.Module): Activation function for the convolutional layer
                                           used to fuse encoder feature maps.
-                                          Default is None.
+                                          Default is `None`.
         channel_dropout_prob (float): Probability of channelwise dropout applied after fusing encoder feature maps.
                                       Entire feature channels are randomly zeroed during training.
-                                      Default is 0.0.
+                                      Default is `0.0`.
     '''
     def __init__(
         self, 
@@ -54,13 +54,13 @@ class MLPDecoder(nn.Module):
         '''
         Args:
             encoder_outs (List[torch.Tensor]): List of encoder output feature maps.
-                                               The length of the list should match feature_dims.
+                                               The length of the list should match `feature_dims`.
                                                The i-th element is a tensor of shape
-                                               (batch_size, feature_dims[i], fmap_height, fmap_width)
+                                               `(batch_size, feature_dims[i], fmap_height, fmap_width)`.
             
         Returns:
-            torch.Tensor: Segmentation logit mask of shape (batch_size, num_classes, fmap1_height, fmap1_width),
-                          where (fmap1_height, fmap1_width) is the spatial resolution of the 
+            torch.Tensor: Segmentation logit mask of shape `(batch_size, num_classes, fmap1_height, fmap1_width)`,
+                          where `(fmap1_height, fmap1_width)` is the spatial resolution of the 
                           first encoder stage feature map.
         '''
         fused_X = []

@@ -19,11 +19,11 @@ class ConvBNAct(nn.Module):
         in_channels (int): Number of input channels for the conv layer.
         out_channels (int): Number of output channels for the conv layer.
         kernel_size (int): Kernel size for the conv layer.
-        stride (int): Stride for the conv layer. Default is 1.
-        padding (int): Padding for the conv layer. Default is 0.
-        include_bn (bool): Whether to include batch norm after the conv layer. Default is False.
+        stride (int): Stride for the conv layer. Default is `1`.
+        padding (int): Padding for the conv layer. Default is `0`.
+        include_bn (bool): Whether to include batch norm after the conv layer. Default is `False`.
         activation (optional, nn.Module): Activation function applied after the conv layer (and batch norm if included).
-                                          Default is None.
+                                          Default is `None`.
     '''
     def __init__(self, 
                  in_channels: int,
@@ -51,8 +51,8 @@ class ConvBNAct(nn.Module):
 
 class ChannelwiseLayerNorm(nn.Module):
     '''
-    Applies channel-wise layer normalization to a tensor of shape (batch_size, num_channels, height, width).
-    This normalizes across the channel dimension, independently at each spatial location (height, width).
+    Applies channel-wise layer normalization to a tensor of shape `(batch_size, num_channels, height, width)`.
+    This normalizes across the channel dimension, independently at each spatial location `(height, width)`.
     This is done without permutating to channel-last format.
 
     Note: The channel variances are computed using the unbiased estimator, following PyTorch's implementation.
@@ -60,7 +60,7 @@ class ChannelwiseLayerNorm(nn.Module):
     Args:
         num_channels (int): Number of input channels.
         eps (float): Value added to denominator of the layer norm for numerical stability. 
-                     Default is 1e-7.
+                     Default is `1e-7`.
     '''
     def __init__(self, num_channels: int, eps: float = 1e-7):
         super().__init__()
@@ -72,11 +72,11 @@ class ChannelwiseLayerNorm(nn.Module):
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         '''
         Args:
-            X (torch.Tensor): Input tensor of shape (batch_size, num_channels, height, width).
+            X (torch.Tensor): Input tensor of shape `(batch_size, num_channels, height, width)`.
             
         Returns:
-            torch.Tensor: Output after applying layer norm on the num_channels dimension of X.
-                          Shape is (batch_size, num_channels, height, width).
+            torch.Tensor: Output after applying layer norm on the `num_channels` dimension of `X`.
+                          Shape is `(batch_size, num_channels, height, width)`.
         '''
         mean = X.mean(dim = 1, keepdim = True)
         var = X.var(dim = 1, unbiased = False, keepdim = True)
@@ -94,18 +94,18 @@ class EfficientSelfAttention(nn.Module):
     Introduced in the Pyramid Vision Transformer (PVT) paper: https://arxiv.org/abs/2102.12122
     
     Note: This implementation assumes the projected dimensions 
-          for the queries, keys, and values are all the same (d_q = d_k = d_v) 
-          and equal to feature_dim // num_heads. 
-          Consequently, it is required that feature_dim is divisible by num_heads.
+          for the queries, keys, and values are all the same `(d_q = d_k = d_v) `
+          and equal to `feature_dim // num_heads`. 
+          Consequently, it is required that `feature_dim` is divisible by `num_heads`.
 
     Args:
         num_heads (int): Number of attention heads.
         feature_dim (int): Dimension of features (channels for feature maps or embeddings for tokens).
         reduce_ratio (int): Ratio used to reduce the spatial resolution (sequence length) of the keys/values
                             before computing attention. 
-                            Sequence length is reduced by roughly reduce_ratio**2.
-                            If reduce_ratio = 1, no reduction is applied. Default is 1.
-        dropout_prob (float): Dropout probability for the attention weights. Default is 0.0.
+                            Sequence length is reduced by roughly `reduce_ratio**2`.
+                            If `reduce_ratio = 1`, no reduction is applied. Default is `1`.
+        dropout_prob (float): Dropout probability for the attention weights. Default is `0.0`.
     '''
     def __init__(self, num_heads: int, feature_dim: int, reduce_ratio: int = 1, dropout_prob: float = 0.0):
         super().__init__()
@@ -130,12 +130,12 @@ class EfficientSelfAttention(nn.Module):
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         '''
         Args:
-            X (torch.Tensor): Input tensor of shape (batch_size, feature_dim, height, width).
+            X (torch.Tensor): Input tensor of shape `(batch_size, feature_dim, height, width)`.
             
         Returns:
-            torch.Tensor: Output tensor from applying efficient self-attention to X 
+            torch.Tensor: Output tensor from applying efficient self-attention to `X`` 
                           and reshaping back to a feature map.
-                          Shape is (batch_size, feature_dim, height, width).
+                          Shape is `(batch_size, feature_dim, height, width)`.
         '''
         batch_size, _, height, width = X.shape
         
@@ -174,7 +174,7 @@ class MixFFN(nn.Module):
         feature_dim (int): Dimension of features (channels for feature maps or embeddings for tokens).
         hid_dim (int): Number of hidden channels in intermediate layers.
         activation (optional, nn.Module): Activation function applied after 3x3 convolutional layer.
-                                          If None, defaults to GELU.
+                                          If `None`, defaults to GELU.
     '''
     def __init__(self, feature_dim: int, hid_dim: int, activation: Optional[nn.Module] = None):
         super().__init__()
@@ -191,9 +191,9 @@ class MixFFN(nn.Module):
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         '''
         Args:
-            X (torch.Tensor): Input tensor of shape (batch_size, feature_dim, height, width).
+            X (torch.Tensor): Input tensor of shape `(batch_size, feature_dim, height, width)`.
             
         Returns:
-            torch.Tensor: Output tensor of shape (batch_size, feature_dim, height, width).
+            torch.Tensor: Output tensor of shape `(batch_size, feature_dim, height, width)`.
         '''
         return self.mix_ffn(X)

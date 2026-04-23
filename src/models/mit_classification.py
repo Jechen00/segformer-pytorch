@@ -4,6 +4,8 @@
 import torch
 from torch import nn
 
+import os
+
 from src.models.encoder import MixTransformer
 
 
@@ -20,7 +22,7 @@ class MiTClassification(nn.Module):
 
     Args:
         mit (MixTransformer): The MiT backbone.
-        mit_channels (int): Number of channels in the final stage output of mit.
+        mit_channels (int): Number of channels in the final stage output of `mit`.
         num_classes (int): Number of classes.
     '''
     def __init__(self, mit: MixTransformer, mit_channels: int, num_classes: int):
@@ -36,11 +38,25 @@ class MiTClassification(nn.Module):
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         '''
         Args:
-            X (torch.Tensor): Input tensor of shape (batch_size, channels, height, width).
-                              This should be compatible with the expected input for mit.
+            X (torch.Tensor): Input tensor of shape `(batch_size, channels, height, width)`.
+                              This should be compatible with the expected input for `mit`.
 
         Returns:
-            torch.Tensor: Classification logits of shape (batch_size, num_classes).
+            torch.Tensor: Classification logits of shape `(batch_size, num_classes)`.
         '''
         mit_features = self.mit(X)[-1] # Only uses final stage
         return self.classifier(mit_features)
+    
+    def save_mit_backbone(self, save_path: str):
+        '''
+        Saves the weights of the MiT backbone.
+
+        Args:
+            save_path (str): Path to save the weights to.
+                             This should end with a file extension 
+                             (e.g. `.pt` or `.pth`).
+        '''
+        dir_path = os.path.dirname(save_path)
+        if dir_path:
+            os.makedirs(dir_path, exist_ok = True)
+        torch.save(self.mit.state_dict(), save_path)

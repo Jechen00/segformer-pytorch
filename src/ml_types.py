@@ -23,5 +23,5 @@ ImageInput: TypeAlias = Union[Image.Image, torch.Tensor]
 MeasureValue: TypeAlias = Union[Real, np.ndarray, torch.Tensor]
 MetricResult: TypeAlias = Union[MeasureValue, Dict[str, MeasureValue]]
 
-EvalLogFields: TypeAlias = Sequence[Union[str, Tuple[str, Literal['mean', 'max', 'min']]]]
+MetricLogFields: TypeAlias = Sequence[Union[str, Tuple[str, Literal['mean', 'max', 'min']]]]
 EntryLogUnits: TypeAlias = Optional[Union[str, Sequence[Optional[str]]]]

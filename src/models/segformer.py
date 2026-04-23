@@ -56,25 +56,25 @@ class SegFormerDefault(EncoderDecoder):
         reduce_ratios (Sequence[int]): Reduction ratio for the efficient self-attention in each encoder stage.
         hid_dims (Sequence[int]): Hidden dimension of the mix-FFN in each encoder stage.
         enc_activations (optional, Sequence[nn.Module]): Activation function for the mix-FFN in each encoder stage.
-                                                         If None, defaults to GELU for each mix-FFN.
+                                                         If `None`, defaults to GELU for each mix-FFN.
         attn_dropout_probs (optional, Sequence[float]): Dropout probability for the attention weights
                                                         in each encoder stage.
-                                                        If None, defaults to 0.0 for all encoder stages.
+                                                        If `None`, defaults to `0.0` for all encoder stages.
         max_sdepth_prob (float): Maximum stochastic depth probability.
-                                 The probability starts at 0.0 and linearly increases across all encoder blocks,
-                                 reaching max_sdepth_prob at the final block of the final stage.
-                                 Default is 0.0.
+                                 The probability starts at `0.0` and linearly increases across all encoder blocks,
+                                 reaching `max_sdepth_prob` at the final block of the final stage.
+                                 Default is `0.0`.
         
         fused_channels (int): Number of channels used to project each encoder feature map
                               to a unified channel dimension before fusing.
         num_classes (int): Number of segmentation classes.
         dec_activation (optional, nn.Module): Activation function for the convolutional layer
                                               used to fuse encoder feature maps in the decoder.
-                                              Default is None.
+                                              Default is `None`.
         channel_dropout_prob (float): Probability of channelwise dropout applied 
                                       after fusing encoder feature maps in the decoder.
                                       Entire feature channels are randomly zeroed during training.
-                                      Default is 0.0.
+                                      Default is `0.0`.
     '''
     def __init__(
         self, 

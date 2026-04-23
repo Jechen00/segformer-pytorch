@@ -28,15 +28,15 @@ def get_base_transforms(
 ):
     '''
     Creates the torchvision pipeline:
-        1) Converts to tv_tensor.Image (v2.ToImage)
-        2) Converts data type and optional scaling (v2.ToDtype)
-        3) Applies optional resizing (resize_transform)
+        1) Converts to `tv_tensor.Image` (`v2.ToImage`)
+        2) Converts data type and optional scaling (`v2.ToDtype`)
+        3) Applies optional resizing (`resize_transform`)
 
     Args:
-        dtype (torch.dtype): Data type to convert Image tensor into (e.g., torch.float32, torch.float16).
+        dtype (torch.dtype): Data type to convert Image tensor into (e.g., `torch.float32`, `torch.float16`).
         scale (bool): Whether to scale pixel values to [0, 1].
-        resize_transform (optional, Callable): Transform used to resize the image (e.g. v2.Resize).
-                                               This should be compatible with v2.Compose.
+        resize_transform (Optional[Callable]): Transform used to resize the image (e.g. `v2.Resize`).
+                                               This should be compatible with `v2.Compose`.
     Returns:
         v2.Compose: Torchvision pipeline for converting to tensor and optional resizing.
     '''
@@ -70,27 +70,27 @@ def get_augmentations(
 
     Args:
         aug_types (Union[AugType, Sequence[AugType]]): The types of augmentations to include:
-                                                            - 'phot': Photometric augmentations.
-                                                            - 'geo': Geometric augmentations.
+                                                            - phot: Photometric augmentations.
+                                                            - geo: Geometric augmentations.
                                                         To include only one type, input only the string or a singleton list.
-                                                        To include both types, an example input is ['phot', 'geo']. 
+                                                        To include both types, an example input is `['phot', 'geo']`. 
                                                         Note that photometric augmentations are always 
                                                         applied before geometric augmentations.
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the geometric augmentations of the image.
-                                                           Default is InterpolationMode.BILINEAR.
-                                                           Note that the mask transforms always uses InterpolationMode.NEAREST.
+                                                           Default is `InterpolationMode.BILINEAR`.
+                                                           Note that the mask transforms always uses `InterpolationMode.NEAREST`.
         img_fill (RGBLike): The value used to fill parts of the image during geometric augmentations.
-                            This should be a RGB tuple in the same value space as input_dict['image'].
-                            For example, if input_dict['image'] is scaled to [0, 1], 
-                            img_fill values should also be scaled to [0, 1].
-                            If int, assumed (img_fill, img_fill, img_fill).
-                            Default is 0.
+                            This should be a RGB tuple in the same value space as `input_dict['image']`.
+                            For example, if `input_dict['image']` is scaled to [0, 1], 
+                            `img_fill` values should also be scaled to [0, 1].
+                            If `int`, assumed `(img_fill, img_fill, img_fill)`.
+                            Default is `0`.
         mask_fill (RGBLike): The value used to fill parts of the mask during geometric augmentations.
-                             This should be a RGB tuple in the same value space as input_dict['image'].
-                             For example, if input_dict['image'] is scaled to [0, 1], 
-                             mask_fill values should also be scaled to [0, 1].
-                             If int, assumed (mask_fill, mask_fill, mask_fill).
-                             Default is 255.
+                             This should be a RGB tuple in the same value space as `input_dict['image']`.
+                             For example, if `input_dict['image']` is scaled to [0, 1], 
+                             `mask_fill` values should also be scaled to [0, 1].
+                             If `int`, assumed `(mask_fill, mask_fill, mask_fill)`.
+                             Default is `255`.
 
     Returns:
         v2.Compose: A torchvision transform pipeline containing photometric and/or geometric augmentations.
@@ -147,31 +147,31 @@ def functional_seg_letterbox(
 
     Args:
         input_dict (dict): Input dictionary containing:
-                            - image (ImageInput):  Input image to transform. If torch.Tensor, shape is (..., height, width).
-                            - mask (optional, ImageInput): Segmentation mask for image, with the same spatial dimensions.
-        size (SpatialSize): Size (height, width) to transform img into,
+                            - image (ImageInput):  Input image to transform. If `torch.Tensor`, shape is `(..., height, width)`.
+                            - mask (Optional[ImageInput]): Segmentation mask for the image, with the same spatial dimensions.
+        size (SpatialSize): Size `(height, width)` to transform img into,
                             while preserving its aspect ratio and using padding.
-                            If int, assumed square.
+                            If `int`, assumed square.
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
-                                                           Default is InterpolationMode.BILINEAR.
-                                                           Note that the mask transform always uses InterpolationMode.NEAREST.
+                                                           Default is `InterpolationMode.BILINEAR`.
+                                                           Note that the mask transform always uses `InterpolationMode.NEAREST`.
         img_fill (RGBLike): The fill value to pad transformed image. 
-                            This should be a RGB tuple in the same value space as input_dict['image'].
-                            For example, if input_dict['image'] is scaled to [0, 1], 
-                            img_fill values should also be scaled to [0, 1].
-                            If int, assumed (img_fill, img_fill, img_fill).
-                            Default is 0.
+                            This should be a RGB tuple in the same value space as `input_dict['image']`.
+                            For example, if `input_dict['image']` is scaled to [0, 1], 
+                            `img_fill` values should also be scaled to [0, 1].
+                            If `int`, assumed `(img_fill, img_fill, img_fill)`.
+                            Default is `0`.
         mask_fill (RGBLike): The fill value to pad transformed mask.
-                             This should be a RGB tuple in the same value space as input_dict['image'].
-                             For example, if input_dict['image'] is scaled to [0, 1], 
-                             mask_fill values should also be scaled to [0, 1].
-                             If int, assumed (mask_fill, mask_fill, mask_fill).
-                             Default is 255.
+                             This should be a RGB tuple in the same value space as `input_dict['image']`.
+                             For example, if `input_dict['image']` is scaled to [0, 1], 
+                             `mask_fill` values should also be scaled to [0, 1].
+                             If `int`, assumed `(mask_fill, mask_fill, mask_fill)`.
+                             Default is `255`.
     Returns:
         dict: Output dictionary containing:
-                - image (ImageInput): Image after applying letterbox transform. Shape is (..., size[0], size[1]).
-                - mask (optional, ImageInput): Segmentation mask for the transformed image. 
-                                                Only exists if a mask was provided in input_dict.
+                - image (ImageInput): Image after applying letterbox transform. Shape is `(..., size[0], size[1])`.
+                - mask (Optional[ImageInput]): Segmentation mask for the transformed image. 
+                                               Only exists if a `mask` was provided in `input_dict`.
     '''
     output_dict = input_dict.copy()
     img = input_dict['image']
@@ -222,39 +222,40 @@ class SegRandomAffine():
         https://docs.pytorch.org/vision/main/generated/torchvision.transforms.v2.RandomAffine.html
 
     Args:
-        degrees (Union[float, Sequence]): Range of degrees for rotational transform.
-                                          If sequence, should represent (min, max).
-                                          If float, will assume (-degrees, +degrees).
-        translate (optional, Sequence[float]): Sequence of the form (hori_frac, vert_frac) for translational transforms,
-                                               where hori_frac and ver_frac are the maximum absolute fraction
+        degrees (Union[float, Sequence[float]]): Range of degrees for rotational transform.
+                                          If `Sequence[float]`, should represent `(min, max)`.
+                                          If `float`, will assume `(-degrees, +degrees`).
+        translate (Optional[Sequence[float]]): Sequence of the form `(hori_frac, vert_frac)` for translational transforms,
+                                               where `hori_frac` and `ver_frac` are the maximum absolute fraction
                                                for horizonal and vertical shifts, respectively.
-                                               If None, no translations are applied.
-        scale (optional, Sequence[float]): Range of factors (min, max) for scale transform.
-                                           If None, no scaling is applied.
-        shear (optional, Union[int, float, Sequence[float]]): Range of degrees for shear transform.
-                                                              If sequence, should represent (min_x, max_x) for only x-axis shearing
-                                                              or (min_x, max_x, min_y, max_y) for x-axis and y-axis shearing.
-                                                              If float, will assume (-shear, + shear).
-                                                              If None, no shearing is applied.
+                                               If `None,` no translations are applied.
+        scale (Optional[Sequence[float]]): Range of factors `(min, max)` for scale transform.
+                                           If `None`, no scaling is applied.
+        shear (Optional[Union[int, float, Sequence[float]]]): Range of degrees for shear transform.
+                                                              If `Sequence[float]`, should represent `(min_x, max_x) `
+                                                              for only x-axis shearing
+                                                              or `(min_x, max_x, min_y, max_y)` for x-axis and y-axis shearing.
+                                                              If `float`, will assume `(-shear, + shear)`.
+                                                              If `None`, no shearing is applied.
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
-                                                           Default is InterpolationMode.BILINEAR.
-                                                           Note that the mask transform always uses InterpolationMode.NEAREST.
+                                                           Default is `InterpolationMode.BILINEAR`.
+                                                           Note that the mask transform always uses `InterpolationMode.NEAREST`.
         img_fill (RGBLike): The fill value for areas outside transformed image, to maintain original shape.
-                            This should be a RGB tuple in the same value space as input_dict['image'].
-                            For example, if input_dict['image'] is scaled to [0, 1], 
-                            img_fill values should also be scaled to [0, 1].
-                            If int, assumed (img_fill, img_fill, img_fill).
-                            Default is 0.
+                            This should be a RGB tuple in the same value space as `input_dict['image']`.
+                            For example, if `input_dict['image']` is scaled to [0, 1], 
+                            `img_fill` values should also be scaled to [0, 1].
+                            If `int`, assumed `(img_fill, img_fill, img_fill)`.
+                            Default is `0`.
         mask_fill (RGBLike): The fill value for areas outside transformed mask, to maintain original shape.
-                             This should be a RGB tuple in the same value space as input_dict['image'].
-                             For example, if input_dict['image'] is scaled to [0, 1], 
-                             mask_fill values should also be scaled to [0, 1].
-                             If int, assumed (mask_fill, mask_fill, mask_fill).
-                             Default is 255.
+                             This should be a RGB tuple in the same value space as `input_dict['image']`.
+                             For example, if `input_dict['image']` is scaled to [0, 1], 
+                             `mask_fill` values should also be scaled to [0, 1].
+                             If `int`, assumed `(mask_fill, mask_fill, mask_fill)`.
+                             Default is `255`.
     '''
     def __init__(
         self,
-        degrees: Union[float, Sequence],
+        degrees: Union[float, Sequence[float]],
         translate: Optional[Sequence[float]] = None,
         scale: Optional[Sequence[float]] = None, 
         shear: Optional[Union[int, float, Sequence[float]]] = None, 
@@ -282,14 +283,14 @@ class SegRandomAffine():
         '''
         Args:
             input_dict (dict): Input dictionary containing:
-                                - image (ImageInput): Input image to transform. If torch.Tensor, shape is (..., height, width).
-                                - mask (optional, ImageInput): Segmentation mask for image, with the same spatial dimensions.
+                                - image (ImageInput): Input image to transform. If `torch.Tensor`, shape is `(..., height, width)`.
+                                - mask (Optional[ImageInput]): Segmentation mask for the image, with the same spatial dimensions.
 
         Returns:
             dict: Output dictionary containing:
-                    - image (ImageInput): Image after applying transform. Shape is the same as the image in input_dict.
-                    - mask (optional, ImageInput): Segmentation mask for the transformed image. 
-                                                   Only exists if a mask was provided in input_dict.
+                    - image (ImageInput): Image after applying transform. Shape is the same as the image in `input_dict`.
+                    - mask (Optional[ImageInput]): Segmentation mask for the transformed image. 
+                                                   Only exists if a `mask` was provided in `input_dict`.
         '''
         output_dict = input_dict.copy()
         img = input_dict['image']
@@ -321,7 +322,7 @@ class SegRandomAffine():
         
     def _to_range(self, x: Optional[Union[int, float, Any]]):
         '''
-        Converts an integer or float into the (-x, x), representing a range of values.
+        Converts an integer or float into the `(-x, x)`, representing a range of values.
         If the input is not an integer or float, then the input is returned unchanged.
         '''
         if isinstance(x, (int, float)):

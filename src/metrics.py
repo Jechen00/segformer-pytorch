@@ -39,12 +39,12 @@ class ClassificationMetrics():
         Args:
             preds (torch.Tensor): Class prediction tensor.
                                   Shape depends on the task:
-                                        - Sample-wise: (batch_size,)
-                                        - Element-wise: (batch_size, height, width)
+                                        - Sample-wise: `(batch_size,)`
+                                        - Element-wise: `(batch_size, height, width)`
             targs (torch.Tensor): Target tensor containing ground truth class indices.
                                   Shape depends on the task:
-                                        - Sample-wise: (batch_size,)
-                                        - Element-wise: (batch_size, height, width)
+                                        - Sample-wise: `(batch_size,)`
+                                        - Element-wise: `(batch_size, height, width)`
         '''
         preds = preds.flatten()
         targs = targs.flatten()
@@ -75,10 +75,10 @@ class ClassificationMetrics():
 
         Returns:
             MetricResult: Metric dictionary containing
-                - accuracy (int): Total accuracy computed across all classes.
-                - precision (torch.Tensor): Per class precision tensor of shape (num_classes,).
-                - recall (torch.Tensor): Per class recall tensor of shape (num_classes,).
-                - f1_score (torch.Tensor): Per class F1-score tensor of shape (num_classes,).
+                - 'accuracy (int): Total accuracy computed across all classes.
+                - precision (torch.Tensor): Per class precision tensor of shape `(num_classes,)`.
+                - recall (torch.Tensor): Per class recall tensor of shape `(num_classes,)`.
+                - f1_score (torch.Tensor): Per class F1-score tensor of shape `(num_classes,)`.
                 - tot_true_pos (int): Total number of true positives (correct predictions).
                 - tot_count (int): Total number of target elements.
         '''

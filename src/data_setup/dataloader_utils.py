@@ -37,17 +37,17 @@ def build_dataloader(
         dataset (Dataset): The dataset to create the dataloader for.
         split (Literal['train', 'val', 'test']): The dataset split. 
                                                  Controls the shuffling behavior:
-                                                     - 'train': shuffle = True
-                                                     - 'val' or 'test': shuffle = False
+                                                     - train: `shuffle = True`
+                                                     - val or test: `shuffle = False`
         batch_size (int): Number of samples per batch.
-        num_workers (int): Number of workers for multiprocessing. Default is 0 (no multiprocessing).
+        num_workers (int): Number of workers for multiprocessing. Default is `0` (no multiprocessing).
         prefetch_factor (optional, int): Number of batches pre-loaded in advance per worker.
-                                         If num_workers = 0, this is forced to None.
+                                         If `num_workers = 0`, this is forced to `None`.
         collate_fn (optional, Callable): Collate function to merge samples into batches.
         drop_last (bool): Whether to drop the last remaining samples in dataset if 
                           they cannot create a full batch of size batch_size.
-                          Default is False.
-        device (Union[torch.device, str]): Device to send batched tensors to. Default is 'cpu'.
+                          Default is `False`.
+        device (Union[torch.device, str]): Device to send batched tensors to. Default is `cpu`.
     '''
     if not all_or_none(multiscale_interval, multiscale_sizes, resize_fn):
         raise ValueError(
