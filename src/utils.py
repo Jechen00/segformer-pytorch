@@ -4,11 +4,11 @@
 import torch
 
 import os
-import warnings
+from pathlib import Path
 import random
 import numpy as np 
 
-from typing import Union, Any, Literal
+from typing import Union, Any, Literal, Optional
 
 
 #####################################
@@ -32,6 +32,34 @@ def all_or_none(*params) -> bool:
     '''
     return all(p is None for p in params) or all(p is not None for p in params)
 
+def normalize_file_path(file_path: Union[str, Path], path_name: Optional[str] = None):
+    '''
+    Normalize and validate a file path.
+    This converts all `path` inputs into `pathlib.Path` objects.
+    It also checks that `path` contains a file extension 
+    and does not end with a path separator ('/' or '\\').
+
+    Args:
+        file_path (Union[str, Path]): The path to normalize and validate.
+
+    Returns:
+        Path: The validated `pathlib.Path` object.
+    '''
+    path_name = 'path' if path_name is None else path_name
+
+    path = Path(file_path)
+    if str(path).endswith(('/', '\\')):
+        raise ValueError(
+            f"{path_name} must not end with a path separator ('/' or '\\'). Got: {file_path}"
+        )
+    
+    if path.suffix == '':
+        raise ValueError(
+            f'{path_name} must end with a file extension. Got: {file_path}'
+        )
+    
+    return path
+
 def set_seed(seed: int = 0):
     '''
     Sets random seed and deterministic settings 
@@ -52,33 +80,33 @@ def set_seed(seed: int = 0):
     torch.use_deterministic_algorithms(True)
     os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 
-def nested_extract(nested_dict: dict, path: str, strict: bool = True, default: Any = None) -> Any:
+def nested_extract(nested_dict: dict, key_path: str, strict: bool = True, default: Any = None) -> Any:
     '''
-    Extracts a value from a nested dictionary given a dot-separated path.
+    Extracts a value from a nested dictionary given a dot-separated key path.
     Example:
-        The path `key1.key2.key3` returns `nested_dict['key1']['key2']['key3']`.
+        The key path `key1.key2.key3` returns `nested_dict['key1']['key2']['key3']`.
 
     Args:
         nested_dict (dict): Nested dictionary to extract from.
-        path (str): Dot-separated key path consisting of only keys in `nested_dict`.
+        key_path (str): Dot-separated key path consisting of only keys in `nested_dict`.
         strict (bool): If `True`, raises a `KeyError` on missing keys or when an intermediate value is not a dictionary.
                        If `False`, does not raise any errors and instead returns a `default` value.
         default (Any): A default value to return when encountering missing keys and `strict=False`.
                        Default is None.
     Returns:
-        Any: The extracted value from nested_dict after traversing through path.
+        Any: The extracted value from nested_dict after traversing through `key_path`.
     '''
     value = nested_dict
-    for key in path.split('.'):
+    for key in key_path.split('.'):
         if (not isinstance(value, dict)):
             if strict:
                 raise KeyError(
-                    f"Expected dictionary, but got {type(value)} at key '{key}' in path '{path}'."
+                    f"Expected dictionary, but got {type(value)} at key '{key}' in key_path '{key_path}'."
                 )
             return default
         elif key not in value:
             if strict:
-                raise KeyError(f"Missing key '{key}' in path '{path}'.")
+                raise KeyError(f"Missing key '{key}' in key_path '{key_path}'.")
             return default
             
         value = value[key]

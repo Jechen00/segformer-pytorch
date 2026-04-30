@@ -4,7 +4,7 @@
 import torch
 
 from typing import Protocol
-from src.ml_types import MetricResult
+from src.ml_types import MetricGroup
     
 
 #####################################
@@ -15,7 +15,7 @@ class Metric(Protocol):
     Protocol for evaluation metrics.
     '''
     def update(self, preds: torch.Tensor, targs: torch.Tensor) -> None: ...
-    def compute(self) -> MetricResult: ...
+    def compute(self) -> MetricGroup: ...
     def reset(self) -> None: ...
 
 class ClassificationMetrics():
@@ -69,12 +69,12 @@ class ClassificationMetrics():
         else:
             self.conf_mat = update_conf_mat
             
-    def compute(self) -> MetricResult:
+    def compute(self) -> MetricGroup:
         '''
         Computes all classification metrics across all updated target elements.
 
         Returns:
-            MetricResult: Metric dictionary containing
+            MetricGroup: Metric dictionary containing
                 - 'accuracy (int): Total accuracy computed across all classes.
                 - precision (torch.Tensor): Per class precision tensor of shape `(num_classes,)`.
                 - recall (torch.Tensor): Per class recall tensor of shape `(num_classes,)`.

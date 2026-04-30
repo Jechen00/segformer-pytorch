@@ -7,7 +7,6 @@ from torchvision.ops import StochasticDepth
 
 import numpy as np
 from itertools import islice
-from numbers import Real
 from typing import Sequence, Union, List, Optional
 
 from src.ml_types import SpatialSize 
@@ -119,7 +118,7 @@ class EncoderStage(nn.Module):
         sdepth_probs: Union[float, Sequence[float]] = 0.0 
     ):
         super().__init__()
-        if isinstance(sdepth_probs, Real):
+        if isinstance(sdepth_probs, float):
             sdepth_probs = [sdepth_probs] * num_blks
         elif len(sdepth_probs) != num_blks:
             raise ValueError('Length of sdepth_probs must equal num_blks.')

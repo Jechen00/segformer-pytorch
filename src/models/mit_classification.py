@@ -4,9 +4,11 @@
 import torch
 from torch import nn
 
-import os
+from pathlib import Path
+from typing import Union
 
 from src.models.encoder import MixTransformer
+from src.utils import normalize_file_path
 
 
 #####################################
@@ -47,16 +49,21 @@ class MiTClassification(nn.Module):
         mit_features = self.mit(X)[-1] # Only uses final stage
         return self.classifier(mit_features)
     
-    def save_mit_backbone(self, save_path: str):
+    def save_mit_backbone(self, save_path: Union[str, Path]):
         '''
         Saves the weights of the MiT backbone.
 
         Args:
-            save_path (str): Path to save the weights to.
-                             This should end with a file extension 
-                             (e.g. `.pt` or `.pth`).
+            save_path (Union[str, Path]): Path to save the weights to.
+                                          This should end with a file extension 
+                                          (e.g. `.pt` or `.pth`).
         '''
-        dir_path = os.path.dirname(save_path)
-        if dir_path:
-            os.makedirs(dir_path, exist_ok = True)
+        save_path = normalize_file_path(save_path, 'save_path')
+        save_path.parent.mkdir(parents = True, exist_ok = True)
+        
         torch.save(self.mit.state_dict(), save_path)
+
+    @classmethod
+    def from_config(cls, mit_kwargs: dict, num_classes: int):
+        mit = MixTransformer(**mit_kwargs)
+        return MiTClassification(mit, mit_kwargs['feature_dims'][-1], num_classes)
