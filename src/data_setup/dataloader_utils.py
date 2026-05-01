@@ -29,9 +29,9 @@ def build_dataloader(
     resize_fn: Optional[Callable] = None,
     device: Union[torch.device, str] = 'cpu',
     **resize_kwargs
-):
+) -> DataLoader:
     '''
-    Creates training and validation/testing dataloaders for a dataset.
+    Create a training, validation, or testing dataloader for a dataset.
     
     Args:
         dataset (Dataset): The dataset to create the dataloader for.
@@ -48,6 +48,9 @@ def build_dataloader(
                           they cannot create a full batch of size batch_size.
                           Default is `False`.
         device (Union[torch.device, str]): Device to send batched tensors to. Default is `cpu`.
+
+    Returns:
+        DataLoader: The dataloader for the dataset.
     '''
     if not all_or_none(multiscale_interval, multiscale_sizes, resize_fn):
         raise ValueError(

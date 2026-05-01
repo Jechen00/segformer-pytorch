@@ -55,7 +55,7 @@ class WarmupMultiStepLR(lr_scheduler.MultiStepLR):
         super().__init__(optimizer = optimizer, milestones = milestones, 
                          gamma = gamma, last_epoch = last_epoch) # Initializes self.base_lrs
           
-    def get_lr(self):
+    def get_lr(self) -> List[float]:
         '''
         Returns the learning rate of each parameter group in `optimizer`.
         For the MultiStepLR scheduler component, please see:
@@ -132,7 +132,7 @@ class WarmupCosineAnnealingLR(lr_scheduler.CosineAnnealingLR):
         super().__init__(optimizer = optimizer, T_max = T_max, 
                          eta_min = eta_min, last_epoch = last_epoch) # Initializes self.base_lrs
           
-    def get_lr(self):
+    def get_lr(self) -> List[float]:
         '''
         Returns the learning rate of each parameter group in `optimizer`.
         '''

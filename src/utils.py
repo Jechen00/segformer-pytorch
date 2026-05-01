@@ -32,7 +32,7 @@ def all_or_none(*params) -> bool:
     '''
     return all(p is None for p in params) or all(p is not None for p in params)
 
-def normalize_file_path(file_path: Union[str, Path], path_name: Optional[str] = None):
+def normalize_file_path(file_path: Union[str, Path], path_name: Optional[str] = None) -> Path:
     '''
     Normalize and validate a file path.
     This converts all `path` inputs into `pathlib.Path` objects.
@@ -41,6 +41,7 @@ def normalize_file_path(file_path: Union[str, Path], path_name: Optional[str] = 
 
     Args:
         file_path (Union[str, Path]): The path to normalize and validate.
+        path_name (optional, str): Name of `file_path` to use for error messages.
 
     Returns:
         Path: The validated `pathlib.Path` object.
@@ -60,7 +61,7 @@ def normalize_file_path(file_path: Union[str, Path], path_name: Optional[str] = 
     
     return path
 
-def set_seed(seed: int = 0):
+def set_seed(seed: int = 0) -> None:
     '''
     Sets random seed and deterministic settings 
     for reproducibility across:
@@ -113,8 +114,8 @@ def nested_extract(nested_dict: dict, key_path: str, strict: bool = True, defaul
     return value
     
 def apply_agg(
-        x: Union[np.ndarray, torch.Tensor], 
-        agg: Literal['mean', 'min', 'max']
+    x: Union[np.ndarray, torch.Tensor], 
+    agg: Literal['mean', 'min', 'max']
 ) -> float:
     '''
     Applies an aggregation function `(mean, min, max)` to a numpy array or tensor.

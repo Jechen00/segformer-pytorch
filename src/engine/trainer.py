@@ -9,7 +9,7 @@ from torch.optim import Optimizer, lr_scheduler
 import time
 from pathlib import Path
 import warnings
-from typing import Literal, Optional, Union, Dict, TypeAlias, Tuple
+from typing import Literal, Optional, Union, Dict, Tuple, TypedDict
 
 from src.logging.history import PhaseHistory, LossHistory, MetricHistory
 from src.logging.formatting import (
@@ -17,12 +17,18 @@ from src.logging.formatting import (
     make_epoch_header, make_metric_log_sec, make_log_sec
 )
 from src.metrics import Metric
-from src.ml_types import MetricGroup
+from src.ml_types import MetricResults
 from src.engine.checkpoint import load_checkpoint, save_checkpoint
 from src.engine.trainer_configs import EvalConfig, SaveConfig, SchedulerConfig, LogConfig
 from src.engine.measure_policy import MeasurePolicy
 
-EvalMetrics: TypeAlias = Dict[str, MetricGroup]
+
+#####################################
+# Type Classes
+#####################################
+class ValResults(TypedDict):
+    loss: torch.Tensor
+    metrics: Optional[MetricResults]
 
 
 #####################################
@@ -75,7 +81,7 @@ class ModelTrainer():
         self.log_sec_div = SEC_DIV_CHAR * self.log_cfg.logbox_len
         self.log_end_div = EPOCH_FILL_CHAR * self.log_cfg.logbox_len
 
-    def load_checkpoint(self, resume_path: Union[str, Path]):
+    def load_checkpoint(self, resume_path: Union[str, Path]) -> None:
         ckpt_epoch = load_checkpoint(
             checkpoint_path = resume_path,
             model = self.model,
@@ -93,7 +99,7 @@ class ModelTrainer():
             f'Calling self.train(num_epochs) will resume training from epoch {self.start_epoch}.'
         )
 
-    def train(self, num_epochs: int):        
+    def train(self, num_epochs: int) -> Tuple[PhaseHistory, PhaseHistory]:        
         for epoch in range(self.start_epoch, num_epochs):
             # ------------------------------------
             # Training step
@@ -203,10 +209,7 @@ class ModelTrainer():
 
         return loss_sum / num_items # Average loss across items
 
-    def _val_step(
-        self, 
-        metrics: Optional[Dict[str, Metric]]
-    ) -> Dict[str, Union[torch.Tensor, Optional[EvalMetrics]]]:
+    def _val_step(self, metrics: Optional[Dict[str, Metric]]) -> ValResults:
         # Reset evaluation metrics
         if metrics is not None:
             for metric in metrics.values():
@@ -234,17 +237,19 @@ class ModelTrainer():
 
         # Compute dataset summary values (loss and evaluation metrics)
         if metrics is not None:
-            metric_values = {name: metric.compute() for name, metric in metrics.items()}
+            metric_results = {name: metric.compute() for name, metric in metrics.items()}
         else:
-            metric_values = None
+            metric_results = None
 
         return {
             'loss': loss_sum / num_items, # Average loss across items
-            'metrics': metric_values
+            'metrics': metric_results
         }
 
     def _normalize_loss(
-        self, logits: torch.Tensor, targs: torch.Tensor
+        self, 
+        logits: torch.Tensor, 
+        targs: torch.Tensor
     ) -> Tuple[int, torch.Tensor, torch.Tensor]:
         batch_loss_sum = self.loss_fn(logits, targs)
         
@@ -274,7 +279,7 @@ class ModelTrainer():
         self, 
         epoch: int, 
         train_loss: torch.Tensor,
-        val_results: Dict[str, Union[torch.Tensor, Optional[EvalMetrics]]],
+        val_results: ValResults,
         train_time: float, 
         val_time: float
     ) -> None:
@@ -294,7 +299,7 @@ class ModelTrainer():
         rec_train_loss, _ = self.train_history.record(loss_value = train_loss, epoch = epoch)
         rec_val_loss, rec_val_metrics = self.val_history.record(
             loss_value = val_results['loss'], 
-            metric_groups = val_results['metrics'],
+            metric_results = val_results['metrics'],
             epoch = epoch
         )
 
@@ -310,7 +315,7 @@ class ModelTrainer():
         # Make evaluation metric log section for validation
         if (rec_val_metrics is not None) and (self.should_log_metrics):
             metric_log_sec = make_metric_log_sec(
-                metric_groups = rec_val_metrics,
+                metric_results = rec_val_metrics,
                 fields = self.eval_cfg.metric_log_fields,
                 units = self.eval_cfg.metric_log_units,
                 **log_kwargs
@@ -331,7 +336,7 @@ class ModelTrainer():
         for log_str in epoch_log_secs:
             print(log_str)
 
-    def _validate_config(self):
+    def _validate_config(self) -> None:
         # Check loss_fn has the correct attributes
         if (hasattr(self.loss_fn, 'reduction')) and (self.loss_fn.reduction != 'sum'):
             raise ValueError("loss_fn.reduction must be 'sum' if defined.")
@@ -354,7 +359,7 @@ class ModelTrainer():
                 'measure_policy will be ignored.'
             )
         
-    def _print_save_msgs(self):
+    def _print_save_msgs(self) -> None:
         cfg = self.save_cfg
         if not self.should_save_ckpt:
             warnings.warn(

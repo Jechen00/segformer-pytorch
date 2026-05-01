@@ -3,8 +3,8 @@
 #####################################
 import torch
 
-from typing import Protocol
-from src.ml_types import MetricGroup
+from typing import Protocol, Union
+from src.ml_types import MeasureValue, MetricGroup
     
 
 #####################################
@@ -15,8 +15,9 @@ class Metric(Protocol):
     Protocol for evaluation metrics.
     '''
     def update(self, preds: torch.Tensor, targs: torch.Tensor) -> None: ...
-    def compute(self) -> MetricGroup: ...
+    def compute(self) -> Union[MeasureValue, MetricGroup]: ...
     def reset(self) -> None: ...
+
 
 class ClassificationMetrics():
     '''

@@ -8,7 +8,7 @@ from torchvision.transforms import v2
 from typing import Optional, Literal
 import datasets
 
-from src.ml_types import ImageInput
+from src.ml_types import ImageInput, SampleDict
 
 
 #####################################
@@ -21,15 +21,15 @@ class HFClassificationDataset(Dataset):
     
     Args:
         hf_dataset (datasets.Dataset): Hugging Face dataset containing classification samples.
-                                       Each sample should be a dictionary only containing:
+                                       Each sample should be a dictionary (SampleDict) only containing:
                                            - image (ImageInput): Image sample.
                                            - label (Union[int, torch.Tensor]): Class label for the image.
-        aug_transforms (Optional[v2.Compose]): Data augmentation pipeline applied to each image independently.
+        aug_transforms (optional, v2.Compose): Data augmentation pipeline applied to each image independently.
                                                This should be compatible with the samples in `hf_dataset`
-                                               (e.g. accepts a dictionary input).
-        base_transforms (Optional[v2.Compose]): Base transform pipeline separate from augmentation transforms.
+                                               (e.g. accepts a SampleDict).
+        base_transforms (optional, v2.Compose): Base transform pipeline separate from augmentation transforms.
                                                 This should be compatible with the samples in `hf_dataset`
-                                                (e.g. accepts a dictionary input).
+                                                (e.g. accepts a SampleDict).
         base_first (bool): Whether to apply `aug_transforms` first (if provided) or `base_transforms` first (if provided).
                            Default is `False` (`aug_transforms` are applied first).
     '''
@@ -51,7 +51,7 @@ class HFClassificationDataset(Dataset):
     def __repr__(self) -> str:
         return self.hf_dataset.__repr__()
     
-    def __getitem__(self, idx: int) -> dict:
+    def __getitem__(self, idx: int) -> SampleDict:
         '''
         Gets a sample dictionary containing image and label information,
         given an index.
@@ -60,7 +60,7 @@ class HFClassificationDataset(Dataset):
             idx (int): Index of the sample to retrieve.
             
         Returns:
-            dict: Dictionary containing:
+            SampleDict: Dictionary containing:
                 - image (ImageInput): Transformed image sample (original if no transforms).
                 - label (torch.tensor): Class label for the image.
         '''
@@ -87,27 +87,28 @@ class HumanBinaryDataset(HFClassificationDataset):
 
     Note that the raw Hugging Face (HF) dataset does not have a training/validation split,
     so it is created using the built-in `train_test_split()` method and a split seed.
-
     Additionally, a letterbox transform (fill = 0) has already been applied to the images in the raw HF dataset.
 
     A sample from the raw human vs non-human HF dataset is a dictionary with the keys:
         - image (PIL.Image): 224 x 244 image in RGB format.
         - label (int): Class index for the image sample.
 
+    HumanBinaryDataset will optionally transform the raw samples and always converts the labels to tensors.
+
     Args:
         split (Literal['train', 'val']): Whether to construct the training dataset (`train`) or the validation dataset (`val`).
-        aug_transforms (Optional[v2.Compose]): Data augmentation pipeline applied to each image independently.
-                                               This  need to be compatible with the samples of 
+        aug_transforms (optional, v2.Compose): Data augmentation pipeline applied to each image independently.
+                                               This need to be compatible with the samples of 
                                                the human vs non-human dataset 
                                                (i.e. accepts the dictionary input with `image` and `label` keys).
-        base_transforms (Optional[v2.Compose]): Base transform pipeline separate from augmentation transforms.
+        base_transforms (optional, v2.Compose): Base transform pipeline separate from augmentation transforms.
                                                 This need to be compatible with the samples of 
                                                 the human vs non-human dataset 
                                                 (i.e. accepts the dictionary input with `image` and `label` keys).
         base_first (bool): Whether to apply `aug_transforms` first (if provided) or `base_transforms` first (if provided).
                            Default is `False` (`aug_transforms` are applied first).
-        train_size (float): The fraction of the raw dataset to use as the training dataset.
-                            The remaining fraction (`1 - train_size`) is used as the validation dataset.
+        train_frac (float): The fraction of the raw dataset to use as the training dataset.
+                            The remaining fraction (`1 - train_frac`) is used as the validation dataset.
                             Default is `0.9` (90% of raw data for training, 10% of raw data for validation).
         split_seed (int): The random seed used to split the raw dataset into training/validation components.
                           Changing this will change what data is in the training/validation datasets.
@@ -119,17 +120,17 @@ class HumanBinaryDataset(HFClassificationDataset):
         aug_transforms: Optional[v2.Compose] = None,
         base_transforms: Optional[v2.Compose] = None,
         base_first: bool = False,
-        train_size: float = 0.9, 
+        train_frac: float = 0.9, 
         split_seed: int = 0
     ):
         self.split = split
-        self.train_size = train_size
+        self.train_frac = train_frac
         
         # Load raw HF dataset
         raw_dataset = datasets.load_dataset('prithivMLmods/Human-vs-NonHuman', split = 'train')
         
         # Create train/val split
-        dataset_split = raw_dataset.train_test_split(test_size = (1 - train_size), seed = split_seed)
+        dataset_split = raw_dataset.train_test_split(test_size = (1 - train_frac), seed = split_seed)
         dataset_split_key = 'test' if split == 'val' else split # train -> train and val -> test
         
         # Class names and indices

@@ -8,12 +8,13 @@ import torchvision.transforms.functional as F
 
 from typing import (
     Sequence, Literal, Union, Optional, 
-    Any, Callable, TypeAlias
+    Tuple, Any, Callable, TypeAlias
 )
+from numbers import Real
 from PIL import Image
 
 from src.utils import make_tuple
-from src.ml_types import SpatialSize, ImageInput, RGBLike
+from src.ml_types import SpatialSize, ImageInput, RGBLike, SampleDict
 
 AugType: TypeAlias = Literal['phot', 'geo']
 
@@ -25,7 +26,7 @@ def get_base_transforms(
     dtype: torch.dtype = torch.float32, 
     scale: bool = True,
     resize_transform: Optional[Callable] = None
-):
+) -> v2.Compose:
     '''
     Creates the torchvision pipeline:
         1) Converts to `tv_tensor.Image` (`v2.ToImage`)
@@ -132,12 +133,12 @@ def get_augmentations(
     return v2.Compose(transforms)
 
 def functional_seg_letterbox(
-    input_dict: dict,
+    input_dict: SampleDict,
     size: SpatialSize, 
     img_interpolation: InterpolationMode = InterpolationMode.BILINEAR,
     img_fill: RGBLike = 0,
     mask_fill: RGBLike = 255
-) -> dict:
+) -> SampleDict:
     '''
     Functional letterbox transform with support for 
     transforming both image and segmentation masks, with separate fill values.
@@ -146,9 +147,9 @@ def functional_seg_letterbox(
     Any remaining space is filled with padding to match the target dimensions.
 
     Args:
-        input_dict (dict): Input dictionary containing:
-                            - image (ImageInput):  Input image to transform. If `torch.Tensor`, shape is `(..., height, width)`.
-                            - mask (Optional[ImageInput]): Segmentation mask for the image, with the same spatial dimensions.
+        input_dict (SampleDict): Input dictionary with keys (non-exhaustive):
+            - image (ImageInput):  Input image to transform. If `torch.Tensor`, shape is `(..., height, width)`.
+            - mask (optional, ImageInput): Segmentation mask for the image, with the same spatial dimensions.
         size (SpatialSize): Size `(height, width)` to transform img into,
                             while preserving its aspect ratio and using padding.
                             If `int`, assumed square.
@@ -168,9 +169,9 @@ def functional_seg_letterbox(
                              If `int`, assumed `(mask_fill, mask_fill, mask_fill)`.
                              Default is `255`.
     Returns:
-        dict: Output dictionary containing:
+        SampleDict: Output dictionary with keys (non-exhaustive):
                 - image (ImageInput): Image after applying letterbox transform. Shape is `(..., size[0], size[1])`.
-                - mask (Optional[ImageInput]): Segmentation mask for the transformed image. 
+                - mask (optional, ImageInput): Segmentation mask for the transformed image. 
                                                Only exists if a `mask` was provided in `input_dict`.
     '''
     output_dict = input_dict.copy()
@@ -225,13 +226,13 @@ class SegRandomAffine():
         degrees (Union[float, Sequence[float]]): Range of degrees for rotational transform.
                                           If `Sequence[float]`, should represent `(min, max)`.
                                           If `float`, will assume `(-degrees, +degrees`).
-        translate (Optional[Sequence[float]]): Sequence of the form `(hori_frac, vert_frac)` for translational transforms,
+        translate (optional, Sequence[float]): Sequence of the form `(hori_frac, vert_frac)` for translational transforms,
                                                where `hori_frac` and `ver_frac` are the maximum absolute fraction
                                                for horizonal and vertical shifts, respectively.
                                                If `None,` no translations are applied.
-        scale (Optional[Sequence[float]]): Range of factors `(min, max)` for scale transform.
+        scale (optional, Sequence[float]): Range of factors `(min, max)` for scale transform.
                                            If `None`, no scaling is applied.
-        shear (Optional[Union[int, float, Sequence[float]]]): Range of degrees for shear transform.
+        shear (optional, Union[int, float, Sequence[float]]): Range of degrees for shear transform.
                                                               If `Sequence[float]`, should represent `(min_x, max_x) `
                                                               for only x-axis shearing
                                                               or `(min_x, max_x, min_y, max_y)` for x-axis and y-axis shearing.
@@ -279,18 +280,18 @@ class SegRandomAffine():
         )
         return repr_str
     
-    def __call__(self, input_dict: dict) -> dict:
+    def __call__(self, input_dict: SampleDict) -> SampleDict:
         '''
         Args:
-            input_dict (dict): Input dictionary containing:
-                                - image (ImageInput): Input image to transform. If `torch.Tensor`, shape is `(..., height, width)`.
-                                - mask (Optional[ImageInput]): Segmentation mask for the image, with the same spatial dimensions.
+            input_dict (SampleDict): Input dictionary with keys (non-exhaustive):
+                - image (ImageInput): Input image to transform. If `torch.Tensor`, shape is `(..., height, width)`.
+                - mask (optional, ImageInput): Segmentation mask for the image, with the same spatial dimensions.
 
         Returns:
-            dict: Output dictionary containing:
-                    - image (ImageInput): Image after applying transform. Shape is the same as the image in `input_dict`.
-                    - mask (Optional[ImageInput]): Segmentation mask for the transformed image. 
-                                                   Only exists if a `mask` was provided in `input_dict`.
+            SampleDict: Output dictionary with keys (non-exhaustive):
+                - image (ImageInput): Image after applying transform. Shape is the same as the image in `input_dict`.
+                - mask (optional, ImageInput): Segmentation mask for the transformed image. 
+                                               Only exists if a `mask` was provided in `input_dict`.
         '''
         output_dict = input_dict.copy()
         img = input_dict['image']
@@ -320,12 +321,12 @@ class SegRandomAffine():
                                            fill = self.mask_fill)
         return output_dict
         
-    def _to_range(self, x: Optional[Union[int, float, Any]]):
+    def _to_range(self, x: Any) -> Union[Tuple[Real, Real], Any]:
         '''
-        Converts an integer or float into the `(-x, x)`, representing a range of values.
+        Converts a numeric value `x` into `(-x, x)`, representing a range of values.
         If the input is not an integer or float, then the input is returned unchanged.
         '''
-        if isinstance(x, (int, float)):
+        if isinstance(x, Real):
             return (-x, x)
         else:
             return x

@@ -9,7 +9,7 @@ from typing import (
     Callable, Iterable, Iterator
 )
 
-from src.ml_types import SpatialSize
+from src.ml_types import SpatialSize, SampleDict, ImageInput
 from src.utils import make_tuple
 
 
@@ -28,16 +28,17 @@ class MultiScaleWrapper():
         dataset (Dataset): The base dataset to modify.
         resize_fn (Callable): The resize function to use when resizing images.
                               This function must accept:
-                                - item (dict): Dictionary containing the item information.
-                                               This always includes:
-                                                    - image (ImageInput): image sample.
-                                               It may also contain other keys depending on the task.
-                                               For example:
-                                                    - label (Union[int, torch.Tensor]): class index for image classification tasks.
-                                                    - mask (ImageInput): segmentation mask for image segmentation tasks.
+                                - item (SampleDict): 
+                                        Dictionary containing the item information.
+                                        This always includes:
+                                            - image (ImageInput): image sample.
+                                        It may also contain other keys depending on the task.
+                                        For example:
+                                            - label (Union[int, torch.Tensor]): class index for image classification tasks.
+                                            - mask (ImageInput): segmentation mask for image segmentation tasks.
                                 - size (SpatialSize): Size (height, width) used to resize `item['image']`.
                                                       If `int`, size is assumed to be square.
-        default_size (Optional[SpatialSize]): A default size to use when `__getitem__` is called 
+        default_size (optional, SpatialSize): A default size to use when `__getitem__` is called 
                                               with only an integer index. 
                                               If `None`, the default is that no resizing is applied.
         resize_kwargs: Keyword arguments apart from `item` and `input_size` to use when calling `resize_fn`.
@@ -56,7 +57,7 @@ class MultiScaleWrapper():
         self.resize_kwargs = resize_kwargs
         self.default_size = default_size
 
-    def __getitem__(self, input_info: Union[int, Tuple[int, SpatialSize]]) -> dict:
+    def __getitem__(self, input_info: Union[int, Tuple[int, SpatialSize]]) -> SampleDict:
         '''
         Gets a sample dictionary containing image and label information, given an index.
         Also optionally resizes the image if a size is provided.
@@ -68,9 +69,9 @@ class MultiScaleWrapper():
                 If `(index, input_size)` is provided, the returned image is resized to `input_size`.
 
         Returns:
-            dict: Dictionary containing sample information.
-                  The exact keys depend on the task, but it always includes:
-                    - image (ImageInput): The resized image sample.
+            SampleDict: Dictionary containing sample information.
+                        The keys include (non-exhaustive):
+                            - image (ImageInput): The resized image sample.
         '''
         if isinstance(input_info, int):
             idx, size = input_info, self.default_size

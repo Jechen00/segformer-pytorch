@@ -25,7 +25,7 @@ def save_checkpoint(
     save_path: Union[str, Path],
     scheduler: Optional[lr_scheduler._LRScheduler] = None,
     measure_policy: Optional[MeasurePolicy] = None
-):
+) -> None:
     '''
     Saves a checkpoint containing the model, optimizer, (optional) scheduler state dicts.
     Also saves training history (loss average) and validation history (loss average and metrics) 
@@ -40,7 +40,7 @@ def save_checkpoint(
                                 Note that this may differ from the scheduler's internal step counter called `last_epoch`.
         save_path (Union[str, Path]): Full path to save the checkpoint to. 
                                       This should end with a file extension (e.g. '.pt' or '.pth').
-        scheduler (Optional[lr_scheduler._LRScheduler]): Learning rate scheduler for the `optimizer`.
+        scheduler (optional, lr_scheduler._LRScheduler): Learning rate scheduler for the `optimizer`.
     '''
 
     # Validate save_path and create directory if it doesn't exist
@@ -93,7 +93,7 @@ def load_checkpoint(
         val_history (PhaseHistory): Validation dataset history containing loss and metric values across epochs.
                                     The state_dict in `checkpoint['val_history']` is 
                                     always moved to CPU before loading into this PhaseHistory.
-        scheduler (Optional[lr_scheduler._LRScheduler]): Learning rate scheduler for the optimizer.
+        scheduler (optional, lr_scheduler._LRScheduler): Learning rate scheduler for the optimizer.
                                                          If provided, an existing (non-None) scheduler state_dict
                                                          must be stored in the `checkpoint['scheduler']`.
         device (Union[str, torch.device]): The device to load the checkpoint tensors on to. Default is 'cpu'.

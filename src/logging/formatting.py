@@ -5,11 +5,11 @@ import torch
 import math
 import warnings
 
-from typing import Dict, Optional, Sequence
+from typing import Optional, Sequence
 
 from src.ml_types import MetricLogFields, EntryLogUnits
 from src.utils import nested_extract, apply_agg
-from src.logging.history import HistoryGroup
+from src.logging.history import HistoryResults
 
 BOLD_ON = '\033[1m'
 BOLD_OFF = '\033[0m'
@@ -21,7 +21,7 @@ ROW_DIV_CHAR = '|'
 #####################################
 # Functions
 #####################################
-def make_epoch_header(epoch: int, logbox_len: int = 100, epoch_width: int = 3):
+def make_epoch_header(epoch: int, logbox_len: int = 100, epoch_width: int = 3) -> str:
     '''
     Creates the string used to indicate the epoch index during logging.
     '''    
@@ -34,7 +34,7 @@ def make_epoch_header(epoch: int, logbox_len: int = 100, epoch_width: int = 3):
     return f'{EPOCH_FILL_CHAR * logbox_len_r}{bold_epoch_str}{EPOCH_FILL_CHAR * (logbox_len_l)}'
 
 
-def make_sec_header(sec_name: str, logbox_len: int = 100):
+def make_sec_header(sec_name: str, logbox_len: int = 100) -> str:
     '''
     Creates the string used to indicate the section (e.g. LOSS, EVAL, TIME) during logging.
     '''
@@ -51,7 +51,7 @@ def make_log_entry(
     unit: Optional[str] = None,
     num_decimals: int = 4, 
     entry_len: int = 20
-):
+) -> str:
     unit = '' if unit is None else f' {unit}'
         
     # Available length for the numerical value
@@ -68,7 +68,7 @@ def make_log_sec(
     logbox_len: int = 100,
     max_row_entries: int = 3, 
     num_decimals: int = 4
-):
+) -> str:
     # --------------------
     # Setup
     # --------------------
@@ -122,13 +122,13 @@ def make_log_sec(
 
 
 def make_metric_log_sec(
-    metric_groups: Dict[str, HistoryGroup],
+    metric_results: HistoryResults,
     fields: MetricLogFields,
     units: EntryLogUnits = None,
     logbox_len: int = 100, 
     max_row_entries: int = 3, 
     num_decimals: int = 4
-):
+) -> str:
     num_fields = len(fields)
     if (units is None) or (isinstance(units, str)):
         units = [units] * num_fields
@@ -142,7 +142,7 @@ def make_metric_log_sec(
             key_path, agg = field, 'mean'
 
         # Traverse down key path to get metric value
-        value = nested_extract(metric_groups, key_path, strict = False, default = None)
+        value = nested_extract(metric_results, key_path, strict = False, default = None)
 
         # Aggregate metric value if necessary
         if isinstance(value, torch.Tensor):

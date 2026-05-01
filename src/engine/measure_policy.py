@@ -5,19 +5,29 @@ import torch
 
 import numpy as np
 import warnings
-from typing import Optional, Dict, Literal, Union, Tuple
+from typing import Optional, Literal, Union, Tuple, TypeAlias, TypedDict
 
-from src.ml_types import MeasureValue, MetricGroup
+from src.ml_types import MeasureValue, MetricGroup, MetricResults
 from src.utils import nested_extract, apply_agg
 
 
 #####################################
-# Classes
+# Types
+#####################################
+MeasureResult: TypeAlias = Union[MeasureValue, MetricGroup, MetricResults]
+
+class MeasurePolicyState(TypedDict):
+    no_improve_counter: int
+    best_score: Optional[float]
+
+
+#####################################
+# Measure Policy Class
 #####################################
 class MeasurePolicy():
     '''
-    metric_path (Optional[str]): Dot-separated key path specifying the key sequence used to extract 
-                                 a numeric value, tensor, or numpy array from a pontially nested metric dictionary.
+    metric_path (optional, str): Dot-separated key path specifying the key sequence used to extract 
+                                 a numeric value, tensor, or numpy array from a potentially nested metric dictionary.
                                  Required if `measure_type = 'metric'` and ignored otherwise.
     '''
     def __init__(
@@ -58,14 +68,16 @@ class MeasurePolicy():
         self.no_improve_counter = 0
         self.best_score = None
         
-    def step(self, measure: Union[MeasureValue, MetricGroup]) -> Tuple[bool, bool]:
+    def step(self, measure: MeasureResult) -> Tuple[bool, bool]:
         '''
         Args:
-            measure (Union[float, MetricGroup]): A loss value or metric dictionary, depending on `self.measure_type`.
-                - `measure_type = 'loss'`: Loss value represented by a numeric value, tenosr, or numpy array.
-                - `measure_type = 'metric'`: Metric dictionary, where `self.metric_path` leads to
-                                            a numeric value, tensor, or numpy array.
-                                            If tensor or numpy array, it is aggregated using `self.metric_agg`.
+            measure (MeasureResult): 
+                A loss value or metric dictionary, depending on `self.measure_type`.
+                    - `measure_type = 'loss'` : Loss value (MeasureValue) as a numeric value, tenosr, or numpy array.
+                    - `measure_type = 'metric'`: Metric dictionary (Union[MetricGroup, MetricResults]), 
+                                                 where `self.metric_path` leads to
+                                                 a numeric value, tensor, or numpy array.
+                                                 If tensor or numpy array, it is aggregated using `self.metric_agg`.
         '''
         score = self.extract_score(measure)
 
@@ -91,7 +103,7 @@ class MeasurePolicy():
 
         return improved, should_stop
 
-    def extract_score(self, measure: Union[MeasureValue, MetricGroup]) -> float:
+    def extract_score(self, measure: MeasureResult) -> float:
         if self.measure_type == 'loss':
             score = measure
         else:
@@ -105,14 +117,14 @@ class MeasurePolicy():
 
         return float(score)
 
-    def reset(self):
+    def reset(self) -> None:
         '''
         Resets state information.
         '''
         self.no_improve_counter = 0
         self.best_score = None
 
-    def state_dict(self) -> Dict[str, float]:
+    def state_dict(self) -> MeasurePolicyState:
         '''
         Returns state information as a dictionary.
         '''
@@ -121,14 +133,14 @@ class MeasurePolicy():
             'best_score': self.best_score
         }
     
-    def load_state_dict(self, state_dict):
+    def load_state_dict(self, state_dict: MeasurePolicyState) -> None:
         '''
         Loads state information from a state_dict.
         '''
         self.no_improve_counter = state_dict['no_improve_counter']
         self.best_score = state_dict['best_score']
 
-    def _validate_configs(self):
+    def _validate_configs(self) -> None:
         if self.measure_type not in ['loss', 'metric']:
             raise ValueError("measure_type must be 'loss' or 'metric'.")
 
