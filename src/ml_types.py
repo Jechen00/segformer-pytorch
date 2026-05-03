@@ -10,7 +10,7 @@ from numbers import Real
 from typing import (
     Union, Tuple, Dict, Sequence, 
     Literal, Optional, TypeAlias,
-    TypedDict, NotRequired
+    List, TypedDict, NotRequired
 )
 from PIL import Image
 
@@ -37,7 +37,7 @@ class SampleDict(TypedDict):
     label: NotRequired[ImageLabel]
     mask: NotRequired[ImageInput]
 
-class CollatedDict(TypedDict):
-    image: torch.Tensor
-    label: NotRequired[torch.Tensor]
-    mask: NotRequired[torch.Tensor]
+class SampleListDict(TypedDict):
+    image: List[ImageInput]
+    label: NotRequired[List[ImageLabel]]
+    mask: NotRequired[List[ImageInput]]

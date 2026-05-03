@@ -7,8 +7,14 @@ import os
 from pathlib import Path
 import random
 import numpy as np 
+from numbers import Real
+from PIL import Image
 
-from typing import Union, Any, Literal, Optional
+from typing import (
+    Union, Any, Literal, Optional, List, Dict, Tuple
+)
+
+from src.ml_types import ImageInput
 
 
 #####################################
@@ -26,12 +32,40 @@ def make_tuple(x: Union[Any, tuple]) -> tuple:
     else:
         return x
     
+def make_range(x: Any) -> Union[Tuple[Real, Real], Any]:
+    '''
+    Converts a numeric value `x` into `(-x, x)`, representing a range of values.
+    If the input is not an integer or float, then the input is returned unchanged.
+    '''
+    if isinstance(x, Real):
+        return (-x, x)
+    else:
+        return x
+        
 def all_or_none(*params) -> bool:
     '''
     Checks if params are all None or all provided (not None).
     '''
     return all(p is None for p in params) or all(p is not None for p in params)
 
+def get_img_size(img: ImageInput) -> Tuple[int, int]:
+    '''
+    Gets the spatial size (height, width) of and image.
+
+    Args:
+        img (ImageInput): A PIL image or tensor.
+                          If `torch.Tensor`, shape should be (..., height, width).
+
+    Returns:
+        Tuple[int, int]: Tuple representing (height, width) of `img`.
+    '''
+    if isinstance(img, torch.Tensor):
+        return img.shape[-2:] # height, width
+    elif isinstance(img, Image.Image):
+        return img.size[::-1] # PIL gives (width, height) --> need to flip
+    else:
+        raise TypeError('Expected PIL image or tensor.')
+    
 def normalize_file_path(file_path: Union[str, Path], path_name: Optional[str] = None) -> Path:
     '''
     Normalize and validate a file path.
@@ -161,3 +195,56 @@ def recursive_to_cpu(x: Any) -> Any:
         return [recursive_to_cpu(value) for value in x]
     else:
         return x
+
+def transpose_list_dict(
+    data: Union[List[Dict[str, Any]], Dict[str, List[Any]]], 
+    mode: Literal['to_cols', 'to_rows'] = 'to_cols'
+) -> Union[List[Dict[str, Any]], Dict[str, List[Any]]]:
+    '''
+    Transposes a list of dictionaries into a dictionary of lists, and vice versa.
+    
+    Args:
+        data (Union[List[Dict[str, Any]], Dict[str, List[Any]]]):
+            A list of dictionaries or a dictionary of lists, depending on `mode`.
+                - `mode = 'to_cols'`: List of dictionaries, 
+                                      All dictionaries are expected to have the same keys.
+                - `mode = 'to_rows'`: Dictionary of lists.
+                                      All lists are expected to have the same length.
+
+        mode (Literal['to_cols', 'to_rows']): The mode of transpose.
+            - `to_cols`: Transposes a list of dictionaries into a dictionary of lists.
+            - `to_rows`: Transposes a dictionary of lists into a list of dictionaries.
+        
+    Returns:
+        Union[List[Dict[str, Any]], Dict[str, List[Any]]]:
+            - `mode = 'to_cols'`: Dictionary of lists, all with the same length.
+            - `mode = 'to_rows'`: List of dictionaries, all with the same keys.
+    '''
+    if mode == 'to_cols':
+        if not isinstance(data, list):
+            raise TypeError(
+                f"data must be a list of dictionaries if mode = 'to_cols'. Got: {type(data)}"
+            )
+            
+        return {
+            key: [data_dict[key] for data_dict in data]
+            for key in data[0].keys()
+        }
+            
+    elif mode == 'to_rows':
+        if not isinstance(data, dict):
+            raise TypeError(
+                f"data must be a dictionary of lists if mode = 'to_rows'. Got: {type(data)}"
+            )
+            
+        keys = list(data.keys())
+        values = list(data.values())
+        return [
+            {k: v[i] for (k, v) in zip(keys, values)}
+            for i in range(len(values[0]))
+        ]
+            
+    else:
+        raise ValueError(
+            f"mode must be 'to_cols' or 'to_rows'. Got: {mode}"
+        )

@@ -64,6 +64,11 @@ class HFClassificationDataset(Dataset):
                 - image (ImageInput): Transformed image sample (original if no transforms).
                 - label (torch.tensor): Class label for the image.
         '''
+        if not isinstance(idx, int):
+            raise TypeError(
+                f'Dataset indexing only supports int indices. Got: {type(idx)}'
+            )
+        
         item = self.hf_dataset[idx].copy()
         transforms = [self.aug_transforms, self.base_transforms]
         if self.base_first:
