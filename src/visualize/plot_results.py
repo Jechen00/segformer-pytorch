@@ -59,7 +59,7 @@ def plot_loss(
             
         ax.set_ylabel('Loss', rotation = y_rot, labelpad = y_pad)
         ax.set_xlabel('Epoch')
-        ax.legend(loc = 1)
+        ax.legend()
         
     fig.tight_layout()
     plt.close(fig)
@@ -102,7 +102,7 @@ def plot_summary_metrics(
     
         ax.set_ylabel('Metric')
         ax.set_xlabel('Epoch')
-        ax.legend(loc = 1)
+        ax.legend()
     
     for ax in flat_axes[num_fields:]:
         ax.axis('off')
@@ -165,7 +165,7 @@ def plot_class_metrics(
         ax.set_title(key_path, fontsize = 25)
         ax.set_ylabel('Metric')
         ax.set_xlabel('Epoch')
-        ax.legend(loc = 1)
+        ax.legend()
 
     for ax in flat_axes[num_paths:]:
         ax.axis('off')

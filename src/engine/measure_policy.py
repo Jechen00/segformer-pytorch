@@ -34,7 +34,7 @@ class MeasurePolicy():
         self,
         measure_type: Literal['loss', 'metric'],
         metric_path: Optional[str] = None,
-        metric_agg: Literal['mean', 'min', 'max'] = 'mean',
+        metric_agg: Literal['mean', 'min', 'max', 'none'] = 'none',
         mode: Literal['min', 'max'] = 'max',
         min_delta: float = 0.0,
         patience: Optional[int] = None
@@ -58,6 +58,13 @@ class MeasurePolicy():
             if metric_path is None:
                 raise ValueError(
                     "metric_path must be provided when measure_type == 'metric'."
+                )
+            
+            if metric_agg == 'none':
+                warnings.warn(
+                    "metric_agg = 'none' will disable aggregations. "
+                    'The metric extracted from metric_path must already be a scalar tensor (ndim = 0), '
+                    'otherwise an error will occur during self.step().'
                 )
             self.measure_info = {
                 'measure_type': 'metric',
@@ -112,9 +119,15 @@ class MeasurePolicy():
 
         # Aggregate if needed
         if isinstance(score, (torch.Tensor, np.ndarray)):
-            # Should work on single-element tensors/arrays
-            score = apply_agg(score, self.metric_agg) # This always returns a float
-
+            if self.metric_agg != 'none':
+                # Should work on single-element tensors/arrays
+                score = apply_agg(score, self.metric_agg) # This always returns a float
+            elif score.ndim != 0:
+                raise ValueError(
+                    "If metric_agg = 'none', metric_path must produce a scalar tensor (ndim = 0)."
+                    f'Got: {score.ndim}'
+                )
+        
         return float(score)
 
     def reset(self) -> None:
@@ -144,8 +157,8 @@ class MeasurePolicy():
         if self.measure_type not in ['loss', 'metric']:
             raise ValueError("measure_type must be 'loss' or 'metric'.")
 
-        if self.metric_agg not in ['mean', 'max', 'min']:
-            raise ValueError("metric_agg must be 'mean', 'min', or 'max'.")
+        if self.metric_agg not in ['mean', 'min', 'max', 'none']:
+            raise ValueError("metric_agg must be 'mean', 'min', max', or 'none'.")
             
         if self.mode not in ['min', 'max']:
             raise ValueError("mode must be 'min' or 'max'.")
@@ -155,4 +168,5 @@ class MeasurePolicy():
         
         if (self.patience is not None) and (self.patience < 1):
             raise ValueError('patience must be greater than 0.')
+
         

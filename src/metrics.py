@@ -3,7 +3,7 @@
 #####################################
 import torch
 
-from typing import Protocol, Union
+from typing import Protocol, Union, Optional
 from src.ml_types import MeasureValue, MetricGroup
     
 
@@ -28,10 +28,14 @@ class ClassificationMetrics():
 
     Args:
         num_classes (int): Number of classes in the dataset.
+        invalid_idx (optional, int): Index for an 'invalid class'.
+                                     Targets with this index will be ignored (along with their predictions)
+                                     when computing the confusion matrix and related metrics.
     '''
-    def __init__(self, num_classes: int):
+    def __init__(self, num_classes: int, invalid_idx: Optional[int] = None):
         self.num_classes = num_classes
         self.conf_mat = None
+        self.invalid_idx = invalid_idx
         
     def update(self, preds: torch.Tensor, targs: torch.Tensor) -> None:
         '''
@@ -50,6 +54,11 @@ class ClassificationMetrics():
         preds = preds.flatten()
         targs = targs.flatten()
         
+        if self.invalid_idx is not None:
+            valid_mask = (targs != self.invalid_idx)
+            preds = preds[valid_mask]
+            targs = targs[valid_mask]
+
         present_classes = torch.concat([preds, targs])
         max_class = present_classes.max().item()
         min_class = present_classes.min().item()

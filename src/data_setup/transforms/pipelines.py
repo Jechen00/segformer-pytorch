@@ -43,6 +43,7 @@ def get_base_transforms(
         transforms.append(resize_transform)
     return v2.Compose(transforms)
 
+
 def get_augmentations(
     aug_types: Union[AugType, Sequence[AugType]],
     img_interpolation: InterpolationMode = InterpolationMode.BILINEAR,

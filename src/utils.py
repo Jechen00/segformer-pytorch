@@ -41,6 +41,19 @@ def set_seed(seed: int = 0) -> None:
     os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 
 
+def get_device() -> torch.device:
+    '''
+    Returns the best available computation device.
+    '''
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    elif torch.backends.mps.is_available():
+        device = torch.device('mps')
+    else:
+        device = torch.device('cpu')
+    return device
+
+
 def make_tuple(x: Union[Any, tuple]) -> tuple:
     '''
     Converts input to a tuple `(x, x)`, if it is not already a tuple. 
