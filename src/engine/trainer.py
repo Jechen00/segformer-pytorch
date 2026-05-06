@@ -216,6 +216,7 @@ class ModelTrainer():
                 metric.reset()
 
         # Start step loop  
+        self.model.eval()
         loss_sum, num_items = 0, 0
         for batch in self.val_loader:
             imgs = batch['image'].to(self.device)
