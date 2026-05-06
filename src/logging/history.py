@@ -75,82 +75,8 @@ def postprocess_measure(value: MeasureValue) -> HistoryValue:
 
 
 #####################################
-# Logging Classes
+# Measure Histories
 #####################################
-class PhaseHistory():
-    '''
-    Stores the histories (e.g. loss and metrics) for a phase (e.g. training or validation).
-    '''
-    def __init__(self, loss: LossHistory, metrics: Optional[MetricHistory] = None):
-        self.loss = loss
-        self.metrics = metrics
-        self.best_score = None
-
-    def record(
-        self, 
-        loss_value: MeasureValue, 
-        epoch: int, 
-        metric_results: Optional[MetricResults] = None
-    ) -> Tuple[HistoryValue, Optional[HistoryResults]]:
-        recorded_loss = self.loss.record(loss_value, epoch)
-
-        if metric_results is None:
-            return recorded_loss, None
-        
-        if self.metrics is None:
-            raise ValueError(
-                'metric_results were provided, but this PhaseHistory '
-                'was initialized without a MetricHistory (metrics = None).'
-            )
-        
-        recorded_metrics = self.metrics.record(metric_results, epoch)
-        return recorded_loss, recorded_metrics
-    
-    def set_best(
-        self, 
-        value: float, 
-        epoch: int, 
-        measure_info: Optional[Union[str, Dict[str, str]]] = None
-    ) -> None:
-        self.best_score = {
-            'value': value,
-            'epoch': epoch,
-            'measure_info': measure_info
-        }
-
-    def state_dict(self) -> PhaseHistoryState:
-        return {
-            'loss': self.loss.state_dict(),
-            'metrics': None if self.metrics is None else self.metrics.state_dict(),
-            'best_score': self.best_score
-        }
-    
-    def load_state_dict(self, state_dict: PhaseHistoryState) -> None:
-        # Load loss history
-        self.loss.load_state_dict(state_dict['loss'])
-
-        # Load metric history
-        metrics = self.metrics
-        metrics_state_dict = state_dict.get('metrics', None)
-
-        if (metrics is None) and (metrics_state_dict is not None):
-            raise ValueError(
-                "state_dict contains a 'metrics', but this PhaseHistory "
-                'was initialized without a MetricHistory (metrics = None).'
-            )
-        elif (metrics is not None) and (metrics_state_dict is None):
-            raise KeyError(
-                'This PhaseHistory was initialzied with a MetricHistory, '
-                "but state_dict is missing 'metrics'."
-            )
-        
-        if metrics is not None:
-            metrics.load_state_dict(metrics_state_dict)
-
-        # Load best metric score
-        self.best_score = state_dict.get('best_score', None)
-
-
 class LossHistory():
     '''
     Stores loss values over training epochs.
@@ -227,3 +153,98 @@ class MetricHistory():
     def load_state_dict(self, state_dict: MetricHistoryState) -> None:
         self.values = state_dict['values']
         self.epochs = state_dict['epochs']
+
+
+#####################################
+# Phase Histories
+#####################################
+class PhaseHistory():
+    '''
+    Stores the histories (e.g. loss and metrics) for a phase (e.g. training or validation).
+    '''
+    def __init__(self, loss: Optional[LossHistory] = None, metrics: Optional[MetricHistory] = None):
+        self.loss = LossHistory() if loss is None else loss
+        self.metrics = metrics
+        self.best_score = None
+
+    def record(
+        self, 
+        loss_value: MeasureValue, 
+        epoch: int, 
+        metric_results: Optional[MetricResults] = None
+    ) -> Tuple[HistoryValue, Optional[HistoryResults]]:
+        recorded_loss = self.loss.record(loss_value, epoch)
+
+        if metric_results is None:
+            return recorded_loss, None
+        
+        if self.metrics is None:
+            raise ValueError(
+                'metric_results were provided, but this PhaseHistory '
+                'was initialized without a MetricHistory (metrics = None).'
+            )
+        
+        recorded_metrics = self.metrics.record(metric_results, epoch)
+        return recorded_loss, recorded_metrics
+    
+    def set_best(
+        self, 
+        value: float, 
+        epoch: int, 
+        measure_info: Optional[Union[str, Dict[str, str]]] = None
+    ) -> None:
+        self.best_score = {
+            'value': value,
+            'epoch': epoch,
+            'measure_info': measure_info
+        }
+
+    def state_dict(self) -> PhaseHistoryState:
+        return {
+            'loss': self.loss.state_dict(),
+            'metrics': None if self.metrics is None else self.metrics.state_dict(),
+            'best_score': self.best_score
+        }
+    
+    def load_state_dict(self, state_dict: PhaseHistoryState) -> None:
+        # Load loss history
+        self.loss.load_state_dict(state_dict['loss'])
+
+        # Load metric history
+        metrics = self.metrics
+        metrics_state_dict = state_dict.get('metrics', None)
+
+        if (metrics is None) and (metrics_state_dict is not None):
+            raise ValueError(
+                "state_dict contains a 'metrics', but this PhaseHistory "
+                'was initialized without a MetricHistory (metrics = None).'
+            )
+        elif (metrics is not None) and (metrics_state_dict is None):
+            raise KeyError(
+                'This PhaseHistory was initialzied with a MetricHistory, '
+                "but state_dict is missing 'metrics'."
+            )
+        
+        if metrics is not None:
+            metrics.load_state_dict(metrics_state_dict)
+
+        # Load best metric score
+        self.best_score = state_dict.get('best_score', None)
+
+
+class TrainHistory(PhaseHistory):
+    '''
+    Training-phase history.
+    This only tracks loss information.
+    '''
+    def __init__(self):
+        super().__init__(loss = LossHistory())
+
+
+class ValHistory(PhaseHistory):
+    '''
+    Validation-phase history.
+    This tracks both loss and metric information.
+    '''
+    def __init__(self):
+        super().__init__(loss = LossHistory(), metrics = MetricHistory())

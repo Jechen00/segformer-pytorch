@@ -5,10 +5,14 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.transforms import v2
 
-from typing import Optional, Literal
+import numpy as np
 import datasets
+from typing import Optional, Literal, List, Tuple, Union, TypeAlias
 
-from src.ml_types import ImageInput, SampleDict
+from src.ml_types import ImageInput, SampleDict, SampleListDict
+from src.utils import transpose_list_dict
+
+IndexLike: TypeAlias = Union[int, List[int], Tuple[int, ...], torch.Tensor, np.ndarray]
 
 
 #####################################
@@ -21,14 +25,15 @@ class HFClassificationDataset(Dataset):
     
     Args:
         hf_dataset (datasets.Dataset): Hugging Face dataset containing classification samples.
-                                       Each sample should be a dictionary (SampleDict) only containing:
+                                       Each sample must be a dictionary (SampleDict) containing the **same** keys.
+                                       Required keys are:
                                            - image (ImageInput): Image sample.
                                            - label (Union[int, torch.Tensor]): Class label for the image.
         aug_transforms (optional, v2.Compose): Data augmentation pipeline applied to each image independently.
-                                               This should be compatible with the samples in `hf_dataset`
+                                               This must be compatible with the samples in `hf_dataset`
                                                (e.g. accepts a SampleDict).
         base_transforms (optional, v2.Compose): Base transform pipeline separate from augmentation transforms.
-                                                This should be compatible with the samples in `hf_dataset`
+                                                This must be compatible with the samples in `hf_dataset`
                                                 (e.g. accepts a SampleDict).
         base_first (bool): Whether to apply `aug_transforms` first (if provided) or `base_transforms` first (if provided).
                            Default is `False` (`aug_transforms` are applied first).
@@ -51,10 +56,48 @@ class HFClassificationDataset(Dataset):
     def __repr__(self) -> str:
         return self.hf_dataset.__repr__()
     
-    def __getitem__(self, idx: int) -> SampleDict:
+    def __getitem__(self, idxs: IndexLike) -> Union[SampleDict, SampleListDict]:
+        '''
+        Gets a single-sample or multi-sample dictionary containing image and label information.
+        Images are transformed if provided and labels are converted to tensors.
+
+        Args:
+            idxs (IndexLike): Index or collection of indices for the samples to retrieve.
+            
+        Returns:
+            A single-sample or multi-sample dictionary depending 
+            whether the input was a single index or a collection of indices.
+
+            Single-Sample (SampleDict) has the keys (non-exhaustive):
+                - image (ImageInput): Transformed image sample (original if no transforms).
+                - label (torch.tensor): Class label for the image.
+
+            Multi-Sample (SampleListDict) has the keys (non-exhaustive):
+                - image (List[ImageInput]): List of transformed image samples (original if no transforms).
+                - label (List[torch.tensor]): List of class labels for the images.
+        '''
+        if isinstance(idxs, int):
+            # Indexing with a single integer
+            return self._get_single_item(idxs)
+        
+        elif isinstance(idxs, np.ndarray):
+            idxs = idxs.tolist()
+        elif isinstance(idxs, torch.Tensor):
+            idxs = idxs.tolist()
+        elif not isinstance(idxs, (list, tuple)):
+            raise TypeError(
+                'Dataset indexing only supports integers, lists, tuples, '
+                f'tensors, and numpy arrays (all integers). Got {type(idxs)}'
+        )
+
+        # Indexing with multiple integers
+        items = [self._get_single_item(idx) for idx in idxs]
+        return transpose_list_dict(items, mode = 'to_cols')
+    
+    def _get_single_item(self, idx: int) -> SampleDict:
         '''
         Gets a sample dictionary containing image and label information,
-        given an index.
+        given a **singe** index.
 
         Args:
             idx (int): Index of the sample to retrieve.
@@ -65,9 +108,7 @@ class HFClassificationDataset(Dataset):
                 - label (torch.tensor): Class label for the image.
         '''
         if not isinstance(idx, int):
-            raise TypeError(
-                f'Dataset indexing only supports int indices. Got: {type(idx)}'
-            )
+            raise TypeError(f'Expected integer index. Got: {type(idx)}')
         
         item = self.hf_dataset[idx].copy()
         transforms = [self.aug_transforms, self.base_transforms]
@@ -83,7 +124,7 @@ class HFClassificationDataset(Dataset):
             item['label'] = torch.tensor(label, dtype = torch.long)
 
         return item
-    
+
 
 class HumanBinaryDataset(HFClassificationDataset):
     '''

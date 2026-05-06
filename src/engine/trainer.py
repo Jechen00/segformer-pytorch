@@ -11,7 +11,7 @@ from pathlib import Path
 import warnings
 from typing import Literal, Optional, Union, Dict, Tuple, TypedDict
 
-from src.logging.history import PhaseHistory, LossHistory, MetricHistory
+from src.logging.history import TrainHistory, ValHistory
 from src.logging.formatting import (
     BOLD_ON, BOLD_OFF, EPOCH_FILL_CHAR, SEC_DIV_CHAR,
     make_epoch_header, make_metric_log_sec, make_log_sec
@@ -74,8 +74,8 @@ class ModelTrainer():
         if self.measure_policy is not None:
             self.measure_policy.reset() # Ensure a fresh state
 
-        self.train_history = PhaseHistory(loss = LossHistory()) # loss history stores averages
-        self.val_history = PhaseHistory(loss = LossHistory(), metrics = MetricHistory()) # loss history stores averages
+        self.train_history = TrainHistory() # Tracks average losses
+        self.val_history = ValHistory() # Tracks average losses and metrics
         self.start_epoch = 0
 
         self.log_sec_div = SEC_DIV_CHAR * self.log_cfg.logbox_len
@@ -99,7 +99,7 @@ class ModelTrainer():
             f'Calling self.train(num_epochs) will resume training from epoch {self.start_epoch}.'
         )
 
-    def train(self, num_epochs: int) -> Tuple[PhaseHistory, PhaseHistory]:        
+    def train(self, num_epochs: int) -> Tuple[TrainHistory, ValHistory]:        
         for epoch in range(self.start_epoch, num_epochs):
             # ------------------------------------
             # Training step

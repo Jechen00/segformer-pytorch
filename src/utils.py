@@ -14,12 +14,33 @@ from typing import (
     Union, Any, Literal, Optional, List, Dict, Tuple
 )
 
-from src.ml_types import ImageInput
+from src.ml_types import ImageInput, Sample, BatchedSamples
 
 
 #####################################
 # Functions
 #####################################
+def set_seed(seed: int = 0) -> None:
+    '''
+    Sets random seed and deterministic settings 
+    for reproducibility across:
+        - PyTorch
+        - NumPy
+        - Python's random module
+        - CUDA
+    
+    Args:
+        seed (int): The seed value to set.
+    '''
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    
+    torch.use_deterministic_algorithms(True)
+    os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+
+
 def make_tuple(x: Union[Any, tuple]) -> tuple:
     '''
     Converts input to a tuple `(x, x)`, if it is not already a tuple. 
@@ -31,7 +52,8 @@ def make_tuple(x: Union[Any, tuple]) -> tuple:
         return (x, x)
     else:
         return x
-    
+
+
 def make_range(x: Any) -> Union[Tuple[Real, Real], Any]:
     '''
     Converts a numeric value `x` into `(-x, x)`, representing a range of values.
@@ -41,13 +63,38 @@ def make_range(x: Any) -> Union[Tuple[Real, Real], Any]:
         return (-x, x)
     else:
         return x
-        
+
+      
 def all_or_none(*params) -> bool:
     '''
     Checks if params are all None or all provided (not None).
     '''
     return all(p is None for p in params) or all(p is not None for p in params)
 
+
+def check_tensor_shapes(tensors: List[torch.Tensor]) -> None:
+    '''
+    Checks that a list of inputs are all tensors
+    and that they all have the same shape.
+    '''
+    ref_shape = None
+    for tensor in tensors:
+        if not isinstance(tensor, torch.Tensor):
+            raise TypeError(
+                'Expected all images to be a tensor after applying optional transforms. '
+                f'Got: {type(tensor)}'
+            )
+
+        tensor_shape = tensor.shape
+        if ref_shape is None:
+            ref_shape = tensor_shape
+        elif tensor_shape != ref_shape:
+            raise ValueError(
+                'Expected all images to be the same shape after applying optional transforms. '
+                f'Got: {tuple(ref_shape)} and {tuple(tensor_shape)}'
+            )
+
+ 
 def get_img_size(img: ImageInput) -> Tuple[int, int]:
     '''
     Gets the spatial size (height, width) of and image.
@@ -65,7 +112,36 @@ def get_img_size(img: ImageInput) -> Tuple[int, int]:
         return img.size[::-1] # PIL gives (width, height) --> need to flip
     else:
         raise TypeError('Expected PIL image or tensor.')
-    
+
+   
+def extract_imgs(samps: Union[Sample, BatchedSamples]) -> Union[ImageInput, List[ImageInput]]:
+    '''
+    Gets all images from a sample or batch of samples.
+
+    Args:
+        samps (Union[Sample, BatchedSamples]): Sample or batch of samples containing image information.
+            Supports:
+                - A single image (PIL image or tensor)
+                - A single-sample dictionary, where the 'image' key contains a single image
+                - A list of images (PIL image or tensor)
+                - A batched-sample dictionary, where the 'image' key contains a list of images
+                - A collated tensor, e.g. of shape (batch_size, channels, height, width)
+
+    Returns:
+        Union[ImageInput, List[ImageInput]: The extracted images from `samps`.
+                                            The structure depends on the type of input.
+                                            It will either be a single PIL image or tensor (possibly batched)
+                                            or a list of PIL images or tensors.
+    '''
+    if isinstance(samps, dict):
+        imgs = samps['image']
+    elif isinstance(samps, list):
+        imgs = [s['image'] if isinstance(s, dict) else s for s in samps]
+    else:
+        imgs = samps  
+    return imgs
+
+
 def normalize_file_path(file_path: Union[str, Path], path_name: Optional[str] = None) -> Path:
     '''
     Normalize and validate a file path.
@@ -95,25 +171,6 @@ def normalize_file_path(file_path: Union[str, Path], path_name: Optional[str] = 
     
     return path
 
-def set_seed(seed: int = 0) -> None:
-    '''
-    Sets random seed and deterministic settings 
-    for reproducibility across:
-        - PyTorch
-        - NumPy
-        - Python's random module
-        - CUDA
-    
-    Args:
-        seed (int): The seed value to set.
-    '''
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    
-    torch.use_deterministic_algorithms(True)
-    os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 
 def nested_extract(nested_dict: dict, key_path: str, strict: bool = True, default: Any = None) -> Any:
     '''
@@ -146,55 +203,7 @@ def nested_extract(nested_dict: dict, key_path: str, strict: bool = True, defaul
             
         value = value[key]
     return value
-    
-def apply_agg(
-    x: Union[np.ndarray, torch.Tensor], 
-    agg: Literal['mean', 'min', 'max']
-) -> float:
-    '''
-    Applies an aggregation function `(mean, min, max)` to a numpy array or tensor.
 
-    Args:
-        x (np.ndarray): The numpy array or tensor to aggregate.
-        agg (Literal['mean', 'min', 'max']): The aggregation function to apply `(mean, min, max)`.
-
-    Returns:
-        float: The aggregated value from applying `agg` to `x`.
-    '''
-    if isinstance(x, torch.Tensor):
-        x = x.float()
-    elif isinstance(x, np.ndarray):
-        x = x.astype(np.float32)
-
-    if agg == 'mean':
-        return x.mean().item()
-    elif agg == 'min':
-        return x.min().item()
-    elif agg == 'max':
-        return x.max().item()
-    else:
-        raise ValueError(f'Unknown aggregation: {agg}')
-    
-def recursive_to_cpu(x: Any) -> Any:
-    '''
-    Recursively moves all tensors in a nested dictionary/list structure to the CPU.
-    Other objects (e.g. floats, ints, numpy arrays) remain unchanged.
-    
-    Args:
-        x (Any): Any Python object. Tensors are moved to CPU.
-                 Dictionaries and lists are traversed recursively.
-        
-    Returns:
-        Any: The same object as the input `x`, but with all tensors moved to CPU.
-    '''
-    if isinstance(x, torch.Tensor):
-        return x.cpu()
-    elif isinstance(x, dict):
-        return {key: recursive_to_cpu(value) for key, value in x.items()}
-    elif isinstance(x, list):
-        return [recursive_to_cpu(value) for value in x]
-    else:
-        return x
 
 def transpose_list_dict(
     data: Union[List[Dict[str, Any]], Dict[str, List[Any]]], 
@@ -248,3 +257,54 @@ def transpose_list_dict(
         raise ValueError(
             f"mode must be 'to_cols' or 'to_rows'. Got: {mode}"
         )
+
+
+def apply_agg(
+    x: Union[np.ndarray, torch.Tensor], 
+    agg: Literal['mean', 'min', 'max']
+) -> float:
+    '''
+    Applies an aggregation function `(mean, min, max)` to a numpy array or tensor.
+
+    Args:
+        x (np.ndarray): The numpy array or tensor to aggregate.
+        agg (Literal['mean', 'min', 'max']): The aggregation function to apply `(mean, min, max)`.
+
+    Returns:
+        float: The aggregated value from applying `agg` to `x`.
+    '''
+    if isinstance(x, torch.Tensor):
+        x = x.float()
+    elif isinstance(x, np.ndarray):
+        x = x.astype(np.float32)
+
+    if agg == 'mean':
+        return x.mean().item()
+    elif agg == 'min':
+        return x.min().item()
+    elif agg == 'max':
+        return x.max().item()
+    else:
+        raise ValueError(f'Unknown aggregation: {agg}')
+    
+
+def recursive_to_cpu(x: Any) -> Any:
+    '''
+    Recursively moves all tensors in a nested dictionary/list structure to the CPU.
+    Other objects (e.g. floats, ints, numpy arrays) remain unchanged.
+    
+    Args:
+        x (Any): Any Python object. Tensors are moved to CPU.
+                 Dictionaries and lists are traversed recursively.
+        
+    Returns:
+        Any: The same object as the input `x`, but with all tensors moved to CPU.
+    '''
+    if isinstance(x, torch.Tensor):
+        return x.cpu()
+    elif isinstance(x, dict):
+        return {key: recursive_to_cpu(value) for key, value in x.items()}
+    elif isinstance(x, list):
+        return [recursive_to_cpu(value) for value in x]
+    else:
+        return x

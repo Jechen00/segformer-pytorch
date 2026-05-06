@@ -18,6 +18,22 @@ from PIL import Image
 #####################################
 # Common Types
 #####################################
+class SampleDict(TypedDict):
+    image: ImageInput
+    label: NotRequired[ImageLabel]
+    mask: NotRequired[ImageInput]
+
+class SampleListDict(TypedDict):
+    image: List[ImageInput]
+    label: NotRequired[List[ImageLabel]]
+    mask: NotRequired[List[ImageInput]]
+
+class CollatedDict(TypedDict):
+    image: torch.Tensor # Shape is (batch_size, 3, height, width)
+    label: NotRequired[torch.Tensor] # Shape is (batch_size,)
+    mask: NotRequired[torch.Tensor] # Shape is (batch_size, height, width)
+
+    
 RGBLike: TypeAlias = Union[int, Tuple[int, int, int]]
 
 SpatialSize: TypeAlias = Union[int, Tuple[int, int]]
@@ -32,12 +48,6 @@ Agg: TypeAlias = Literal['mean', 'max', 'min']
 MetricLogFields: TypeAlias = Sequence[Union[str, Tuple[str, Agg]]]
 EntryLogUnits: TypeAlias = Optional[Union[str, Sequence[Optional[str]]]]
 
-class SampleDict(TypedDict):
-    image: ImageInput
-    label: NotRequired[ImageLabel]
-    mask: NotRequired[ImageInput]
-
-class SampleListDict(TypedDict):
-    image: List[ImageInput]
-    label: NotRequired[List[ImageLabel]]
-    mask: NotRequired[List[ImageInput]]
+Sample: TypeAlias = Union[ImageInput, SampleDict]
+CollatedSamples: TypeAlias = Union[torch.Tensor, CollatedDict]
+BatchedSamples: TypeAlias = Union[List[Sample], SampleListDict, CollatedSamples]
