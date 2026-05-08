@@ -34,6 +34,7 @@ class CollatedDict(TypedDict):
     mask: NotRequired[torch.Tensor] # Shape is (batch_size, height, width)
 
     
+IndexLike: TypeAlias = Union[int, List[int], Tuple[int, ...], torch.Tensor, np.ndarray]
 RGBLike: TypeAlias = Union[int, Tuple[int, int, int]]
 
 SpatialSize: TypeAlias = Union[int, Tuple[int, int]]

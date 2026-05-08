@@ -5,17 +5,104 @@ from torchvision.transforms import InterpolationMode
 
 from abc import ABC, abstractmethod
 from typing import (
-    Sequence, Union, Optional, Dict, Any, Callable
+    Sequence, Union, Optional, Dict, List, Tuple,
+    Any, Callable, TypeAlias
 )
 
 from src.utils import make_range
-from src.ml_types import SpatialSize, RGBLike, SampleDict, SampleListDict
+from src.ml_types import SpatialSize, RGBLike, ImageInput, SampleDict, SampleListDict
 from src.data_setup.transforms import functional
+
+TransformTypes: TypeAlias = Union[Callable, List[Callable], Tuple[Callable, ...]] 
 
 
 #####################################
 # Transform Classes
 #####################################
+class ImageTransform():
+    '''
+    Wrapper used to apply a transform **only** to the 'image' key
+    of a single-sample or multi-sample dictionary.
+
+    Args:
+        transform (Union[Callable, List[Callable]]): A transform or list of transforms to apply only to images.
+    '''
+    def __init__(self, transforms: TransformTypes):
+        self.transforms = transforms
+
+    def __repr__(self) -> str:
+        return f'ImageTransform({repr(self._transforms)})'
+
+    def __call__(
+        self, 
+        input_dict: Union[SampleDict, SampleListDict]
+    ) -> Union[SampleDict, SampleListDict]:
+        '''
+        Applies `self.transforms` to the 'image' key of a single-sample or multi-sample dictionary.
+
+        Args:
+            input_dict (Union[SampleDict, SampleListDict]): 
+                Input dictionary, with structure depending on whether the input is single or multiple.
+
+                Single-Sample (SampleDict) has the keys (non-exhaustive):
+                    - image (ImageInput): Input image to transform. 
+                                          If `torch.Tensor`, shape is `(..., height, width)`.
+
+                Multi-Samples (SampleListDict) has the keys (non-exhaustive):
+                    - image (List[ImageInput]): List of input images to transform.
+                                                If an image is `torch.Tensor`, shape is `(..., height, width)`.
+
+        Returns:
+            Union[SampleDict, SampleListDict]: Output dictionary with the same structure as `input_dict`.
+                                               The `image` key contains the output after applying `self.transform`.
+        '''
+        output_dict = input_dict.copy()
+
+        imgs = output_dict['image']
+        if isinstance(imgs, list):
+            output_dict['image'] = [self._transform_single(img) for img in imgs]
+        else:
+            output_dict['image'] = self._transform_single(imgs)
+
+        return output_dict
+    
+    def _transform_single(self, img: ImageInput) -> ImageInput:
+        '''
+        Applies `self.transforms` to a **single** image.
+
+       Args:
+            img (ImageInput): The image to transform. If `torch.Tensor`, shape is `(..., height, width)`.
+
+        Returns:
+            ImageInput: Output image after applying `self.transform`.
+
+        '''
+        for transform in self._transforms:
+            img = transform(img)
+        return img
+
+    @property
+    def transforms(self) -> TransformTypes:
+        return self._transforms
+    
+    @transforms.setter
+    def transforms(self, values: TransformTypes) -> None:
+        if isinstance(values, (list, tuple)):
+            if not all(callable(val) for val in values):
+                raise TypeError(
+                    'All elements in transforms must be callable.'
+                )
+            self._transforms = values
+
+        elif callable(values):
+            self._transforms = [values]
+            
+        else:
+            raise TypeError(
+                'transforms must be a callable or a list/tuple of callables.'
+            )
+
+
 class SegTransformBase(ABC):
     '''
     Base class for segmentation transforms.
@@ -104,7 +191,7 @@ class SegTransformBase(ABC):
 
 class SegRandomAffine(SegTransformBase):
     '''
-    Random affine transformation with support for separate fill values for images and segmentation masks.
+    Random affine transform with support for separate fill values for images and segmentation masks.
     For a single sample with an image and mask, the same random affine parameters are applied to both.
 
     This uses `functional.seg_random_affine` to apply transforms.

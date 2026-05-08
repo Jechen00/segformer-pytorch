@@ -26,7 +26,7 @@ def seg_random_affine(
     mask_fill: RGBLike = 255
 ) -> Tuple[ImageInput, Optional[ImageInput]]:
     '''
-    Functional random affine transformation for a **single** sample.
+    Functional random affine transform for a **single** sample.
     This supports transforming both image and optional mask, with separate fill values.
     The same random affine parameters are applied to image and optional mask.
 
