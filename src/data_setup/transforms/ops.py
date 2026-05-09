@@ -17,7 +17,7 @@ TransformTypes: TypeAlias = Union[Callable, List[Callable], Tuple[Callable, ...]
 
 
 #####################################
-# Transform Classes
+# Image-Only Transform Classes
 #####################################
 class ImageTransform():
     '''
@@ -103,6 +103,9 @@ class ImageTransform():
             )
 
 
+#####################################
+# Segmentation-Supported Classes
+#####################################
 class SegTransformBase(ABC):
     '''
     Base class for segmentation transforms.
@@ -189,6 +192,31 @@ class SegTransformBase(ABC):
         pass
     
 
+class ToImageAndMask(SegTransformBase):
+    '''
+    Converts image(s) and optional segmentation mask(s) into `torchvison.tv_tensors`.
+
+    This uses `functional.to_image_and_mask` to apply transforms.
+    '''
+    def __init__(self):
+        super().__init__(seg_transform = functional.to_image_and_mask)
+    
+    def __repr__(self) -> str:
+        '''
+        Returns a representational string for the `ToImageAndMask` instance.
+        '''
+        return 'ToImageAndMask()'
+    
+    @property
+    def transform_kwargs(self) -> Dict[str, Any]:
+        '''
+        No additional keyword arguments are required for `functional.to_image_and_mask`.
+        Returns an empty dictionary.
+        '''
+        return {}
+
+
+
 class SegRandomAffine(SegTransformBase):
     '''
     Random affine transform with support for separate fill values for images and segmentation masks.
@@ -216,17 +244,21 @@ class SegRandomAffine(SegTransformBase):
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
                                                            Default is `InterpolationMode.BILINEAR`.
                                                            Note that the mask transform always uses `InterpolationMode.NEAREST`.
-        img_fill (RGBLike): The fill value for areas outside transformed image, to maintain original shape.
-                            This should be a RGB tuple in the same value space as the expected input images.
+        img_fill (RGBLike): RGB value used to fill areas outside the transformed image, to maintain original shape.
+                            This RGB value can be:
+                                - a RGB tuple
+                                - an integer `x`, assumed to represent `(x, x, x)`.
+                            This RGB value should be in the same value space as the expected input images.
                             For example, if the input images are scaled to [0, 1], 
                             `img_fill` values should also be scaled to [0, 1].
-                            If `int`, assumed `(img_fill, img_fill, img_fill)`.
                             Default is `0`.
-        mask_fill (RGBLike): The fill value for areas outside transformed mask, to maintain original shape.
-                             This should be a RGB tuple in the same value space as the expected input masks.
+        mask_fill (RGBLike): RGB value used to fill areas outside the transformed mask, to maintain original shape.
+                             This RGB value can be:
+                                - a RGB tuple
+                                - an integer `x`, assumed to represent `(x, x, x)`.
+                             This RGB value should be in the same value space as the expected input masks.
                              For example, if the input masks are scaled to [0, 1], 
                              `mask_fill` values should also be scaled to [0, 1].
-                             If `int`, assumed `(mask_fill, mask_fill, mask_fill)`.
                              Default is `255`.
     '''
     def __init__(
@@ -291,17 +323,21 @@ class SegLetterbox(SegTransformBase):
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
                                                            Default is `InterpolationMode.BILINEAR`.
                                                            Note that the mask transform always uses `InterpolationMode.NEAREST`.
-        img_fill (RGBLike): The fill value to pad transformed image. 
-                            This should be a RGB tuple in the same value space as the expected input images.
+        img_fill (RGBLike): RGB value used to pad transformed image. 
+                            This RGB value can be:
+                                - a RGB tuple
+                                - an integer `x`, assumed to represent `(x, x, x)`.
+                            This RGB value should be in the same value space as the expected input images.
                             For example, if the input images are scaled to [0, 1], 
                             `img_fill` values should also be scaled to [0, 1].
-                            If `int`, assumed `(img_fill, img_fill, img_fill)`.
                             Default is `0`.
-        mask_fill (RGBLike): The fill value to pad transformed mask.
-                             This should be a RGB tuple in the same value space as the expected input masks.
+        mask_fill (RGBLike): RGB value used to pad transformed mask.
+                             This RGB value can be:
+                                - a RGB tuple
+                                - an integer `x`, assumed to represent `(x, x, x)`.
+                             This RGB value should be in the same value space as the expected input masks.
                              For example, if the input masks are scaled to [0, 1], 
                              `mask_fill` values should also be scaled to [0, 1].
-                             If `int`, assumed `(mask_fill, mask_fill, mask_fill)`.
                              Default is `255`.
     '''
     def __init__(

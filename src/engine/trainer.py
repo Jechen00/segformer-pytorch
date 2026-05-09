@@ -384,7 +384,7 @@ class ModelTrainer():
     def should_save_best_model(self)-> bool:
         '''
         Returns whether best model saving is available.
-        Note that saving a best model is only considered when 
+        Saving a best model is only considered when 
         `self.measure_policy` is provided to determine improvement.
         '''
         cfg = self.save_cfg

@@ -136,6 +136,12 @@ def separate_checkpoint(
     '''
     Extracts components from a checkpoint and saves them as separate `.pth` files.
 
+    Notes: 
+        - Exactly one of `checkpoint` or `checkpoint_path` must be provided.
+        - With the exception of `histories`, the checkpoint must have a matching key for each element in `components`.
+        - If `histories` is in `components`, the checkpoint must have the keys `train_history` and `val_history`.
+        - The checkpoint must always have the key `checkpoint_epoch`.
+
     Args:
         checkpoint (optional, Dict[str, Any]): Checkpoint dictionary to separate.
         checkpoint_path (optional, Union[str, Path]): Path to a checkpoint file to load and then separate.              
@@ -146,11 +152,6 @@ def separate_checkpoint(
         base_dir (optional, Union[str, Path]): The base directory where the save directory will be created.
                                                The save directory is `base_dir/checkpoint_epoch_{num}`,
                                                where `num = checkpoint['checkpoint_epoch']`.
-    Notes: 
-        - Exactly one of `checkpoint` or `checkpoint_path` must be provided.
-        - With the exception of `histories`, the checkpoint must have a matching key for each element in `components`.
-        - If `histories` is in `components`, the checkpoint must have the keys `train_history` and `val_history`.
-        - The checkpoint must always have the key `checkpoint_epoch`.
     '''
     # Check provided checkpoint and load it in if needed
     if all_or_none(checkpoint, checkpoint_path):

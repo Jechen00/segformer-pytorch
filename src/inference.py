@@ -120,7 +120,7 @@ def preprocess_imgs(
 
     # Check images are tensors and shapes are all the same
     imgs_list = imgs if isinstance(imgs, list) else [imgs]
-    check_tensor_shapes(imgs_list)
+    check_tensor_shapes(imgs_list, 'images after optional transforms')
 
     # Ensure imgs has a batch dimension
         # Triggers when imgs is a list of samples or samps was a single-sample input

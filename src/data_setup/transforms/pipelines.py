@@ -10,6 +10,8 @@ from src.ml_types import RGBLike, SpatialSize
 from src.data_setup.transforms.ops import ImageTransform, SegRandomAffine, SegLetterbox
 
 TransformType: TypeAlias = Literal['phot', 'geo']
+GeoTransform: TypeAlias = Union[SegRandomAffine, SegLetterbox, v2.Compose]
+
 
 
 #####################################
@@ -21,8 +23,9 @@ def get_transforms(
     sizing_mode: Literal['resize', 'letterbox'] = 'letterbox',
     img_interpolation: InterpolationMode = InterpolationMode.BILINEAR,
     img_fill: RGBLike = 0,
-    mask_fill: RGBLike = 255  
-) -> Union[ImageTransform, v2.Compose]:
+    mask_fill: RGBLike = 255,
+    include_geo_augs: bool = True
+) -> Union[ImageTransform, Optional[GeoTransform], v2.Compose]:
     '''
     Creates a torchvision transform pipeline containing photometric and/or geometric transforms.
     Photomeric transforms apply to images only, 
@@ -34,9 +37,10 @@ def get_transforms(
         3) Random Gaussian Blur (prob = 0.1)
 
     The geometric transforms are ordered as:
-        1) Optional resizing (with v2.Resize or SegLetterbox)
-        2) Random Horizontal Flip (prob = 0.5)
-        3) Random Affine
+        1) Optional resizing (v2.Resize or SegLetterbox)
+        2) Optional geometric augmentations:
+            2.1) Random Horizontal Flip (prob = 0.5)
+            2.2) Random Affine
 
     Args:
         tf_types (Union[TransformType, List[TransformType], Tuple[TransformType, ...]]): 
@@ -49,24 +53,36 @@ def get_transforms(
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the geometric augmentations of the image.
                                                            Default is `InterpolationMode.BILINEAR`.
                                                            Note that the mask transforms always uses `InterpolationMode.NEAREST`.
-        img_fill (RGBLike): The value used to fill parts of the image during geometric transforms.
-                            This should be a RGB tuple in the same value space as the image.
-                            For example, if the image is scaled to [0, 1], `img_fill` values should also be scaled to [0, 1].
-                            If `int`, assumed `(img_fill, img_fill, img_fill)`.
+        img_fill (RGBLike): RGB value used to fill parts of the image during geometric transforms.
+                            This RGB value can be:
+                                - a RGB tuple
+                                - an integer `x`, assumed to represent `(x, x, x)`.
+                            This RGB value should be in the same value space as the image.
+                            For example, if the image is scaled to [0, 1], 
+                            `img_fill` values should also be scaled to [0, 1].
                             Default is `0`.
-        mask_fill (RGBLike): The value used to fill parts of the mask during geometric transforms.
-                             This should be a RGB tuple in the same value space as the segmentation mask.
-                             For example, if mask is scaled to [0, 1], `mask_fill` values should also be scaled to [0, 1].
-                             If `int`, assumed `(mask_fill, mask_fill, mask_fill)`.
+        mask_fill (RGBLike): RGB value used to fill parts of the mask during geometric transforms.
+                             This RGB value can be:
+                                - a RGB tuple
+                                - an integer `x`, assumed to represent `(x, x, x)`.
+                             This RGB value should be in the same value space as the segmentation mask.
+                             For example, if mask is scaled to [0, 1], 
+                             `mask_fill` values should also be scaled to [0, 1].
                              Default is `255`.
+        include_geo_augs (bool): Whether to include geometric augmentations in the transform pipeline.
+                                 Default is `True`.
 
     Returns:
-        Union[ImageTransform, v2.Compose]: Transform pipeline containing photometric and/or geometric augmentations.
+        Union[ImageTransform, Optional[GeoTransform], v2.Compose]: 
+            Transform pipeline containing photometric and/or geometric augmentations.
+
+            Returns `None` when only geometric transforms are requested (e.g. `tf_types = 'geo'`),
+            but no sizing is specified (`size is None`) 
+            and geometric augmentations are not included (`include_geo_augs = False`).
     '''
-    def get_tf_pipeline(tf_types: TransformType) -> Union[ImageTransform, v2.Compose]:
+    def get_tf_pipeline(tf_types: TransformType) -> Union[ImageTransform, Optional[GeoTransform]]:
         '''
-        Helper that returns the transform pipeline
-        for a single transform type ('phot' or 'geo').
+        Helper that returns the transform pipeline for a single transform type ('phot' or 'geo').
         '''
         if tf_types == 'phot':
             return get_phot_transforms()
@@ -76,9 +92,9 @@ def get_transforms(
                 sizing_mode = sizing_mode,
                 img_interpolation = img_interpolation,
                 img_fill = img_fill,
-                mask_fill = mask_fill
+                mask_fill = mask_fill,
+                include_augs = include_geo_augs
             ) 
-        
         raise ValueError(f'Unexpected tf_type: {tf_types}')
         
     if isinstance(tf_types, str):
@@ -89,9 +105,20 @@ def get_transforms(
             raise ValueError(
                 f'tf_types must not contain duplicates. Got: {tf_types}'
             )
+        
+        transforms = []
+        for tf_type in tf_types:
+            tf_pipeline = get_tf_pipeline(tf_type)
+            if tf_pipeline is not None:
+                transforms.append(tf_pipeline)
 
-        transforms = [get_tf_pipeline(tf_type) for tf_type in tf_types]
-        return transforms[0] if len(transforms) == 1 else v2.Compose(transforms)
+        num_transforms = len(transforms)
+        if num_transforms == 0:
+            return None
+        elif num_transforms == 1:
+            return transforms[0]
+        else:
+            return v2.Compose(transforms)
     
     raise TypeError('tf_types must be a string, list, or tuple.')
 
@@ -126,16 +153,18 @@ def get_geo_transforms(
     sizing_mode: Literal['resize', 'letterbox'] = 'letterbox',
     img_interpolation: InterpolationMode = InterpolationMode.BILINEAR,
     img_fill: RGBLike = 0,
-    mask_fill: RGBLike = 255  
-) -> v2.Compose:
+    mask_fill: RGBLike = 255,
+    include_augs: bool = True
+) -> Optional[GeoTransform]:
     '''
-    Creates a torchvision `v2.Compose` pipeline containing only geometric transforms.
+    Creates a torchvision pipeline containing only geometric transforms.
     These transforms are shared between images and their optional segmentation masks.
 
     The transforms are ordered as:
         1) Optional resizing (v2.Resize or SegLetterbox)
-        2) Random Horizontal Flip (prob = 0.5)
-        3) Random Affine
+        2) Optional geometric augmentations:
+            2.1) Random Horizontal Flip (prob = 0.5)
+            2.2) Random Affine
 
     Args:
         size (optional, SpatialSize): Size `(height, width)` to resize both image and segmentation mask.
@@ -153,20 +182,41 @@ def get_geo_transforms(
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the transforms of the image.
                                                            Default is `InterpolationMode.BILINEAR`.
                                                            Note that the mask transforms always uses `InterpolationMode.NEAREST`.
-        img_fill (RGBLike): The value used to fill/pad parts of the image during geometric transforms.
-                            This should be a RGB tuple in the same value space as the image.
-                            For example, if the image is scaled to [0, 1], `img_fill` values should also be scaled to [0, 1].
-                            If `int`, assumed `(img_fill, img_fill, img_fill)`.
+        img_fill (RGBLike): RGB value used to fill parts of the image during geometric transforms.
+                            This RGB value can be:
+                                - a RGB tuple
+                                - an integer `x`, assumed to represent `(x, x, x)`.
+                            This RGB value should be in the same value space as the image.
+                            For example, if the image is scaled to [0, 1], 
+                            `img_fill` values should also be scaled to [0, 1].
                             Default is `0`.
-        mask_fill (RGBLike): The value used to fill/pad parts of the mask during geometric transforms.
-                             This should be a RGB tuple in the same value space as the segmentation mask.
-                             For example, if the mask is scaled to [0, 1], `mask_fill` values should also be scaled to [0, 1].
-                             If `int`, assumed `(mask_fill, mask_fill, mask_fill)`.
+        mask_fill (RGBLike): RGB value used to fill parts of the mask during geometric transforms.
+                             This RGB value can be:
+                                - a RGB tuple
+                                - an integer `x`, assumed to represent `(x, x, x)`.
+                             This RGB value should be in the same value space as the segmentation mask.
+                             For example, if mask is scaled to [0, 1], 
+                             `mask_fill` values should also be scaled to [0, 1].
                              Default is `255`.
+        include_augs (bool): Whether to include geometric augmentations in the transform pipeline.
+                             Default is `True`.
 
     Returns:
-        v2.Compose: A torchvision transform pipeline containing geometric transforms.
+        optional, GeoTransform: A torchvision transform pipeline containing geometric transforms.
+
+                                Returns a `v2.Compose` pipeline if 
+                                geometric augmentations are included (`include_augs = True`).
+
+                                Returns `SegRandomAffine` or `SegLetterbox` if
+                                sizing is specified (`size is not None`)
+                                and no geometric augmentations are included (`include_augs = False`).
+
+                                Returns `None` when no sizing is specified (`size is None`)
+                                and no geometric augmentations are included (`include_augs = False`).
     '''
+    if (size is None) and (not include_augs):
+        return None
+    
     transforms = []
     # Add sizing transform
     if size is not None:
@@ -182,15 +232,16 @@ def get_geo_transforms(
         transforms.append(size_transform)
 
     # Add geometric transforms
-    transforms.extend([
-        v2.RandomHorizontalFlip(p = 0.5),
-        SegRandomAffine(
-            degrees = 5,
-            scale = (0.9, 1.1),
-            translate = (0.05, 0.05),
-            img_interpolation = img_interpolation,
-            img_fill = img_fill,
-            mask_fill = mask_fill
-        )
-    ])
-    return v2.Compose(transforms)
+    if include_augs:
+        transforms.extend([
+            v2.RandomHorizontalFlip(p = 0.5),
+            SegRandomAffine(
+                degrees = 5,
+                scale = (0.9, 1.1),
+                translate = (0.05, 0.05),
+                img_interpolation = img_interpolation,
+                img_fill = img_fill,
+                mask_fill = mask_fill
+            )
+        ])
+    return transforms[0] if len(transforms) == 1 else v2.Compose(transforms)

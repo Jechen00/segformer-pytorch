@@ -2,8 +2,9 @@
 # Imports & Dependencies
 #####################################
 from torchvision.transforms import v2
+from torchvision import tv_tensors
 from torchvision.transforms import InterpolationMode
-import torchvision.transforms.functional as F
+import torchvision.transforms.v2.functional as F
 
 from typing import Sequence, Union, Optional, Tuple
 
@@ -14,6 +15,27 @@ from src.ml_types import SpatialSize, ImageInput, RGBLike
 #####################################
 # Functions
 #####################################
+def to_image_and_mask(
+    img: ImageInput, 
+    mask: Optional[ImageInput] = None
+) -> Tuple[tv_tensors.Image, Optional[tv_tensors.Mask]]:
+    '''
+    Converts an image and optional segmentation mask into `torchvison.tv_tensors`.
+
+    Args:
+        img (ImageInput):  Input image to transform. If `torch.Tensor`, shape is `(..., height, width)`.
+        mask (optional, ImageInput): Segmentation mask for the image, with the same spatial dimensions.
+
+    Returns:
+        img (tv_tensors.Image): The converted image as a `tv_tensors.Image` tensor.
+        mask (optional, tv_tensors.Mask): The converted mask as a `tv_tensors.Mask` tensor.
+                                          This is `None` if an input mask was not provided.
+    '''
+    img = tv_tensors.Image(img)
+    mask = tv_tensors.Mask(mask) if mask is not None else None
+    return img, mask
+
+
 def seg_random_affine(
     img: ImageInput,
     mask: Optional[ImageInput] = None,
@@ -55,16 +77,23 @@ def seg_random_affine(
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
                                                            Default is `InterpolationMode.BILINEAR`.
                                                            Note that the mask transform always uses `InterpolationMode.NEAREST`.
-        img_fill (RGBLike): The fill value for areas outside transformed image, to maintain original shape.
-                            This should be a RGB tuple in the same value space as `img`.
-                            For example, if `img` is scaled to [0, 1], `img_fill` values should also be scaled to [0, 1].
-                            If `int`, assumed `(img_fill, img_fill, img_fill)`.
+        img_fill (RGBLike): RGB value used to fill areas outside the transformed image, to maintain original shape.
+                            This RGB value can be:
+                                - a RGB tuple
+                                - an integer `x`, assumed to represent `(x, x, x)`.
+                            This RGB value should be in the same value space as the expected input images.
+                            For example, if the input images are scaled to [0, 1], 
+                            `img_fill` values should also be scaled to [0, 1].
                             Default is `0`.
-        mask_fill (RGBLike): The fill value for areas outside transformed mask, to maintain original shape.
-                             This should be a RGB tuple in the same value space as `mask`.
-                             For example, if `mask` is scaled to [0, 1], `mask_fill` values should also be scaled to [0, 1].
-                             If `int`, assumed `(mask_fill, mask_fill, mask_fill)`.
+        mask_fill (RGBLike): RGB value used to fill areas outside the transformed mask, to maintain original shape.
+                             This RGB value can be:
+                                - a RGB tuple
+                                - an integer `x`, assumed to represent `(x, x, x)`.
+                             This RGB value should be in the same value space as the expected input masks.
+                             For example, if the input masks are scaled to [0, 1], 
+                             `mask_fill` values should also be scaled to [0, 1].
                              Default is `255`.
+
     Returns:
         img (ImageInput): Image after applying random affine transform.
                           Spatial size and datatype matches the input image.
@@ -93,6 +122,7 @@ def seg_random_affine(
                         fill = mask_fill)
     return img, mask
 
+
 def seg_letterbox(
     img: ImageInput,
     size: SpatialSize, 
@@ -117,16 +147,23 @@ def seg_letterbox(
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
                                                            Default is `InterpolationMode.BILINEAR`.
                                                            Note that the mask transform always uses `InterpolationMode.NEAREST`.
-        img_fill (RGBLike): The fill value to pad transformed image. 
-                            This should be a RGB tuple in the same value space as `img`.
-                            For example, if `img` is scaled to [0, 1], `img_fill` values should also be scaled to [0, 1].
-                            If `int`, assumed `(img_fill, img_fill, img_fill)`.
+        img_fill (RGBLike): RGB value used to pad transformed image. 
+                            This RGB value can be:
+                                - a RGB tuple
+                                - an integer `x`, assumed to represent `(x, x, x)`.
+                            This RGB value should be in the same value space as the expected input images.
+                            For example, if the input images are scaled to [0, 1], 
+                            `img_fill` values should also be scaled to [0, 1].
                             Default is `0`.
-        mask_fill (RGBLike): The fill value to pad transformed mask.
-                             This should be a RGB tuple in the same value space as `mask`.
-                             For example, if `mask` is scaled to [0, 1], `mask_fill` values should also be scaled to [0, 1].
-                             If `int`, assumed `(mask_fill, mask_fill, mask_fill)`.
+        mask_fill (RGBLike): RGB value used to pad transformed mask.
+                             This RGB value can be:
+                                - a RGB tuple
+                                - an integer `x`, assumed to represent `(x, x, x)`.
+                             This RGB value should be in the same value space as the expected input masks.
+                             For example, if the input masks are scaled to [0, 1], 
+                             `mask_fill` values should also be scaled to [0, 1].
                              Default is `255`.
+                             
     Returns:
         img (ImageInput): Image after applying letterbox transform. 
                           Spatial size is `(height, width) = (size[0], size[1])`.

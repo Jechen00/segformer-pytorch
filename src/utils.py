@@ -54,15 +54,22 @@ def get_device() -> torch.device:
     return device
 
 
-def make_tuple(x: Union[Any, tuple]) -> tuple:
+def make_tuple(x: Union[Any, tuple], num_rep: int = 2) -> tuple:
     '''
-    Converts input to a tuple `(x, x)`, if it is not already a tuple. 
+    Converts a non-tuple input into a repeated tuple.
+    If input is a tuple, it is unchanged.
 
     Args:
-        x (Union[Any, tuple]): Input to convert into a tuple (if needed).
+        x (Union[Any, tuple]): Input value. If not a tuple, it will be repeated.
+        num_rep (int): Number of repetitions for the output tuple,
+                       when `x` is a not a tuple.
+
+    Returns:
+        tuple: If `x` is not a tuple, returns `(x, x, ..., x)` of length `num_rep`
+               If `x` is a tuple, returns `x` unchanged.
     '''
     if not isinstance(x, tuple):
-        return (x, x)
+        return (x,) * num_rep
     else:
         return x
 
@@ -85,17 +92,24 @@ def all_or_none(*params) -> bool:
     return all(p is None for p in params) or all(p is not None for p in params)
 
 
-def check_tensor_shapes(tensors: List[torch.Tensor]) -> None:
+def check_tensor_shapes(
+    tensors: List[torch.Tensor], 
+    context_name: str = 'inputs'
+) -> None:
     '''
-    Checks that a list of inputs are all tensors
-    and that they all have the same shape.
+    Checks that a list of inputs are all tensors and that they all have the same shape.
+
+    Args:
+        tensors (List[torch.Tensor]): A list of tensors of the same shape.
+        context_name (str): Name for the elements in `tensors` to provide context on what they are.
+                            This is used for more specific error messages.
+                            Default is `inputs`.
     '''
     ref_shape = None
     for tensor in tensors:
         if not isinstance(tensor, torch.Tensor):
             raise TypeError(
-                'Expected all images to be a tensor after applying optional transforms. '
-                f'Got: {type(tensor)}'
+                f'Expected all {context_name} to be tensors. Got: {type(tensor)}'
             )
 
         tensor_shape = tensor.shape
@@ -103,7 +117,7 @@ def check_tensor_shapes(tensors: List[torch.Tensor]) -> None:
             ref_shape = tensor_shape
         elif tensor_shape != ref_shape:
             raise ValueError(
-                'Expected all images to be the same shape after applying optional transforms. '
+                f'Expected all {context_name} to have the same shape. '
                 f'Got: {tuple(ref_shape)} and {tuple(tensor_shape)}'
             )
 

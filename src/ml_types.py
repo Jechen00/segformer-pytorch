@@ -35,7 +35,8 @@ class CollatedDict(TypedDict):
 
     
 IndexLike: TypeAlias = Union[int, List[int], Tuple[int, ...], torch.Tensor, np.ndarray]
-RGBLike: TypeAlias = Union[int, Tuple[int, int, int]]
+RGBTuple: TypeAlias = Tuple[int, int, int]
+RGBLike: TypeAlias = Union[int, RGBTuple]
 
 SpatialSize: TypeAlias = Union[int, Tuple[int, int]]
 ImageInput: TypeAlias = Union[Image.Image, torch.Tensor]

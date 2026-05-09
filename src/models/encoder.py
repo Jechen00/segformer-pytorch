@@ -154,6 +154,8 @@ class MixTransformer(nn.Module):
     '''
     The Mix Transformer (MiT) encoder for SegFormer.
     
+    Note: All sequence inputs must have the same length, equal to the number of encoder stages.
+
     Args:
         in_channels (int): Number of input channels.
         feature_dims (Sequence[int]): Dimension of output features (channels or embeddings) in each encoder stage.
@@ -172,8 +174,6 @@ class MixTransformer(nn.Module):
                                  The probability starts at `0.0` and linearly increases across all encoder blocks,
                                  reaching `max_sdepth_prob` at the final block of the final stage.
                                  Default is `0.0`.
-                                 
-    Note: All sequence inputs must have the same length.
     '''
     def __init__(
         self,

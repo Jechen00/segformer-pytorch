@@ -40,8 +40,6 @@ class HFClassificationDataset(Dataset):
                                 2. Optional user-provided transforms from `transforms`
                                 3. Datatype conversion using `ToDtype(torch.float32, scale = True)`
                           Default is `True`.
-        
-    Note: The full transform pipeline can be accessed through `self.transform_pipeline`.
     '''
     def __init__(
         self, 
@@ -66,11 +64,12 @@ class HFClassificationDataset(Dataset):
                 self.class_names = None
 
         if self.class_names is not None:
-            self.class_to_idx = {i: label for i, label in enumerate(self.class_names)}
-            self.idx_to_class = {label: i for label, i in enumerate(self.class_names)}
+            self.class_to_idx, self.idx_to_class = {}, {}
+            for i, label in enumerate(self.class_names):
+                self.class_to_idx[label] = i
+                self.idx_to_class[i] = label
         else:
-            self.class_to_idx = None
-            self.idx_to_class = None
+            self.class_to_idx, self.idx_to_class = None, None
 
     def __len__(self) -> int:
         return len(self.hf_dataset)
@@ -100,7 +99,7 @@ class HFClassificationDataset(Dataset):
         '''
         if isinstance(idxs, int):
             # Indexing with a single integer
-            return self._get_single_item(idxs)
+            return self.get_single_item(idxs)
         elif isinstance(idxs, np.ndarray):
             idxs = idxs.tolist()
         elif isinstance(idxs, torch.Tensor):
@@ -112,10 +111,10 @@ class HFClassificationDataset(Dataset):
         )
 
         # Indexing with multiple integers
-        items = [self._get_single_item(idx) for idx in idxs]
+        items = [self.get_single_item(idx) for idx in idxs]
         return transpose_list_dict(items, mode = 'to_cols')
     
-    def _get_single_item(self, idx: int) -> SampleDict:
+    def get_single_item(self, idx: int) -> SampleDict:
         '''
         Gets a sample dictionary containing image and label information,
         given a **singe** index.
@@ -148,8 +147,8 @@ class HFClassificationDataset(Dataset):
     def _make_transform_pipeline(self) -> None:
         '''
         Creates a single torchvision `v2.Compose` pipeline that may include:
-            1. Image tensor conversion (if `self.to_tensor = True`)
-            2. User-provided transforms (if `self._transforms is not None`)
+            1. User-provided transforms (if `self._transforms is not None`)
+            2. Image tensor conversion (if `self.to_tensor = True`)
             3. Float32 conversion and scaling (if `self.to_tensor = True`)
 
         The final `v2.Compose` pipeline is stored in `self.transform_pipeline`.
@@ -157,19 +156,18 @@ class HFClassificationDataset(Dataset):
         then `self.transform_pipeline` will be `None.
         '''
         pipeline = []
-        if self._to_tensor:
-            pipeline.append(v2.ToImage()) # Converts to an image tensor
-
         if self._transforms is not None:
             pipeline.append(self._transforms)
 
         if self._to_tensor:
-            pipeline.append(v2.ToDtype(torch.float32, scale = True)) # Converts to float32 and scale
+            # Note: I put ToImage() after user-provided transforms
+                # because geometric transforms seem to work better with PIl images
+            pipeline.extend([
+                v2.ToImage(), # Converts to an image tensor
+                v2.ToDtype(torch.float32, scale = True) # Converts to float32 and scale
+            ])
 
-        if len(pipeline) > 0:
-            self.transform_pipeline = v2.Compose(pipeline)
-        else:
-            self.transform_pipeline = None
+        self.transform_pipeline = v2.Compose(pipeline) if (len(pipeline) > 0) else None
 
     def _init_transform_pipeline(self, transforms: Callable, to_tensor: bool) -> None:
         '''
@@ -218,7 +216,7 @@ class HumanBinaryDataset(HFClassificationDataset):
     Human vs non-human binary classification dataset from 
     https://huggingface.co/datasets/prithivMLmods/Human-vs-NonHuman
 
-    Note that the raw Hugging Face (HF) dataset does not have a training/validation split,
+    The raw Hugging Face (HF) dataset does not have a training/validation split,
     so it is created using the built-in `train_test_split()` method and a split seed.
     Additionally, a letterbox transform (fill = 0) has already been applied to the images in the raw HF dataset.
 
