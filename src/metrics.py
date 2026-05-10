@@ -28,14 +28,14 @@ class ClassificationMetrics():
 
     Args:
         num_classes (int): Number of classes in the dataset.
-        invalid_idx (optional, int): Index for an 'invalid class'.
-                                     Targets with this index will be ignored (along with their predictions)
-                                     when computing the confusion matrix and related metrics.
+        ignore_idx (optional, int): Index for an 'ignore class'.
+                                    Targets with this index will be ignored (along with their predictions)
+                                    when computing the confusion matrix and related metrics.
     '''
-    def __init__(self, num_classes: int, invalid_idx: Optional[int] = None):
+    def __init__(self, num_classes: int, ignore_idx: Optional[int] = None):
         self.num_classes = num_classes
         self.conf_mat = None
-        self.invalid_idx = invalid_idx
+        self.ignore_idx = ignore_idx
         
     def update(self, preds: torch.Tensor, targs: torch.Tensor) -> None:
         '''
@@ -54,8 +54,8 @@ class ClassificationMetrics():
         preds = preds.flatten()
         targs = targs.flatten()
         
-        if self.invalid_idx is not None:
-            valid_mask = (targs != self.invalid_idx)
+        if self.ignore_idx is not None:
+            valid_mask = (targs != self.ignore_idx)
             preds = preds[valid_mask]
             targs = targs[valid_mask]
 

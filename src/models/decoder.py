@@ -66,7 +66,12 @@ class MLPDecoder(nn.Module):
         fused_X = []
         for X, stage_conv in zip(encoder_outs, self.stage_convs):
             X = stage_conv(X)
-            X = F.interpolate(X, size = encoder_outs[0].shape[-2:], mode = 'bilinear')
+            X = F.interpolate(
+                X, 
+                size = encoder_outs[0].shape[-2:], 
+                mode = 'bilinear', 
+                align_corners = False
+            )
             fused_X.append(X)
         
         fused_X = torch.concatenate(fused_X, dim = 1)

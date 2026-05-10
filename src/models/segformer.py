@@ -2,6 +2,7 @@
 # Imports & Dependencies
 #####################################
 import torch
+import torch.nn.functional as F
 from torch import nn
 
 from typing import Sequence, Optional
@@ -35,8 +36,18 @@ class EncoderDecoder(nn.Module):
 
         Returns:
             torch.Tensor: Output tensor produced by the decoder.
+                          This has the same spatial size as the input `X`.
         '''
-        return self.decoder(self.encoder(X))
+        spatial_size = X.shape[-2:]
+        X = self.decoder(self.encoder(X))
+        X = F.interpolate(
+            X, 
+            size = spatial_size, 
+            mode = 'bilinear',
+            align_corners = False
+        )
+
+        return X
     
 
 class SegFormerDefault(EncoderDecoder):

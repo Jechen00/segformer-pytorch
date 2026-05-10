@@ -342,6 +342,11 @@ class ModelTrainer():
         if (hasattr(self.loss_fn, 'reduction')) and (self.loss_fn.reduction != 'sum'):
             raise ValueError("loss_fn.reduction must be 'sum' if defined.")
    
+        if self.loss_norm not in ['batch', 'element', 'valid', 'none']:
+            raise ValueError(
+                "loss_norm must be 'batch', 'element', 'valid' or 'none'."
+            )
+        
         if (self.loss_norm == 'valid') and (not hasattr(self.loss_fn, 'ignore_index')):
             raise AttributeError(
                 "loss_fn must define an ignore_index attribute if loss_norm = 'valid'."
