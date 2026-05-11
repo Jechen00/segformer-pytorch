@@ -49,11 +49,14 @@ def seg_random_affine(
 ) -> Tuple[ImageInput, Optional[ImageInput]]:
     '''
     Functional random affine transform for a **single** sample.
-    This supports transforming both image and optional mask, with separate fill values.
     The same random affine parameters are applied to image and optional mask.
 
     The transform parameters are sampled using v2.RandomAffine.params: 
         https://docs.pytorch.org/vision/main/generated/torchvision.transforms.v2.RandomAffine.html
+
+    Note: This supports separate fill values for the image and mask.
+          The interpolation method for the image is also user-defined,
+          while the method for the mask is always `InterpolationMode.NEAREST`.
 
     Args:
         img (ImageInput):  Input image to transform. If `torch.Tensor`, shape is `(..., height, width)`.
@@ -76,7 +79,6 @@ def seg_random_affine(
                                                               If `None`, no shearing is applied.
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
                                                            Default is `InterpolationMode.BILINEAR`.
-                                                           Note that the mask transform always uses `InterpolationMode.NEAREST`.
         img_fill (RGBLike): RGB value used to fill areas outside the transformed image, to maintain original shape.
                             This RGB value can be:
                                 - a RGB tuple
@@ -132,11 +134,14 @@ def seg_letterbox(
     mask_fill: RGBLike = 255
 ) -> Tuple[ImageInput, Optional[ImageInput]]:
     '''
-    Functional letterbox transform for a **single** sample.
-    This supports transforming both image and optional mask, with separate fill values.
-    This is similar to a standard resize transform, 
-    but the image is resized to fit within the target dimensions while preserving the aspect ratio. 
+    Functional letterbox transform for a **single** image and optional segmentation mask.
+    This is similar to a standard resize transform,  but the image is resized to fit 
+    within the target dimensions while preserving the aspect ratio. 
     Any remaining space is filled with padding to match the target dimensions.
+
+    Note: This supports separate fill values for the image and mask.
+          The interpolation method for the image is also user-defined,
+          while the method for the mask is always `InterpolationMode.NEAREST`.
 
     Args:
         img (ImageInput):  Input image to transform. If `torch.Tensor`, shape is `(..., height, width)`.
@@ -146,7 +151,6 @@ def seg_letterbox(
                             If `int`, assumed square.
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
                                                            Default is `InterpolationMode.BILINEAR`.
-                                                           Note that the mask transform always uses `InterpolationMode.NEAREST`.
         img_fill (RGBLike): RGB value used to pad transformed image. 
                             This RGB value can be:
                                 - a RGB tuple
@@ -196,5 +200,42 @@ def seg_letterbox(
     if mask is not None:
         mask = F.resize(mask, size = (scaled_h, scaled_w), interpolation = InterpolationMode.NEAREST)
         mask = F.pad(mask, padding = (pad_l, pad_t, pad_r, pad_b), fill = mask_fill, padding_mode = 'constant')
+
+    return img, mask
+
+
+def seg_resize(
+    img: ImageInput, 
+    size: SpatialSize,
+    mask: Optional[ImageInput] = None,    
+    img_interpolation: InterpolationMode = InterpolationMode.BILINEAR
+) -> Tuple[ImageInput, Optional[ImageInput]]:
+    '''
+    Functional resize for a **single** image and optional segmentation mask using `F.resize`.
+    This will **not** preserve aspect ratio when resizing.
+
+    Note: The interpolation method for the image is user-defined, 
+          while the method for the mask is always `InterpolationMode.NEAREST`.
+
+    Args:
+        img (ImageInput):  Input image to transform. If `torch.Tensor`, shape is `(..., height, width)`.
+        mask (optional, ImageInput): Segmentation mask for the image, with the same spatial dimensions.
+        size (SpatialSize): Size `(height, width)` to transform `img` and (optionally) `mask` into.
+                            If `int`, assumed square.
+        img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
+                                                           Default is `InterpolationMode.BILINEAR`.
+
+    Returns:
+        img (ImageInput): Image after applying resize transform. 
+                          Spatial size is `(height, width) = (size[0], size[1])`.
+                          Datatype matches the input image.
+        
+        mask (optional, ImageInput): Segmentation mask for the resized image. 
+                                     Datatype matches the input mask.
+                                     This is `None` if an input mask was not provided.
+    '''
+    img = F.resize(img, size = size, interpolation = img_interpolation)
+    if mask is not None:
+        mask = F.resize(mask, size = size, interpolation = InterpolationMode.NEAREST)
 
     return img, mask

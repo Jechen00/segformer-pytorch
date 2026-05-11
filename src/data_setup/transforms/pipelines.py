@@ -7,7 +7,7 @@ from torchvision.transforms import InterpolationMode
 from typing import List, Tuple, Literal, Union, Optional, TypeAlias
 
 from src.ml_types import RGBLike, SpatialSize
-from src.data_setup.transforms.ops import ImageTransform, SegRandomAffine, SegLetterbox
+from src.data_setup.transforms.ops import ImageTransform, SegRandomAffine, SegLetterbox, SegResize
 
 TransformType: TypeAlias = Literal['phot', 'geo']
 GeoTransform: TypeAlias = Union[SegRandomAffine, SegLetterbox, v2.Compose]
@@ -37,7 +37,7 @@ def get_transforms(
         3) Random Gaussian Blur (prob = 0.1)
 
     The geometric transforms are ordered as:
-        1) Optional resizing (v2.Resize or SegLetterbox)
+        1) Optional resizing (SegResize or SegLetterbox)
         2) Optional geometric augmentations:
             2.1) Random Horizontal Flip (prob = 0.5)
             2.2) Random Affine
@@ -161,7 +161,7 @@ def get_geo_transforms(
     These transforms are shared between images and their optional segmentation masks.
 
     The transforms are ordered as:
-        1) Optional resizing (v2.Resize or SegLetterbox)
+        1) Optional resizing (SegResize or SegLetterbox)
         2) Optional geometric augmentations:
             2.1) Random Horizontal Flip (prob = 0.5)
             2.2) Random Affine
@@ -172,7 +172,7 @@ def get_geo_transforms(
                                       If not provided, no resizing is applied.
         sizing_mode (Literal['resize', 'letterbox']): The resizing method to use when `size` is provided.
                                                       Supported modes:
-                                                            - 'resize': Uses `v2.Resize`.
+                                                            - 'resize': Uses `SegResize`.
                                                                         Directly scales the image/mask to `size`.
                                                                         Does not preserve aspect ratio.
                                                             - 'letterbox': Uses `SegLetterbox`.
@@ -228,7 +228,7 @@ def get_geo_transforms(
                 mask_fill = mask_fill
             )
         elif sizing_mode == 'resize':
-            size_transform = v2.Resize(size = size, interpolation = img_interpolation)
+            size_transform = SegResize(size = size, interpolation = img_interpolation)
         transforms.append(size_transform)
 
     # Add geometric transforms

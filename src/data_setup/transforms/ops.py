@@ -1,7 +1,7 @@
 #####################################
 # Imports & Dependencies
 #####################################
-from torchvision.transforms import InterpolationMode
+from torchvision.transforms import v2, InterpolationMode
 
 from abc import ABC, abstractmethod
 from typing import (
@@ -31,7 +31,7 @@ class ImageTransform():
         self.transforms = transforms
 
     def __repr__(self) -> str:
-        return f'ImageTransform({repr(self._transforms)})'
+        return f'{self.__class__.__name__}({repr(self.transforms)})'
 
     def __call__(
         self, 
@@ -60,46 +60,36 @@ class ImageTransform():
 
         imgs = output_dict['image']
         if isinstance(imgs, list):
-            output_dict['image'] = [self._transform_single(img) for img in imgs]
+            output_dict['image'] = [self._transforms(img) for img in imgs]
         else:
-            output_dict['image'] = self._transform_single(imgs)
+            output_dict['image'] = self._transforms(imgs)
 
         return output_dict
-    
-    def _transform_single(self, img: ImageInput) -> ImageInput:
-        '''
-        Applies `self.transforms` to a **single** image.
-
-       Args:
-            img (ImageInput): The image to transform. If `torch.Tensor`, shape is `(..., height, width)`.
-
-        Returns:
-            ImageInput: Output image after applying `self.transform`.
-
-        '''
-        for transform in self._transforms:
-            img = transform(img)
-        return img
 
     @property
-    def transforms(self) -> TransformTypes:
+    def transforms(self) -> Union[Callable, v2.Compose]:
         return self._transforms
     
     @transforms.setter
     def transforms(self, values: TransformTypes) -> None:
         if isinstance(values, (list, tuple)):
-            if not all(callable(val) for val in values):
-                raise TypeError(
-                    'All elements in transforms must be callable.'
-                )
-            self._transforms = values
+            num_transforms = len(values)
+            if num_transforms == 0:
+                raise ValueError('transforms cannot be empty.')
+            if not all(callable(v) for v in values):
+                raise ValueError('All elements in transforms must be callable')
+
+            if num_transforms == 1:
+                    self._transforms = values[0]
+            else:
+                self._transforms = v2.Compose(values)
 
         elif callable(values):
-            self._transforms = [values]
+            self._transforms = values
             
         else:
             raise TypeError(
-                'transforms must be a callable or a list/tuple of callables.'
+                'transforms must be a callable or a non-empty list/tuple of callables.'
             )
 
 
@@ -216,13 +206,16 @@ class ToImageAndMask(SegTransformBase):
         return {}
 
 
-
 class SegRandomAffine(SegTransformBase):
     '''
-    Random affine transform with support for separate fill values for images and segmentation masks.
+    Random affine transform for both images and optional segmentation masks.
     For a single sample with an image and mask, the same random affine parameters are applied to both.
 
     This uses `functional.seg_random_affine` to apply transforms.
+
+    Note: This supports separate fill values for the image and mask.
+          The interpolation method for the image is also user-defined,
+          while the method for the mask is always `InterpolationMode.NEAREST`.
 
     Args:
         degrees (Union[float, Sequence[float]]): Range of degrees for rotational transform.
@@ -243,7 +236,6 @@ class SegRandomAffine(SegTransformBase):
                                                               If `None`, no shearing is applied.
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
                                                            Default is `InterpolationMode.BILINEAR`.
-                                                           Note that the mask transform always uses `InterpolationMode.NEAREST`.
         img_fill (RGBLike): RGB value used to fill areas outside the transformed image, to maintain original shape.
                             This RGB value can be:
                                 - a RGB tuple
@@ -309,12 +301,16 @@ class SegRandomAffine(SegTransformBase):
 
 class SegLetterbox(SegTransformBase):
     '''
-    Letterbox transform that supports transforming both image and optional mask, with separate fill values.
-    This is similar to a standard resize transform, 
-    but the image is resized to fit within the target dimensions while preserving the aspect ratio. 
+    Letterbox transform for both images and optional segmentation masks.
+    This is similar to a standard resize transform, but the image is resized to fit 
+    within the target dimensions while preserving the aspect ratio. 
     Any remaining space is filled with padding to match the target dimensions.
 
     This uses `functional.seg_letterbox` to apply transforms.
+
+    Note: This supports separate fill values for the image and mask.
+          The interpolation method for the image is also user-defined,
+          while the method for the mask is always `InterpolationMode.NEAREST`.
 
     Args:
         size (SpatialSize): Size `(height, width)` to transform the image and optional mask into,
@@ -322,7 +318,6 @@ class SegLetterbox(SegTransformBase):
                             If `int`, assumed square.
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
                                                            Default is `InterpolationMode.BILINEAR`.
-                                                           Note that the mask transform always uses `InterpolationMode.NEAREST`.
         img_fill (RGBLike): RGB value used to pad transformed image. 
                             This RGB value can be:
                                 - a RGB tuple
@@ -373,4 +368,39 @@ class SegLetterbox(SegTransformBase):
             'img_interpolation': self.img_interpolation,
             'img_fill': self.img_fill,
             'mask_fill': self.mask_fill
+        }
+    
+class SegResize(SegTransformBase):
+    '''
+    Resize transform for both images and optional segmentation masks.
+    This will **not** preserve aspect ratio when resizing.
+    
+    This uses `functional.seg_resize` to apply transforms.
+
+    Note: The interpolation method for the image is user-defined, 
+          while the method for the mask is always `InterpolationMode.NEAREST`.
+
+    Args:
+        size (SpatialSize): Size `(height, width)` to transform `img` and (optionally) `mask`.
+                            If `int`, assumed square.
+        img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
+                                                           Default is `InterpolationMode.BILINEAR`.
+    '''
+    def __init__(
+        self, 
+        size: SpatialSize, 
+        img_interpolation: InterpolationMode = InterpolationMode.BILINEAR
+    ):
+        super().__init__(seg_transform = functional.seg_resize)
+        self.size = size
+        self.img_interpolation = img_interpolation
+
+    @property
+    def transform_kwargs(self) -> Dict[str, Any]:
+        '''
+        Returns the transform keyword arguments used for `functional.seg_resize`.
+        '''
+        return {
+            'size': self.size,
+            'img_interpolation': self.img_interpolation
         }

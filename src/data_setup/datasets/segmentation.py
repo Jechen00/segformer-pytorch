@@ -124,9 +124,11 @@ class SegmentationDatasetBase(ABC):
 
         # Check for duplicates
         if clr in self.clr_to_idx:
-            raise ValueError(f"Ignore color conflicts with the class color ('clr'): {clr}")
+            if idx != self.clr_to_idx[clr]:
+                raise ValueError(f"Ignore color conflicts with the class color ('clr'): {clr}")
         if idx in self.idx_to_clr:
-            raise ValueError(f"Ignore index conflicts with the class index ('idx'): {idx}")
+            if clr != self.idx_to_clr[idx]:
+                raise ValueError(f"Ignore index conflicts with the class index ('idx'): {idx}")
 
         self.ignore_idx, self.ignore_clr = idx, clr
         self.clr_to_idx[clr] = idx
@@ -245,8 +247,8 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
     
     def get_raw_item(self, idx: int) -> SampleDict:
         return {
-            'image': Image.open(self.img_paths[idx]),
-            'mask': Image.open(self.mask_paths[idx])
+            'image': Image.open(self.img_paths[idx]).convert('RGB'),
+            'mask': Image.open(self.mask_paths[idx]).convert('RGB')
         } 
     
     def _setup_dataset(self) -> None:
@@ -273,6 +275,7 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
                     raise FileNotFoundError(f'Dataset is missing {dir_name} directory at {dir_path}.')
             
         else:
+            print(f'Downloading dataset zip file to {data_dir}')
             # Dataset directory doesn't exist --> download dataset zip file
             subprocess.run([
                 'kaggle', 'datasets', 'download',
@@ -281,6 +284,7 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
             ], check = True)
 
             # Unzip file
+            print(f'Unzipping dataset...')
             zip_path = data_dir / 'supervisely-filtered-segmentation-person-dataset.zip'
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(data_dir)
@@ -293,7 +297,9 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
             for path in base_img_dir.iterdir():
                 shutil.move(path, data_dir / path.name)
             shutil.rmtree(base_img_dir.parent) # Remove original base folder
-        
+
+            print(f'Dataset download and extraction complete.')
+
         # Create img_paths and mask_paths
         self._make_img_mask_paths()
         
@@ -315,7 +321,7 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
     
     def _make_class_info(self) -> ClassInfo:
         class_info = {
-            'human': {'idx': 0, 'clr': (255, 255, 255)},
-            'background': {'idx': 1, 'clr': (0, 0, 0)}
+            'human': {'idx': 1, 'clr': (255, 255, 255)},
+            'background': {'idx': 0, 'clr': (0, 0, 0)}
         }
         return class_info
