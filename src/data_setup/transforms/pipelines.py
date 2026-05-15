@@ -228,7 +228,7 @@ def get_geo_transforms(
                 mask_fill = mask_fill
             )
         elif sizing_mode == 'resize':
-            size_transform = SegResize(size = size, interpolation = img_interpolation)
+            size_transform = SegResize(size = size, img_interpolation = img_interpolation)
         transforms.append(size_transform)
 
     # Add geometric transforms

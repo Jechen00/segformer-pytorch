@@ -9,7 +9,8 @@ from typing import (
     Callable, Iterable, Iterator
 )
 
-from src.ml_types import SpatialSize, SampleDict, ImageInput
+from src.data_setup.types import SampleDict
+from src.ml_types import SpatialSize, ImageInput
 from src.utils import make_tuple
 
 

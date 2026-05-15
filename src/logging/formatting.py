@@ -1,21 +1,23 @@
 #####################################
 # Imports & Dependencies
 #####################################
-import torch
 import math
-import warnings
 
-from typing import Optional, Sequence
+from typing import Optional, Sequence, TypeAlias, Union, Dict
 
-from src.ml_types import MetricLogFields, EntryLogUnits
-from src.utils import nested_extract, apply_agg
-from src.logging.history import HistoryResults
+from src.metrics.types import MetricResults
+from src.metrics.postprocess import (
+    MetricSpec, select_and_agg_scalar_metric
+)
+
 
 BOLD_ON = '\033[1m'
 BOLD_OFF = '\033[0m'
 EPOCH_FILL_CHAR = '='
 SEC_DIV_CHAR = '-'
 ROW_DIV_CHAR = '|'
+
+EntryLogUnits: TypeAlias = Optional[Union[str, Sequence[Optional[str]]]]
 
 
 #####################################
@@ -122,48 +124,26 @@ def make_log_sec(
 
 
 def make_metric_log_sec(
-    metric_results: HistoryResults,
-    fields: MetricLogFields,
-    units: EntryLogUnits = None,
+    metric_results: MetricResults,
+    metric_specs: Dict[str, MetricSpec],
     logbox_len: int = 100, 
     max_row_entries: int = 3, 
     num_decimals: int = 4
 ) -> str:
-    num_fields = len(fields)
-    if (units is None) or (isinstance(units, str)):
-        units = [units] * num_fields
-
-    # Construct a valid (non-None) list of metric names, values, and units
-    metric_names, metric_values, metric_units = [], [], []
-    for field, unit in zip(fields, units):
-        if isinstance(field, tuple):
-            key_path, agg = field
-        else:
-            key_path, agg = field, 'mean'
-
-        # Traverse down key path to get metric value
-        value = nested_extract(metric_results, key_path, strict = False, default = None)
-
-        # Aggregate metric value if necessary
-        if isinstance(value, torch.Tensor):
-            value = apply_agg(value, agg)
-            name = f'{key_path} ({agg})'
-        elif isinstance(value, float):
-            name = key_path
-        else:
-            value = None # Key_path led to an improper value
-
-        if value is not None:
-            metric_names.append(name)
-            metric_values.append(value)
-            metric_units.append(unit)
-        else:
-            warnings.warn(
-                f"Skipping metric field '{field}': contains an improper key path '{key_path}' "
-                 'for extracting and/or aggregating into a scalar metric (float). ' 
-                 'This entry will be omitted from the validation metric logs.',
-                UserWarning
+    # Construct list of metric names, values, and units
+    metric_names = list(metric_specs.keys())
+    metric_values, metric_units = [], []
+    for spec in metric_specs.values():
+        # Get specified metric
+        metric_values.append(
+            select_and_agg_scalar_metric(
+                metric_results, 
+                key_path = spec.key_path,
+                class_idxs = spec.class_idxs,
+                agg = spec.agg
             )
+        )
+        metric_units.append(spec.unit)
 
     # Construct evaluation section string
     return make_log_sec(

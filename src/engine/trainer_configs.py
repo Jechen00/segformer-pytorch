@@ -7,9 +7,9 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional, Dict, Literal, Union
 
-from src.metrics import Metric
+from src.metrics.ops import Metric
+from src.metrics.postprocess import MetricSpecLike, normalize_metric_spec
 from src.utils import normalize_file_path
-from src.ml_types import EntryLogUnits, MetricLogFields
 
 
 #####################################
@@ -19,35 +19,28 @@ from src.ml_types import EntryLogUnits, MetricLogFields
 class SchedulerConfig():
     scheduler: lr_scheduler._LRScheduler
     step_freq: Literal['epoch', 'optim_step'] = 'optim_step'
-                
+
+
 @dataclass
 class EvalConfig():
     '''
     For validation only.
-
-    metric_log_fields: (key_path, agg)
     '''
     metrics: Dict[str, Metric]
     eval_interval: int
-    metric_log_fields: Optional[MetricLogFields] = None
-    metric_log_units: Optional[EntryLogUnits] = None
+    log_metric_specs: Optional[Dict[str, MetricSpecLike]] = None
     
     def __post_init__(self):   
         # Check value for eval_interval
         if self.eval_interval < 1:
             raise ValueError(f'eval_interval must be at least 1 if provided.')
-            
-        # Check values for metric_log_fields and metric_log_units
-        if (self.metric_log_fields is not None) and (self.metric_log_units is not None):
-            if isinstance(self.metric_log_units, str):
-                return
+        
+        # Normalize metric specifications (for logging) if provided
+        log_metric_specs = self.log_metric_specs
+        if log_metric_specs is not None:
+            for name, spec in log_metric_specs.items():
+                log_metric_specs[name] = normalize_metric_spec(spec)
 
-            if len(self.metric_log_fields) != len(self.metric_log_units):
-                raise ValueError(
-                    f'Length of metric_log_units ({len(self.metric_log_units)}) '
-                    f'must match length of log_fields ({len(self.metric_log_fields)}), '
-                    'if both are provided as a sequence.'
-                )
 
 @dataclass
 class SaveConfig():
@@ -89,6 +82,7 @@ class SaveConfig():
             return None
         return Path(self.save_dir) / self.best_model_name
     
+
 @dataclass
 class LogConfig():
     logbox_len: int = 100

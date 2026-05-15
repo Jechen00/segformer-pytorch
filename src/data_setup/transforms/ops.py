@@ -10,10 +10,11 @@ from typing import (
 )
 
 from src.utils import make_range
-from src.ml_types import SpatialSize, RGBLike, ImageInput, SampleDict, SampleListDict
 from src.data_setup.transforms import functional
+from src.data_setup.types import SampleDict, SampleListDict
+from src.ml_types import SpatialSize, RGBLike, ImageInput
 
-TransformTypes: TypeAlias = Union[Callable, List[Callable], Tuple[Callable, ...]] 
+TransformLike: TypeAlias = Union[Callable, List[Callable], Tuple[Callable, ...]] 
 
 
 #####################################
@@ -27,7 +28,7 @@ class ImageTransform():
     Args:
         transform (Union[Callable, List[Callable]]): A transform or list of transforms to apply only to images.
     '''
-    def __init__(self, transforms: TransformTypes):
+    def __init__(self, transforms: TransformLike):
         self.transforms = transforms
 
     def __repr__(self) -> str:
@@ -52,7 +53,7 @@ class ImageTransform():
                     - image (List[ImageInput]): List of input images to transform.
                                                 If an image is `torch.Tensor`, shape is `(..., height, width)`.
 
-        Returns:
+        Returns:i
             Union[SampleDict, SampleListDict]: Output dictionary with the same structure as `input_dict`.
                                                The `image` key contains the output after applying `self.transform`.
         '''
@@ -71,7 +72,7 @@ class ImageTransform():
         return self._transforms
     
     @transforms.setter
-    def transforms(self, values: TransformTypes) -> None:
+    def transforms(self, values: TransformLike) -> None:
         if isinstance(values, (list, tuple)):
             num_transforms = len(values)
             if num_transforms == 0:

@@ -6,7 +6,7 @@ from torch import nn
 from torch.optim import Optimizer, lr_scheduler
 
 from pathlib import Path
-from typing import Union, Optional, Dict, Any, Literal, Iterable, TypeAlias
+from typing import Union, Optional, Dict, Any, Literal, Iterable, TypeAlias, get_args
 
 from src.logging.history import TrainHistory, ValHistory
 from src.engine.measure_policy import MeasurePolicy
@@ -14,7 +14,7 @@ from src.utils import recursive_to_cpu, normalize_file_path, all_or_none
 
 Components: TypeAlias = Literal['model', 'optimizer', 'scheduler', 'measure_policy', 'histories']
 ComponentInput: TypeAlias = Union[Components, Iterable[Components]]
-ALL_COMPONENTS = {'model', 'optimizer', 'scheduler', 'measure_policy', 'histories'}
+ALL_COMPONENTS = set(get_args(Components))
 
 
 #####################################
@@ -32,8 +32,8 @@ def save_checkpoint(
 ) -> None:
     '''
     Saves a checkpoint containing the model, optimizer, (optional) scheduler state dicts.
-    Also saves training history (loss average) and validation history (loss average and metrics) 
-    along with the epoch index.
+    Also saves training history (loss average), validation history (loss average and metrics), 
+    (optional) measure policy along with the epoch index.
 
     Args:
         model (nn.Module): Model to save.
@@ -45,6 +45,7 @@ def save_checkpoint(
         save_path (Union[str, Path]): Full path to save the checkpoint to. 
                                       This should end with a file extension (e.g. '.pt' or '.pth').
         scheduler (optional, lr_scheduler._LRScheduler): Learning rate scheduler for the `optimizer`.
+        measure_policy (optional, MeasurePolicy): Measure policy for early stopping and best score tracking.
     '''
 
     # Validate save_path and create directory if it doesn't exist
@@ -101,6 +102,9 @@ def load_checkpoint(
         scheduler (optional, lr_scheduler._LRScheduler): Learning rate scheduler for the optimizer.
                                                          If provided, an existing (non-None) scheduler state_dict
                                                          must be stored in the `checkpoint['scheduler']`.
+        measure_policy (optional, MeasurePolicy): Measure policy for early stopping and best score tracking.
+                                                  If provided, an existing (non-None) MeasurePolicy state_dict
+                                                  must be stored in `checkpoint[measure_policy]`.
         device (Union[str, torch.device]): The device to load the checkpoint tensors on to. Default is 'cpu'.
 
     Returns:
@@ -126,6 +130,7 @@ def load_checkpoint(
         measure_policy.load_state_dict(checkpoint['measure_policy'])
 
     return checkpoint['checkpoint_epoch']
+
 
 def separate_checkpoint(
     checkpoint: Optional[Dict[str, Any]] = None,

@@ -16,8 +16,9 @@ from src.logging.formatting import (
     BOLD_ON, BOLD_OFF, EPOCH_FILL_CHAR, SEC_DIV_CHAR,
     make_epoch_header, make_metric_log_sec, make_log_sec
 )
-from src.metrics import Metric
-from src.ml_types import MetricResults
+
+from src.metrics.ops import Metric
+from src.metrics.types import MetricResults
 from src.engine.checkpoint import load_checkpoint, save_checkpoint
 from src.engine.trainer_configs import EvalConfig, SaveConfig, SchedulerConfig, LogConfig
 from src.engine.measure_policy import MeasurePolicy
@@ -52,9 +53,10 @@ class ModelTrainer():
         measure_policy: Optional[MeasurePolicy] = None,
         save_cfg: Optional[SaveConfig] = None,
         log_cfg: Optional[LogConfig] = None,
+        memory_format: torch.memory_format = torch.contiguous_format,
         device: Union[torch.device, str] = 'cpu'
     ):
-        self.model = model.to(device) # Make sure model is on device
+        self.model = model.to(device = device, memory_format = memory_format) # Make sure model is on device
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.targ_key = targ_key
@@ -66,6 +68,7 @@ class ModelTrainer():
         self.measure_policy = measure_policy
         self.save_cfg = save_cfg
         self.log_cfg = LogConfig() if log_cfg is None else log_cfg
+        self.memory_format = memory_format
         self.device = device
 
         self._validate_config()
@@ -188,7 +191,7 @@ class ModelTrainer():
 
         self.model.train()
         for batch in self.train_loader:
-            imgs = batch['image'].to(self.device)
+            imgs = batch['image'].to(device = self.device, memory_format = self.memory_format)
             targs = batch[self.targ_key].to(self.device)
             
             self.optimizer.zero_grad() # Zero parameter gradients
@@ -219,7 +222,7 @@ class ModelTrainer():
         self.model.eval()
         loss_sum, num_items = 0, 0
         for batch in self.val_loader:
-            imgs = batch['image'].to(self.device)
+            imgs = batch['image'].to(device = self.device, memory_format = self.memory_format)
             targs = batch[self.targ_key].to(self.device)
 
             with torch.inference_mode():
@@ -317,8 +320,7 @@ class ModelTrainer():
         if (rec_val_metrics is not None) and (self.should_log_metrics):
             metric_log_sec = make_metric_log_sec(
                 metric_results = rec_val_metrics,
-                fields = self.eval_cfg.metric_log_fields,
-                units = self.eval_cfg.metric_log_units,
+                metric_specs = self.eval_cfg.log_metric_specs,
                 **log_kwargs
             )
             epoch_log_secs.extend([metric_log_sec, self.log_end_div])
@@ -384,6 +386,7 @@ class ModelTrainer():
                 )
             else:
                 print(f'{BOLD_ON}[NOTE]{BOLD_OFF} Best model will be saved at: {cfg.best_model_path}')
+        print() # Adds an extra spacing at the end
 
     @property
     def should_save_best_model(self)-> bool:
@@ -406,7 +409,7 @@ class ModelTrainer():
     @property
     def should_log_metrics(self) -> bool:
         cfg = self.eval_cfg
-        return(cfg is not None) and (cfg.metric_log_fields is not None)
+        return(cfg is not None) and (cfg.log_metric_specs is not None)
     
     @property
     def scheduler(self) -> Optional[lr_scheduler._LRScheduler]:

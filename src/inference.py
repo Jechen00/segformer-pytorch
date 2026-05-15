@@ -6,10 +6,11 @@ from torch import nn
 from torchvision.transforms import v2
 
 from PIL import Image
-from typing import Union, Optional
+from typing import Union, List, Optional
 
-from src.ml_types import Sample, BatchedSamples
-from src.utils import transpose_list_dict, extract_imgs, check_tensor_shapes
+from src.data_setup.types import Sample, MultiSamples
+from src.ml_types import ImageInput
+from src.utils import transpose_list_dict, check_tensor_shapes
 
 
 #####################################
@@ -17,7 +18,7 @@ from src.utils import transpose_list_dict, extract_imgs, check_tensor_shapes
 #####################################
 def preprocess_and_predict(
     model: nn.Module,
-    samps: Union[Sample, BatchedSamples], 
+    samps: Union[Sample, MultiSamples], 
     img_transforms: Optional[v2.Compose] = None
 ) -> torch.Tensor:
     '''
@@ -64,32 +65,32 @@ def predict(model: nn.Module, imgs: torch.Tensor) -> torch.Tensor:
 
 
 def preprocess_imgs(
-    samps: Union[Sample, BatchedSamples], 
+    samps: Union[Sample, MultiSamples], 
     img_transforms: Optional[v2.Compose] = None
 ) -> torch.Tensor:
     '''
-    Preprocesses the image(s) in a sample or batch of samples, preparing them for input into `predict`.
+    Preprocesses the image(s) in a sample or multiple samples, preparing them for input into `predict`.
 
     This involves:
         1. Normalizing input format
         2. Optionalluy applying image transformations
         3. Extracting all images
         4. Checking that all images are tensors of the same shape
-        5. Stacking images into a batched tensor
+        5. Stacking images into a collated tensor
 
     Args:
-        samps (Union[Sample, BatchedSamples]): Sample or batch of samples containing image information.
+        samps (Union[Sample, MultiSamples]): Sample or multiple samples containing image information.
             Supports:
                 - A single image (PIL image or tensor)
                 - A single-sample dictionary, where the 'image' key contains a single image
                 - A list of images (PIL image or tensor)
-                - A batched-sample dictionary, where the 'image' key contains a list of images
+                - A multi-sample dictionary, where the 'image' key contains a list of images
                 - A collated tensor, e.g. of shape (batch_size, channels, height, width)
 
         img_transforms (optional, v2.Compose): Image transfromations applied to `samps` before extracting images.
 
     Returns:
-        torch.Tensor: A batched tensor of shape `(batch_size, channels, height, width)`.
+        torch.Tensor: A collated tensor of shape `(batch_size, channels, height, width)`.
                       If the input is a single sample, `batch_size` is 1.
     '''
     # Check input datatype and normalize
@@ -127,4 +128,33 @@ def preprocess_imgs(
     if (imgs_list[0].ndim == 3):
         imgs = torch.stack(imgs_list)
         
+    return imgs
+
+def extract_imgs(samps: Union[Sample, MultiSamples]) -> Union[ImageInput, List[ImageInput]]:
+    '''
+    Gets all images from a sample or multiple samples.
+
+    Args:
+        samps (Union[Sample, MultiSamples]): Sample or multiple samples containing image information.
+            Supports:
+                - A single image (PIL image or tensor)
+                - A single-sample dictionary, where the 'image' key contains a single image
+                - A list of images (PIL image or tensor)
+                - A multi-sample dictionary, where the 'image' key contains a list of images
+                - A collated tensor, e.g. of shape (batch_size, channels, height, width)
+
+    Returns:
+        Union[ImageInput, List[ImageInput]: The extracted images from `samps`.
+                                            The structure depends on the type of input.
+                                            It will either be:
+                                                - A single PIL image
+                                                - A single tensor (possibly collated)
+                                                - A list of PIL images or tensors
+    '''
+    if isinstance(samps, dict):
+        imgs = samps['image']
+    elif isinstance(samps, list):
+        imgs = [s['image'] if isinstance(s, dict) else s for s in samps]
+    else:
+        imgs = samps  
     return imgs

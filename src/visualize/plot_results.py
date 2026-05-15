@@ -6,12 +6,14 @@ import torch
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict
 
 from src.logging.history import TrainHistory, ValHistory
 from src.visualize.layout import make_grid
-from src.utils import nested_extract, apply_agg
-from src.ml_types import MetricLogFields
+from src.utils import nested_extract
+from src.metrics.postprocess import (
+    MetricSpecLike, normalize_metric_spec, select_and_agg_scalar_metric
+)
 
 
 #####################################
@@ -68,43 +70,38 @@ def plot_loss(
 
 def plot_summary_metrics(
     val_history: ValHistory,
-    fields: MetricLogFields,
+    metric_specs: Dict[str, MetricSpecLike],
     nrows: Optional[int] = None,
     ncols: Optional[int] = None,
     figsize: Optional[Tuple[float, float]] = None
 ) -> Figure:
     # Setup figure and colors
-    num_fields = len(fields)
-    fig, axes = make_grid(num_fields, nrows, ncols, figsize)
-    flat_axes = axes.flatten() if num_fields > 1 else [axes]
-    clrs = sns.color_palette(palette = 'hls', n_colors = num_fields)
+    num_specs = len(metric_specs)
+    fig, axes = make_grid(num_specs, nrows, ncols, figsize)
+    flat_axes = axes.flatten() if num_specs > 1 else [axes]
+    clrs = sns.color_palette(palette = 'hls', n_colors = num_specs)
 
     # Get metric history values and epochs
-    history_values = val_history.metrics.values
+    all_metric_series = val_history.metrics.values
     epochs = val_history.metrics.epochs
 
     # Plotting
-    for ax, field, clr in zip(flat_axes, fields, clrs):
-        if isinstance(field, tuple):
-            key_path, agg = field
-        else:
-            key_path, agg = field, 'mean'
+    for ax, (label, spec), clr in zip(flat_axes, metric_specs.items(), clrs):
+        spec = normalize_metric_spec(spec)
+        metric_series = select_and_agg_scalar_metric(
+            metric_data = all_metric_series,
+            key_path = spec.key_path,
+            class_idxs = spec.class_idxs,
+            agg = spec.agg
+        )
 
-        metric_values = nested_extract(history_values, key_path)
-
-        if isinstance(metric_values[0], torch.Tensor):
-            metric_values = [apply_agg(val, agg) for val in metric_values]
-            curve_label = f'{key_path} ({agg})'
-        else:
-            curve_label = key_path
-
-        ax.plot(epochs, metric_values, c = clr, label = curve_label)
+        ax.plot(epochs, metric_series, c = clr, label = label)
     
         ax.set_ylabel('Metric')
         ax.set_xlabel('Epoch')
         ax.legend()
     
-    for ax in flat_axes[num_fields:]:
+    for ax in flat_axes[num_specs:]:
         ax.axis('off')
 
     fig.suptitle('Validation Summary Metrics', fontsize = 40, y = 0.99)
@@ -116,13 +113,26 @@ def plot_class_metrics(
     val_history: ValHistory,
     key_paths: List[str],
     class_names: List[str],
+    metric_labels: Optional[List[str]] = None,
     nrows: Optional[int] = None,
     ncols: Optional[int] = None,
     figsize: Optional[Tuple[float, float]] = None
 ) -> Figure:
+    '''
+    key_paths (List[str]): List of dot-separated key paths to extract class-wise metrics 
+                           from `val_history.metrics.values`.
+    metric_labels (optional, List[str]): List of plot labels corresponding to each element in `key_paths`.
+                                         If provided, the length must be the same as `key_paths`.
+                                         If not provided, labels default to `key_paths`.
+    '''
     num_paths = len(key_paths)
     num_classes = len(class_names)
 
+    if metric_labels is None:
+        metric_labels = key_paths
+    elif len(metric_labels) != num_paths:
+        raise ValueError('If metric_labels is provided, it must have the same length as key_paths.')
+    
     # Setup figure and colors
     fig, axes = make_grid(num_paths, nrows, ncols, figsize)
     flat_axes = axes.flatten() if num_paths > 1 else [axes]
@@ -133,7 +143,7 @@ def plot_class_metrics(
     epochs = val_history.metrics.epochs
 
     # Plotting
-    for ax, key_path in zip(flat_axes, key_paths):
+    for ax, key_path, metric_label in zip(flat_axes, key_paths, metric_labels):
         metric_values = nested_extract(history_values, key_path)
         first_val = metric_values[0]
         if isinstance(first_val, torch.Tensor):
@@ -143,17 +153,17 @@ def plot_class_metrics(
             ndim = metric_values.ndim
             if k != num_classes:
                 raise ValueError(
-                    f'Metric at key_path {key_path} has {k} classes, '
+                    f"Metric at key_path '{key_path}' has {k} classes, "
                     f'but expected {num_classes}.'
                 )   
             if ndim != 2:
                 raise ValueError(
-                    f'Metric at key_path {key_path} should be 1D tensors, '
+                    f"Metric at key_path '{key_path}' should be 1D tensors, "
                     f'but got {ndim - 1}D'
                 )
         else:
             raise TypeError(
-                f'key_path {key_path} did not produce a list of tensors. '
+                f"key_path '{key_path}' did not produce a list of tensors. "
                 f'Got: {type(first_val)}'
             )
             
@@ -162,7 +172,7 @@ def plot_class_metrics(
             class_values = metric_values[:, i].tolist()
             ax.plot(epochs, class_values, c = clr, label = class_name)
         
-        ax.set_title(key_path, fontsize = 25)
+        ax.set_title(metric_label, fontsize = 25)
         ax.set_ylabel('Metric')
         ax.set_xlabel('Epoch')
         ax.legend()

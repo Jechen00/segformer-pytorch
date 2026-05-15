@@ -3,75 +3,51 @@
 #####################################
 import torch
 
-import numpy as np
 import warnings
-from typing import Optional, Literal, Union, Tuple, TypeAlias, TypedDict
+from typing import Optional, Literal, Tuple, TypedDict, NotRequired
 
-from src.ml_types import MeasureValue, MetricGroup, MetricResults
-from src.utils import nested_extract, apply_agg
+from src.metrics.postprocess import (
+    MetricSpecLike, normalize_metric_spec, select_and_agg_scalar_metric
+)
+from src.metrics.types import MeasureResult
+from src.ml_types import IndexLike, Aggregation
 
 
 #####################################
-# Types
+# State Dict
 #####################################
-MeasureResult: TypeAlias = Union[MeasureValue, MetricGroup, MetricResults]
-
 class MeasurePolicyState(TypedDict):
     no_improve_counter: int
     best_score: Optional[float]
+
+class MeasureInfo(TypedDict):
+    measure_type: str
+    key_path: NotRequired[Optional[str]]
+    class_idxs: NotRequired[Optional[IndexLike]]
+    agg: NotRequired[Optional[Aggregation]]
+    unit: NotRequired[Optional[str]]
 
 
 #####################################
 # Measure Policy Class
 #####################################
 class MeasurePolicy():
-    '''
-    metric_path (optional, str): Dot-separated key path specifying the key sequence used to extract 
-                                 a numeric value, tensor, or numpy array from a potentially nested metric dictionary.
-                                 Required if `measure_type = 'metric'` and ignored otherwise.
-    '''
     def __init__(
         self,
         measure_type: Literal['loss', 'metric'],
-        metric_path: Optional[str] = None,
-        metric_agg: Literal['mean', 'min', 'max', 'none'] = 'none',
+        metric_spec: Optional[MetricSpecLike] = None,
         mode: Literal['min', 'max'] = 'max',
         min_delta: float = 0.0,
         patience: Optional[int] = None
     ):
         self.measure_type = measure_type
-        self.metric_path = metric_path
-        self.metric_agg = metric_agg
+        self.metric_spec = normalize_metric_spec(metric_spec) if metric_spec is not None else None
         self.mode = mode
         self.min_delta = min_delta
         self.patience = patience
         self._validate_configs()
 
-        if measure_type == 'loss':
-            if metric_path is not None:
-                warnings.warn(
-                    "metric_path is ignored when measure_type == 'loss'.",
-                    UserWarning
-                )
-            self.measure_info = {'measure_type': 'loss'}
-        else:
-            if metric_path is None:
-                raise ValueError(
-                    "metric_path must be provided when measure_type == 'metric'."
-                )
-            
-            if metric_agg == 'none':
-                warnings.warn(
-                    "metric_agg = 'none' will disable aggregations. "
-                    'The metric extracted from metric_path must already be a scalar tensor (ndim = 0), '
-                    'otherwise an error will occur during self.step().'
-                )
-            self.measure_info = {
-                'measure_type': 'metric',
-                'metric_path': metric_path,
-                'metric_agg': metric_agg
-            }
-        
+        self.measure_info = self._make_measure_info()
         self.no_improve_counter = 0
         self.best_score = None
         
@@ -80,11 +56,12 @@ class MeasurePolicy():
         Args:
             measure (MeasureResult): 
                 A loss value or metric dictionary, depending on `self.measure_type`.
-                    - `measure_type = 'loss'` : Loss value (MeasureValue) as a numeric value, tenosr, or numpy array.
+                    - `measure_type = 'loss'` : Loss value (MeasureValue) as a float or tensor.
                     - `measure_type = 'metric'`: Metric dictionary (Union[MetricGroup, MetricResults]), 
-                                                 where `self.metric_path` leads to
-                                                 a numeric value, tensor, or numpy array.
-                                                 If tensor or numpy array, it is aggregated using `self.metric_agg`.
+                                                 where `self.metric_spec` will be used to extract a metric
+                                                 and optionally subset and aggregate it.
+                                                 It is expected that `self.metric_spec` produces
+                                                 a float or a single-element tensor.
         '''
         score = self.extract_score(measure)
 
@@ -112,21 +89,17 @@ class MeasurePolicy():
 
     def extract_score(self, measure: MeasureResult) -> float:
         if self.measure_type == 'loss':
-            score = measure
-        else:
-            # Extract from nested metric dictionary
-            score = nested_extract(measure, self.metric_path)
+            score = measure.item() if isinstance(measure, torch.Tensor) else measure
 
-        # Aggregate if needed
-        if isinstance(score, (torch.Tensor, np.ndarray)):
-            if self.metric_agg != 'none':
-                # Should work on single-element tensors/arrays
-                score = apply_agg(score, self.metric_agg) # This always returns a float
-            elif score.ndim != 0:
-                raise ValueError(
-                    "If metric_agg = 'none', metric_path must produce a scalar tensor (ndim = 0)."
-                    f'Got: {score.ndim}'
-                )
+        else:
+            # Select and aggregate from nested metric dictionary
+            metric_spec = self.metric_spec
+            score = select_and_agg_scalar_metric(
+                metric_data = measure,
+                key_path = metric_spec.key_path,
+                class_idxs = metric_spec.class_idxs,
+                agg = metric_spec.agg
+            )
         
         return float(score)
 
@@ -154,12 +127,20 @@ class MeasurePolicy():
         self.best_score = state_dict['best_score']
 
     def _validate_configs(self) -> None:
-        if self.measure_type not in ['loss', 'metric']:
+        if self.measure_type == 'loss':
+            if self.metric_spec is not None:
+                warnings.warn(
+                    "metric_spec is ignored when measure_type='loss'.",
+                    UserWarning
+                )
+        elif self.measure_type == 'metric':
+            if self.metric_spec is None:
+                raise ValueError(
+                    "metric_spec must be provided when measure_type='metric'."
+                )
+        else:
             raise ValueError("measure_type must be 'loss' or 'metric'.")
 
-        if self.metric_agg not in ['mean', 'min', 'max', 'none']:
-            raise ValueError("metric_agg must be 'mean', 'min', max', or 'none'.")
-            
         if self.mode not in ['min', 'max']:
             raise ValueError("mode must be 'min' or 'max'.")
         
@@ -168,5 +149,16 @@ class MeasurePolicy():
         
         if (self.patience is not None) and (self.patience < 1):
             raise ValueError('patience must be greater than 0.')
-
         
+    def _make_measure_info(self) -> MeasureInfo:
+        if self.measure_type == 'loss':
+            return {'measure_type': 'loss'}
+        else:
+            metric_spec = self.metric_spec
+            return {
+                'measure_type': 'metric',
+                'key_path': metric_spec.key_path,
+                'class_idxs': metric_spec.class_idxs,
+                'agg': metric_spec.agg,
+                'unit': metric_spec.unit
+            }

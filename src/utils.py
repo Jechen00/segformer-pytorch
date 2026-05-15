@@ -10,11 +10,9 @@ import numpy as np
 from numbers import Real
 from PIL import Image
 
-from typing import (
-    Union, Any, Literal, Optional, List, Dict, Tuple
-)
+from typing import Union, Any, Literal, Optional, List, Dict, Tuple
 
-from src.ml_types import ImageInput, Sample, BatchedSamples
+from src.ml_types import ImageInput, Aggregation, IndexLike
 
 
 #####################################
@@ -53,6 +51,28 @@ def get_device() -> torch.device:
         device = torch.device('cpu')
     return device
 
+
+def recursive_to_cpu(x: Any) -> Any:
+    '''
+    Recursively moves all tensors in a nested dictionary/list structure to the CPU.
+    Other objects (e.g. floats, ints, numpy arrays) remain unchanged.
+    
+    Args:
+        x (Any): Any Python object. Tensors are moved to CPU.
+                 Dictionaries and lists are traversed recursively.
+        
+    Returns:
+        Any: The same object as the input `x`, but with all tensors moved to CPU.
+    '''
+    if isinstance(x, torch.Tensor):
+        return x.cpu()
+    elif isinstance(x, dict):
+        return {key: recursive_to_cpu(value) for key, value in x.items()}
+    elif isinstance(x, list):
+        return [recursive_to_cpu(value) for value in x]
+    else:
+        return x
+    
 
 def make_tuple(x: Union[Any, tuple], num_rep: int = 2) -> tuple:
     '''
@@ -134,39 +154,13 @@ def get_img_size(img: ImageInput) -> Tuple[int, int]:
         Tuple[int, int]: Tuple representing (height, width) of `img`.
     '''
     if isinstance(img, torch.Tensor):
-        return img.shape[-2:] # height, width
+        h, w = img.shape[-2:] # height, width
     elif isinstance(img, Image.Image):
-        return img.size[::-1] # PIL gives (width, height) --> need to flip
+        w, h = img.size # PIL gives (width, height)
     else:
         raise TypeError('Expected PIL image or tensor.')
-
-   
-def extract_imgs(samps: Union[Sample, BatchedSamples]) -> Union[ImageInput, List[ImageInput]]:
-    '''
-    Gets all images from a sample or batch of samples.
-
-    Args:
-        samps (Union[Sample, BatchedSamples]): Sample or batch of samples containing image information.
-            Supports:
-                - A single image (PIL image or tensor)
-                - A single-sample dictionary, where the 'image' key contains a single image
-                - A list of images (PIL image or tensor)
-                - A batched-sample dictionary, where the 'image' key contains a list of images
-                - A collated tensor, e.g. of shape (batch_size, channels, height, width)
-
-    Returns:
-        Union[ImageInput, List[ImageInput]: The extracted images from `samps`.
-                                            The structure depends on the type of input.
-                                            It will either be a single PIL image or tensor (possibly batched)
-                                            or a list of PIL images or tensors.
-    '''
-    if isinstance(samps, dict):
-        imgs = samps['image']
-    elif isinstance(samps, list):
-        imgs = [s['image'] if isinstance(s, dict) else s for s in samps]
-    else:
-        imgs = samps  
-    return imgs
+    
+    return (h, w)
 
 
 def normalize_file_path(file_path: Union[str, Path], path_name: Optional[str] = None) -> Path:
@@ -199,37 +193,44 @@ def normalize_file_path(file_path: Union[str, Path], path_name: Optional[str] = 
     return path
 
 
-def nested_extract(nested_dict: dict, key_path: str, strict: bool = True, default: Any = None) -> Any:
+def normalize_idxs(idxs: IndexLike) -> Union[int, List[int]]:
     '''
-    Extracts a value from a nested dictionary given a dot-separated key path.
-    Example:
-        The key path `key1.key2.key3` returns `nested_dict['key1']['key2']['key3']`.
-
+    Normalizes an `IndexLike` so that it only contains Python integers.
+    Specifically, it normalizes to a single integer or a list of integers.
+    
     Args:
-        nested_dict (dict): Nested dictionary to extract from.
-        key_path (str): Dot-separated key path consisting of only keys in `nested_dict`.
-        strict (bool): If `True`, raises a `KeyError` on missing keys or when an intermediate value is not a dictionary.
-                       If `False`, does not raise any errors and instead returns a `default` value.
-        default (Any): A default value to return when encountering missing keys and `strict=False`.
-                       Default is None.
+        idxs (IndexLike): Indices to normalize.
+                          This must be one of:
+                            - A single integer
+                            - A list of integers
+                            - A numpy array of integers
+                            - A tensor of integers
+
     Returns:
-        Any: The extracted value from nested_dict after traversing through `key_path`.
+        Union[int, List[int]]: Normalized indices.
+                               This is an integer if `idxs` was an integer.
+                               Otherwise, this is a list of integers.
     '''
-    value = nested_dict
-    for key in key_path.split('.'):
-        if (not isinstance(value, dict)):
-            if strict:
-                raise KeyError(
-                    f"Expected dictionary, but got {type(value)} at key '{key}' in key_path '{key_path}'."
-                )
-            return default
-        elif key not in value:
-            if strict:
-                raise KeyError(f"Missing key '{key}' in key_path '{key_path}'.")
-            return default
-            
-        value = value[key]
-    return value
+    if type(idxs) is int:
+        return idxs 
+    
+    # Normalize to list
+    if isinstance(idxs, (np.ndarray, torch.Tensor)):
+        idxs = [idxs.item()] if idxs.ndim == 0 else idxs.tolist()
+    elif not isinstance(idxs, list):
+        raise TypeError(
+            'Expected indices to be an integer, list, numpy array, or tensor. '
+            f'Got: {type(idxs)}'
+        )
+    
+    # Check if all elements are integers
+    if not all((type(idx) is int) for idx in idxs):
+        raise TypeError(
+            'If indices are a list, numpy array, or tensor, '
+            'all elements must be integers.'
+        )
+    
+    return idxs
 
 
 def transpose_list_dict(
@@ -286,52 +287,60 @@ def transpose_list_dict(
         )
 
 
-def apply_agg(
-    x: Union[np.ndarray, torch.Tensor], 
-    agg: Literal['mean', 'min', 'max']
-) -> float:
+def nested_extract(nested_dict: dict, key_path: str, strict: bool = True, default: Any = None) -> Any:
     '''
-    Applies an aggregation function `(mean, min, max)` to a numpy array or tensor.
+    Extracts a value from a nested dictionary given a dot-separated key path.
+    Example:
+        The key path `key1.key2.key3` returns `nested_dict['key1']['key2']['key3']`.
 
     Args:
-        x (np.ndarray): The numpy array or tensor to aggregate.
-        agg (Literal['mean', 'min', 'max']): The aggregation function to apply `(mean, min, max)`.
+        nested_dict (dict): Nested dictionary to extract from.
+        key_path (str): Dot-separated key path consisting of only keys in `nested_dict`.
+        strict (bool): If `True`, raises a `KeyError` on missing keys or when an intermediate value is not a dictionary.
+                       If `False`, does not raise any errors and instead returns a `default` value.
+        default (Any): A default value to return when encountering missing keys and `strict=False`.
+                       Default is None.
+    Returns:
+        Any: The extracted value from nested_dict after traversing through `key_path`.
+    '''
+    value = nested_dict
+    for key in key_path.split('.'):
+        if (not isinstance(value, dict)):
+            if strict:
+                raise KeyError(
+                    f"Expected dictionary, but got {type(value)} at key '{key}' in key_path '{key_path}'."
+                )
+            return default
+        elif key not in value:
+            if strict:
+                raise KeyError(f"Missing key '{key}' in key_path '{key_path}'.")
+            return default
+            
+        value = value[key]
+    return value
+
+
+def apply_agg(x: torch.Tensor, agg: Aggregation) -> torch.Tensor:
+    '''
+    Applies an aggregation function `(mean, median, min, max)` to a tensor.
+
+    Args:
+        x (torch.Tensor): The tensor to aggregate.
+        agg (Aggregation): The aggregation function to apply.
+                           Supports: `mean`, `median`, `min`, `max`.
 
     Returns:
-        float: The aggregated value from applying `agg` to `x`.
+        torch.Tensor: The aggregated value from applying `agg` to `x`.
     '''
-    if isinstance(x, torch.Tensor):
-        x = x.float()
-    elif isinstance(x, np.ndarray):
-        x = x.astype(np.float32)
+    x = x.float() # Ensure float
 
     if agg == 'mean':
-        return x.mean().item()
+        return x.mean()
+    elif agg == 'median':
+        return x.median()
     elif agg == 'min':
-        return x.min().item()
+        return x.min()
     elif agg == 'max':
-        return x.max().item()
+        return x.max()
     else:
         raise ValueError(f'Unknown aggregation: {agg}')
-    
-
-def recursive_to_cpu(x: Any) -> Any:
-    '''
-    Recursively moves all tensors in a nested dictionary/list structure to the CPU.
-    Other objects (e.g. floats, ints, numpy arrays) remain unchanged.
-    
-    Args:
-        x (Any): Any Python object. Tensors are moved to CPU.
-                 Dictionaries and lists are traversed recursively.
-        
-    Returns:
-        Any: The same object as the input `x`, but with all tensors moved to CPU.
-    '''
-    if isinstance(x, torch.Tensor):
-        return x.cpu()
-    elif isinstance(x, dict):
-        return {key: recursive_to_cpu(value) for key, value in x.items()}
-    elif isinstance(x, list):
-        return [recursive_to_cpu(value) for value in x]
-    else:
-        return x

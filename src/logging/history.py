@@ -3,75 +3,35 @@
 #####################################
 from __future__ import annotations
 
-import torch
+from typing import Dict, Any, Tuple, Optional, TypedDict, List
 
-import numpy as np
-from numbers import Real
-from typing import Dict, Union, TypeAlias, Tuple, Optional, TypedDict, List
+from src.metrics.postprocess import normalize_measure
+from src.metrics.types import (
+    MeasureValue,  MetricResults, MeasureSeries, MetricSeriesResults
+)
 
-from src.ml_types import MeasureValue, MetricResults
+
 
 #####################################
-# Types
+# Typed Dicts
 #####################################
-HistoryValue: TypeAlias = Union[float, torch.Tensor]
-HistoryGroup: TypeAlias = Dict[str, HistoryValue]
-HistoryResults: TypeAlias = Dict[str, Union[HistoryValue, HistoryGroup]]
-
-HistorySeries: TypeAlias = List[HistoryValue]
-HistorySeriesGroup: TypeAlias = Dict[str, HistorySeries]
-
 class PhaseHistoryState(TypedDict):
     loss: LossHistoryState
     metrics: Optional[MetricHistoryState]
     best_score: Optional[BestScoreDict]
 
 class LossHistoryState(TypedDict):
-    values: HistorySeries
+    values: MeasureSeries
     epochs: List[int]
 
 class MetricHistoryState(TypedDict):
-    values: Dict[str, Union[HistorySeries, HistorySeriesGroup]]
+    values: MetricSeriesResults
     epochs: List[int]
 
 class BestScoreDict(TypedDict):
     value: float
     epoch: int
-    measure_info: Optional[Union[str, Dict[str, str]]]
-
-
-#####################################
-# Functions
-#####################################
-def postprocess_measure(value: MeasureValue) -> HistoryValue:
-    '''
-    Postprocesses a measure value (e.g. loss or metric) into a format suitable for logging and saving.
-    
-    The procedure is as follows:
-        - Detach tensors from computational graph (they should ideally be already detached).
-        - Moves non-scalar (multi-element) tensors to CPU.
-        - Converts non-scalar (multi-element) numpy arrays to tensors (on CPU).
-        - Converts scalar (single-element) tensors/arrays to Python floats.
-        - Converts real numeric inputs to Python floats.
-
-    Args:
-        value (MeasureValue): Computed measure value (a tensor, numpy array, or a real numeric value).
-
-    Returns:
-        HistoryValue: Processed measure value (a tensor or float) for logging and saving.
-    '''
-    if isinstance(value, torch.Tensor):
-        value = value.detach()
-        return float(value.item()) if value.numel() == 1 else value.cpu()
-        
-    elif isinstance(value, np.ndarray):
-        return float(value.item()) if value.size == 1 else torch.from_numpy(value)
-        
-    elif isinstance(value, Real):
-        return float(value)
-    
-    else:
-        raise TypeError(f'Expected type torch.Tensor, np.ndarray, or Real. Got {type(value)}.')
+    measure_info: Optional[Dict[str, Any]]
 
 
 #####################################
@@ -85,13 +45,13 @@ class LossHistory():
         self.values = []
         self.epochs = []
         
-    def record(self, loss_value: MeasureValue, epoch: int) -> HistoryValue:
+    def record(self, loss_value: MeasureValue, epoch: int) -> MeasureValue:
         '''
         Stores the loss value for a specified epoch.
         '''
         self.epochs.append(epoch)
 
-        recorded_value = postprocess_measure(loss_value)
+        recorded_value = normalize_measure(loss_value)
         self.values.append(recorded_value)
 
         return recorded_value
@@ -115,7 +75,7 @@ class MetricHistory():
         self.values = {}
         self.epochs = []
         
-    def record(self, metric_results: MetricResults, epoch: int) -> HistoryResults:
+    def record(self, metric_results: MetricResults, epoch: int) -> MetricResults:
         '''
         Stores the evaluation metric values for a specified epoch.
         '''
@@ -128,7 +88,7 @@ class MetricHistory():
                 recorded_metrics[result_name] = {}
                 result_values = self.values.setdefault(result_name, {})
                 for metric_name, metric_value in metric_result.items():
-                    recorded_value = postprocess_measure(metric_value)
+                    recorded_value = normalize_measure(metric_value)
                     recorded_metrics[result_name][metric_name] = recorded_value
 
                     metric_values = result_values.setdefault(metric_name, [])
@@ -136,7 +96,7 @@ class MetricHistory():
                     
             else:
                 # metric_result is a single metric value
-                recorded_value = postprocess_measure(metric_result)
+                recorded_value = normalize_measure(metric_result)
                 recorded_metrics[result_name] = recorded_value
 
                 metric_values = self.values.setdefault(result_name, [])
@@ -172,7 +132,7 @@ class PhaseHistory():
         loss_value: MeasureValue, 
         epoch: int, 
         metric_results: Optional[MetricResults] = None
-    ) -> Tuple[HistoryValue, Optional[HistoryResults]]:
+    ) -> Tuple[MeasureValue, Optional[MetricResults]]:
         recorded_loss = self.loss.record(loss_value, epoch)
 
         if metric_results is None:
@@ -191,7 +151,7 @@ class PhaseHistory():
         self, 
         value: float, 
         epoch: int, 
-        measure_info: Optional[Union[str, Dict[str, str]]] = None
+        measure_info: Optional[Dict[str, Any]] = None
     ) -> None:
         self.best_score = {
             'value': value,

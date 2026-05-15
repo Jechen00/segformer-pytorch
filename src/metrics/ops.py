@@ -4,11 +4,11 @@
 import torch
 
 from typing import Protocol, Union, Optional
-from src.ml_types import MeasureValue, MetricGroup
-    
+from src.metrics.types import MeasureValue, MetricGroup
+
 
 #####################################
-# Classes
+# Metric Classes
 #####################################
 class Metric(Protocol):
     '''

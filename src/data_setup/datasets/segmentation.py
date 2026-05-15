@@ -5,7 +5,6 @@ import torch
 from torchvision.transforms import v2
 
 import pandas
-import numpy as np
 from PIL import Image
 from pathlib import Path
 
@@ -18,9 +17,10 @@ from abc import ABC, abstractmethod
 from typing import Union, Optional, Dict, Literal, TypedDict, TypeAlias
 
 from src.data_setup.transforms.ops import ImageTransform, ToImageAndMask
-from src.utils import make_tuple, transpose_list_dict
+from src.utils import make_tuple, transpose_list_dict, normalize_idxs
 from src.masks import rgb_to_idx_mask
-from src.ml_types import RGBTuple, IndexLike, SampleDict, SampleListDict
+from src.ml_types import RGBTuple, IndexLike
+from src.data_setup.types import SegSample, SegSampleList
 
 
 #####################################
@@ -57,26 +57,29 @@ class SegmentationDatasetBase(ABC):
         # Create transform pipeline
         self._make_transform_pipeline()
         
-    def __getitem__(self, idxs: IndexLike) -> Union[SampleDict, SampleListDict]:
+    def __getitem__(self, idxs: IndexLike) -> Union[SegSample, SegSampleList]:
+        '''
+        Gets a single-sample or multi-sample dictionary containing image and segmentation mask.
+        Images are transformed if provided and labels are converted to tensors.
+
+        Args:
+            idxs (IndexLike): Index or collection of indices for the samples to retrieve.
+                              This must be one of:
+                                - A single integer
+                                - A list of integers
+                                - A numpy array of integers
+                                - A tensor of integers
+        '''
         if isinstance(idxs, int):
             # Indexing with a single integer
             return self.get_single_item(idxs)
+        else:
+            # Indexing with multiple integers
+            idxs = normalize_idxs(idxs)
+            items = [self.get_single_item(idx) for idx in idxs]
+            return transpose_list_dict(items, mode = 'to_cols')
         
-        elif isinstance(idxs, np.ndarray):
-            idxs = idxs.tolist()
-        elif isinstance(idxs, torch.Tensor):
-            idxs = idxs.tolist()
-        elif not isinstance(idxs, (list, tuple)):
-            raise TypeError(
-                'Dataset indexing only supports integers, lists, tuples, '
-                f'tensors, and numpy arrays (all integers). Got {type(idxs)}'
-        )
-
-        # Indexing with multiple integers
-        items = [self.get_single_item(idx) for idx in idxs]
-        return transpose_list_dict(items, mode = 'to_cols')
-        
-    def get_single_item(self, idx: int) -> SampleDict:        
+    def get_single_item(self, idx: int) -> SegSample:        
         item = self.get_raw_item(idx)
         
         if self.transform_pipeline is not None:
@@ -203,7 +206,7 @@ class SegmentationDatasetBase(ABC):
         pass
 
     @abstractmethod
-    def get_raw_item(self, idx: int) -> SampleDict:
+    def get_raw_item(self, idx: int) -> SegSample:
         '''
         Returns a dictionary of raw, unprocessed sample information.
         Must include 'image' and 'mask'.
@@ -245,7 +248,7 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
     def __len__(self) -> int:
         return len(self.img_paths)
     
-    def get_raw_item(self, idx: int) -> SampleDict:
+    def get_raw_item(self, idx: int) -> SegSample:
         return {
             'image': Image.open(self.img_paths[idx]).convert('RGB'),
             'mask': Image.open(self.mask_paths[idx]).convert('RGB')

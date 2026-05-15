@@ -5,13 +5,13 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.transforms import v2
 
-import numpy as np
 import datasets
 from datasets import ClassLabel
 from typing import Optional, Literal, List, Union, Callable
 
-from src.ml_types import ImageInput, ImageLabel, SampleDict, SampleListDict, IndexLike
-from src.utils import transpose_list_dict
+from src.ml_types import ImageInput, ImageLabel, IndexLike
+from src.data_setup.types import ClsSample, ClsSampleList
+from src.utils import transpose_list_dict, normalize_idxs
 
 
 #####################################
@@ -24,13 +24,13 @@ class HFClassificationDataset(Dataset):
     
     Args:
         hf_dataset (datasets.Dataset): Hugging Face dataset containing classification samples.
-                                       Each sample must be a dictionary (SampleDict) containing the **same** keys.
+                                       Each sample must be a dictionary (ClsSample) containing the **same** keys.
                                        Required keys are:
                                            - image (ImageInput): Image sample.
                                            - label (Union[int, torch.Tensor]): Class label for the image.
         transforms (optional, Callable): Transform pipeline applied to each sample.
                                          This must be compatible with the samples in `hf_dataset`.
-                                         It should accept and return a `SampleDict`.
+                                         It should accept and return a `ClsSample`.
         class_names (optional, List[str]): List of class names, where index corresponds to label encoding in `hf_dataset`.
                                            If not provided, will try to fallback to 
                                            `hf_dataset.features['label'].names` if available.
@@ -77,54 +77,55 @@ class HFClassificationDataset(Dataset):
     def __repr__(self) -> str:
         return self.hf_dataset.__repr__()
     
-    def __getitem__(self, idxs: IndexLike) -> Union[SampleDict, SampleListDict]:
+    def __getitem__(self, idxs: IndexLike) -> Union[ClsSample, ClsSampleList]:
         '''
         Gets a single-sample or multi-sample dictionary containing image and label information.
-        Images are transformed if provided and labels are converted to tensors.
+        If `self.transforms` is provided, images are transformed.
+        If `self.to_tensor = True`, images and labels are converted to tensors.
+        Note that tensor conversion happens after image transformation.
 
         Args:
             idxs (IndexLike): Index or collection of indices for the samples to retrieve.
+                              This must be one of:
+                                - A single integer
+                                - A list of integers
+                                - A numpy array of integers
+                                - A tensor of integers
             
         Returns:
             A single-sample or multi-sample dictionary depending 
             whether the input was a single index or a collection of indices.
 
-            Single-Sample (SampleDict) has the keys (non-exhaustive):
+            Single-Sample (ClsSample) has the keys (non-exhaustive):
                 - image (ImageInput): Transformed image sample (original if no transforms).
                 - label (ImageLabel): Class label for the image.
 
-            Multi-Sample (SampleListDict) has the keys (non-exhaustive):
+            Multi-Sample (ClsSampleList) has the keys (non-exhaustive):
                 - image (List[ImageInput]): List of transformed image samples (original if no transforms).
                 - label (List[ImageLabel]): List of class labels for the images.
         '''
         if isinstance(idxs, int):
             # Indexing with a single integer
             return self.get_single_item(idxs)
-        elif isinstance(idxs, np.ndarray):
-            idxs = idxs.tolist()
-        elif isinstance(idxs, torch.Tensor):
-            idxs = idxs.tolist()
-        elif not isinstance(idxs, (list, tuple)):
-            raise TypeError(
-                'Dataset indexing only supports integers, lists, tuples, '
-                f'tensors, and numpy arrays (all integers). Got {type(idxs)}'
-        )
-
-        # Indexing with multiple integers
-        items = [self.get_single_item(idx) for idx in idxs]
-        return transpose_list_dict(items, mode = 'to_cols')
+        else:
+            # Indexing with multiple integers
+            idxs = normalize_idxs(idxs)
+            items = [self.get_single_item(idx) for idx in idxs]
+            return transpose_list_dict(items, mode = 'to_cols')
     
-    def get_single_item(self, idx: int) -> SampleDict:
+    def get_single_item(self, idx: int) -> ClsSample:
         '''
-        Gets a sample dictionary containing image and label information,
-        given a **singe** index.
+        Gets a sample dictionary containing image and label information, given a **singe** index.
+        If `self.transforms` is provided, the image are transformed.
+        If `self.to_tensor = True`, the image and label are converted to tensors.
+        Note that tensor conversion happens after image transformation.
 
         Args:
             idx (int): Index of the sample to retrieve.
             
         Returns:
-            SampleDict: Dictionary containing:
-                - image (ImageInput): Transformed image sample (original if no transforms).
+            ClsSample: Dictionary containing:
+                - image (ImageInput): Transformed image sample (original if no transforms and to_tensor = False).
                 - label (ImageLabel): Class label for the image.
         '''
         if not isinstance(idx, int):
@@ -231,7 +232,7 @@ class HumanBinaryDataset(HFClassificationDataset):
                                          or the validation dataset (`val`).
         transforms (optional, Callable): Transform pipeline applied to each sample.
                                          This must be compatible with the samples of the human vs non-human dataset.
-                                         It should accept and return a `SampleDict`.
+                                         It should accept and return a `ClsSample`.
         to_tensor (bool): Whether to apply tensor and datatype (`float32`) conversions to all samples.
                           If `True`, the transform pipeline becomes:
                                 1. Image tensor conversion using `ToImage()`

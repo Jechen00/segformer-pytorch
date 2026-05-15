@@ -6,8 +6,6 @@ from torch import nn
 from torchvision.transforms import v2
 
 from PIL import Image
-import math
-import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from typing import List, Optional, Union, Tuple
 
@@ -72,6 +70,7 @@ def plot_cls_preds(
 
     fig.tight_layout(h_pad = 1.5)
     return fig
+
 
 def make_labels_list(labels: Union[ImageLabel, List[ImageLabel]]) -> List[int]:
     # Normalize int and tensor inputs
