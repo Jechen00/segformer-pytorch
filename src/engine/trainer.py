@@ -53,7 +53,7 @@ class ModelTrainer():
         measure_policy: Optional[MeasurePolicy] = None,
         save_cfg: Optional[SaveConfig] = None,
         log_cfg: Optional[LogConfig] = None,
-        memory_format: torch.memory_format = torch.contiguous_format,
+        memory_format: torch.memory_format = torch.contiguous_format, # torch.channels_last improves training time
         device: Union[torch.device, str] = 'cpu'
     ):
         self.model = model.to(device = device, memory_format = memory_format) # Make sure model is on device

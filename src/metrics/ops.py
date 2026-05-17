@@ -19,38 +19,42 @@ class Metric(Protocol):
     def reset(self) -> None: ...
 
 
-class ClassificationMetrics():
+class ConfusionMatrix():
     '''
-    Computes accuracy, precision, recall, and F1 score.
-    Supports sample-wise and element-wise classification:
-        - Sample-wise (e.g. image classification): metrics are computed over batch samples.
-        - Element-wise (e.g. segmentation): metrics are computed over all elements across the batch.
+    Accumulates a confusion matrix between predictions and targets 
+    for single-label classification tasks.
+
+    Inputs must be integer class indices in the range `[0, num_classes - 1]`.
+    The only exception is the `ignore_idx` (if specified).
 
     Args:
         num_classes (int): Number of classes in the dataset.
-        ignore_idx (optional, int): Index for an 'ignore class'.
-                                    Targets with this index will be ignored (along with their predictions)
+        ignore_idx (optional, int): Index to ignore during computation.
+                                    Targets with this index (and their predictions) are ignored
                                     when computing the confusion matrix and related metrics.
     '''
     def __init__(self, num_classes: int, ignore_idx: Optional[int] = None):
         self.num_classes = num_classes
-        self.conf_mat = None
         self.ignore_idx = ignore_idx
-        
+        self.conf_mat = None # Row: target index, Col: predicted index
+
     def update(self, preds: torch.Tensor, targs: torch.Tensor) -> None:
         '''
         Updates confusion matrix between predictions and targets.
 
         Args:
-            preds (torch.Tensor): Class prediction tensor.
-                                  Shape depends on the task:
-                                        - Sample-wise: `(batch_size,)`
-                                        - Element-wise: `(batch_size, height, width)`
-            targs (torch.Tensor): Target tensor containing ground truth class indices.
-                                  Shape depends on the task:
-                                        - Sample-wise: `(batch_size,)`
-                                        - Element-wise: `(batch_size, height, width)`
+            preds (torch.Tensor): Prediction tensor for class indices.
+                                  Must consist of integer class indices.
+            targs (torch.Tensor): Target (ground truth) tensor for class indices.
+                                  Must be the same shape as `preds` 
+                                  and consist of integer class indices.
         '''
+        if preds.shape != targs.shape:
+            raise ValueError(
+                'preds and targs must be the same shape. '
+                f'Got: preds.shape={preds.shape}, targs.shape={targs.shape} '
+            )
+
         preds = preds.flatten()
         targs = targs.flatten()
         
@@ -59,69 +63,179 @@ class ClassificationMetrics():
             preds = preds[valid_mask]
             targs = targs[valid_mask]
 
-        present_classes = torch.concat([preds, targs])
-        max_class = present_classes.max().item()
-        min_class = present_classes.min().item()
+            if targs.numel() == 0:
+                return
 
-        if (min_class < 0) or (max_class >= self.num_classes):
+        min_class = min(preds.min(), targs.min()).item()
+        max_class = max(preds.max(), targs.max()).item()
+
+        num_classes = self.num_classes
+        if (min_class < 0) or (max_class >= num_classes):
             raise ValueError(
-                f'Class indices should be in [0, {self.num_classes - 1}], '
+                f'Class indices should be in [0, {num_classes - 1}], '
                 f'but got range [{min_class}, {max_class}].'
             )
         
         update_conf_mat = torch.bincount(
-            self.num_classes * targs + preds,
-            minlength = self.num_classes**2
-        ).reshape(self.num_classes, self.num_classes)
+            num_classes * targs + preds,
+            minlength = num_classes**2
+        ).reshape(num_classes, num_classes).to(dtype = torch.float32)
             
         if self.conf_mat is not None:
             self.conf_mat += update_conf_mat
         else:
             self.conf_mat = update_conf_mat
-            
-    def compute(self) -> MetricGroup:
+
+    def compute(self) -> None:
         '''
-        Computes all classification metrics across all updated target elements.
-
-        Returns:
-            MetricGroup: Metric dictionary containing
-                - 'accuracy (int): Total accuracy computed across all classes.
-                - precision (torch.Tensor): Per class precision tensor of shape `(num_classes,)`.
-                - recall (torch.Tensor): Per class recall tensor of shape `(num_classes,)`.
-                - f1_score (torch.Tensor): Per class F1-score tensor of shape `(num_classes,)`.
-                - tot_true_pos (int): Total number of true positives (correct predictions).
-                - tot_count (int): Total number of target elements.
+        Returns confusion matrix.
         '''
-        if self.conf_mat is None:
-            raise RuntimeError('Metric has not been updated with any data yet.')
-            
-        true_pos = self.conf_mat.diag() # True positives (correct predictions) per class
-        class_count = self.conf_mat.sum(dim = 1) # Count of target elements per class
-        pos_count = self.conf_mat.sum(dim = 0) # Positive classifications per class
-
-        tot_count = class_count.sum() # Total count of target elements
-        tot_true_pos =  true_pos.sum() # Total true positives (correct predictions)
-
-        accuracy = (tot_true_pos / tot_count) if tot_count > 0 else 0.0
-        recall = torch.where(class_count > 0, true_pos / class_count, 0.0)
-        precision = torch.where(pos_count > 0, true_pos / pos_count, 0.0)
-        f1_score = torch.where(
-            (precision + recall) > 0,
-            2 * precision * recall / (precision + recall),
-            0.0
-        )
-
-        return {
-            'accuracy': accuracy,
-            'recall': recall,
-            'precision': precision,
-            'f1_score': f1_score,
-            'tot_true_pos': tot_true_pos,
-            'tot_count': tot_count
-        }
+        return self.conf_mat
     
     def reset(self) -> None:
         '''
         Resets confusion matrix.
         '''
         self.conf_mat = None
+
+
+class ClassificationMetrics(ConfusionMatrix):
+    '''
+    Evaluation metrics for single-label classification, computed from a confusion matrix.
+    Includes: accuracy, precision, recall, F1-score
+
+    Inputs must be integer class indices in the range `[0, num_classes - 1]`.
+    The only exception is the `ignore_idx` (if specified).
+
+    Args:
+        num_classes (int): Number of classes in the dataset.
+        ignore_idx (optional, int): Index to ignore during computation.
+                                    Targets with this index (and their predictions) are ignored
+                                    when computing the confusion matrix and related metrics.
+    '''     
+    def compute(self) -> MetricGroup:
+        '''
+        Computes the classification metrics across all target-prediction updates.
+
+        Returns:
+            MetricGroup: Metric dictionary containing
+                - accuracy (torch.Tensor): Overall accuracy across all classes. 
+                                           This is a scalar tensor.
+                - recall (torch.Tensor): Per-class recall tensor of shape `(num_classes,)`.
+                - mean_recall_valid (torch.Tensor): Mean recall across all classes with at least one target element.
+                                              This is a scalar tensor.
+                - precision (torch.Tensor): Per-class precision tensor of shape `(num_classes,)`.
+                - mean_precision_valid (torch.Tensor): Mean precision across all classes with at least one target element.
+                                                 This is a scalar tensor.
+                - f1_score (torch.Tensor): Per-class F1-score tensor of shape `(num_classes,)`.
+                - mean_f1_score_valid (torch.Tensor): Mean F1-score across all classes with at least one target element.
+                                                This is a scalar tensor.
+                - tot_count (torch.Tensor): Total number of non-ignored target elements.
+                                            This is a scalar tensor.
+        '''
+        conf_mat = self.conf_mat
+        if conf_mat is None:
+            raise RuntimeError('Metric has not been updated with any data yet.')
+            
+        true_pos = conf_mat.diag() # True positives (correct predictions) per class
+        class_count = conf_mat.sum(dim = 1) # Count of target elements per class
+        pos_count = conf_mat.sum(dim = 0) # Count of prediction elements per class
+
+        tot_count = class_count.sum() # Total count of elements considered (non-ignored targets)
+        tot_true_pos =  true_pos.sum() # Total true positives (correct predictions)
+
+        # Compute accuracy
+        accuracy = (tot_true_pos / tot_count) if tot_count > 0 else 0.0
+
+        # Compute recall
+        recall = torch.zeros_like(true_pos)
+        class_mask = class_count > 0 # Compute only where target elements exist for the class
+        recall[class_mask] = true_pos[class_mask] / class_count[class_mask]
+
+        # Compute precision
+        precision = torch.zeros_like(true_pos)
+        pos_mask = pos_count > 0 # Compute only where prediction elements exist for the class
+        precision[pos_mask] = true_pos[pos_mask] / pos_count[pos_mask]
+
+        # Comput F1-score
+        f1_score = torch.zeros_like(true_pos)
+        f1_denom = precision + recall
+        f1_mask = f1_denom > 0 # Compute only where denominator is nonzero
+        f1_score[f1_mask] = (2 * precision[f1_mask] * recall[f1_mask]) / f1_denom[f1_mask]
+
+        return {
+            'accuracy': accuracy,
+            'recall': recall,
+            'precision': precision,
+            'f1_score': f1_score,
+            'mean_recall_valid': recall[class_mask].mean(),
+            'mean_precision_valid': precision[class_mask].mean(),
+            'mean_f1_score_valid': f1_score[class_mask].mean(),
+            'tot_count': tot_count
+        }
+
+
+class SegmentationMetrics(ConfusionMatrix):
+    '''
+    Evaluation metrics frequently used in semantic segmentation, computed from a confusion matrix.
+    Includes: accuracy, Dice (F1-score), IoU (Jaccard index)
+
+    Inputs must be integer class indices in the range `[0, num_classes - 1]`.
+    The only exception is the `ignore_idx` (if specified).
+
+    Args:
+        num_classes (int): Number of classes in the dataset.
+        ignore_idx (optional, int): Index to ignore during computation.
+                                    Targets with this index (and their predictions) are ignored
+                                    when computing the confusion matrix and related metrics.
+    '''
+    def compute(self) -> MetricGroup:
+        '''
+        Computes the semantic segmentation metrics across all target-prediction updates.
+
+        Returns:
+            MetricGroup: Metric dictionary containing
+                - accuracy (torch.Tensor): Overall accuracy across all classes. 
+                                           This is a scalar tensor.
+                - dice (torch.Tensor): Per-class Dice tensor of shape `(num_classes,)`.
+                - mean_dice_valid (torch.Tensor): Mean Dice across all classes with at least one target element.
+                                                  This is a scalar tensor.
+                - iou (torch.Tensor): Per-class Iou tensor of shape `(num_classes,)`.
+                - mean_iou_valid (torch.Tensor): Mean IoU across all classes with at least one target element.
+                                                 This is a scalar tensor.
+                - tot_count (torch.Tensor): Total number of non-ignored target elements.
+                                            This is a scalar tensor.
+        '''
+        conf_mat = self.conf_mat
+        if conf_mat is None:
+            raise RuntimeError('Metric has not been updated with any data yet.')
+            
+        # Class-wise intersection between target and prediction elements
+        # These are the true positives
+        intersection = conf_mat.diag() # |T_c intersect P_c|
+
+        # Class-wise union between target and prediction elements
+        # From inclusion-exclusion principle: |T_c union P_c| = |T_c| + |P_c| - |T_c intersect P_c|
+        union = conf_mat.sum(dim = 0) + conf_mat.sum(dim = 1) - intersection
+
+        # Total count of elements considered (non-ignored targets)
+        tot_count = conf_mat.sum()
+        
+        # Compute IoU, Dice, and pixel-wise accuracy
+        iou = torch.zeros_like(intersection)
+        nonzero_mask = intersection > 0 # Compute only where intersect is nonzero
+        iou[nonzero_mask] = intersection[nonzero_mask] / union[nonzero_mask]
+
+        dice = 2 * iou / (1 + iou)
+
+        accuracy = (intersection.sum() / tot_count) if tot_count > 0 else 0.0
+        
+        class_mask = conf_mat.sum(dim = 1) > 0 # Mask for classes with at least one target element
+        return {
+            'accuracy': accuracy,
+            'dice': dice,
+            'mean_dice_valid': dice[class_mask].mean(),
+            'iou': iou,
+            'mean_iou_valid': iou[class_mask].mean(),
+            'tot_count': tot_count
+        }
