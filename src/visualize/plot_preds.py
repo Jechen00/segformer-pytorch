@@ -23,11 +23,16 @@ def plot_cls_preds(
     imgs: Union[ImageInput, List[ImageInput]],
     labels: Union[ImageLabel, List[ImageLabel]] = None,
     img_transforms: Optional[v2.Compose] = None,
+    memory_format: Optional[torch.memory_format] = None,
     nrows: Optional[int] = None,
     ncols: Optional[int] = None,
     figsize: Optional[Tuple[float, float]] = None,
     title_fontsize: float = 18,
 ) -> Figure:
+    '''
+    Note: `memory_format` will only convert `imgs`.
+          Ideally, `model` and `imgs` should be on the same memory format.
+    '''
     # Normalize single-sample images
     if ((isinstance(imgs, torch.Tensor) and imgs.ndim == 3)
         or isinstance(imgs, Image.Image)):
@@ -46,7 +51,7 @@ def plot_cls_preds(
     flat_axes = axes.flatten() if num_imgs > 1 else [axes]
 
     # Predictions
-    preds = preprocess_and_predict(model, imgs, img_transforms)
+    preds = preprocess_and_predict(model, imgs, img_transforms, memory_format)
 
     # Plotting
     for ax, img, label, pred in zip(flat_axes, imgs, labels, preds):
@@ -109,3 +114,12 @@ def make_labels_list(labels: Union[ImageLabel, List[ImageLabel]]) -> List[int]:
             )
     return norm_labels
 
+
+#####################################
+# Segmentation Functions
+#####################################
+def plot_seg_preds_collage():
+    return
+
+def plot_seg_preds_overlap():
+    return

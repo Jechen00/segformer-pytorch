@@ -1,6 +1,7 @@
 #####################################
 # Imports & Dependencies
 #####################################
+import torch
 from torch.optim import lr_scheduler
 
 from pathlib import Path
@@ -41,6 +42,40 @@ class EvalConfig():
             for name, spec in log_metric_specs.items():
                 log_metric_specs[name] = normalize_metric_spec(spec)
 
+
+@dataclass
+class PerformanceConfig():
+    device: Union[str, torch.device] = 'cpu'
+    memory_format: torch.memory_format = torch.contiguous_format # torch.channels_last improves training time on GPU
+    use_amp: bool = False
+    amp_dtype: torch.dtype = torch.float16
+
+    def __post_init__(self):
+        device = torch.device(self.device)
+        device_type = device.type
+
+        # Check device type is valid
+        if device_type == 'cpu':
+            pass
+
+        elif device_type == 'mps':
+            if not torch.backends.mps.is_available():
+                raise ValueError('MPS is not available.')
+            
+        elif device_type == 'cuda':
+            if not torch.cuda.is_available():
+                raise ValueError('CUDA is not available.')
+
+        else:
+            raise ValueError(f'Unsupported device type: {device_type}')
+
+        # Check that device is CUDA if AMP is enabled
+        if self.use_amp and device_type != 'cuda':
+            raise ValueError(
+                f'AMP is only supported for CUDA devices. Got: {device}'
+            )
+        
+        self.device = device
 
 @dataclass
 class SaveConfig():

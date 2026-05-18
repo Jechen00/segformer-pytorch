@@ -20,7 +20,10 @@ from src.logging.formatting import (
 from src.metrics.ops import Metric
 from src.metrics.types import MetricResults
 from src.engine.checkpoint import load_checkpoint, save_checkpoint
-from src.engine.trainer_configs import EvalConfig, SaveConfig, SchedulerConfig, LogConfig
+from src.engine.trainer_configs import (
+    SchedulerConfig, EvalConfig, 
+    SaveConfig, PerformanceConfig, LogConfig
+)
 from src.engine.measure_policy import MeasurePolicy
 
 
@@ -53,23 +56,28 @@ class ModelTrainer():
         measure_policy: Optional[MeasurePolicy] = None,
         save_cfg: Optional[SaveConfig] = None,
         log_cfg: Optional[LogConfig] = None,
-        memory_format: torch.memory_format = torch.contiguous_format, # torch.channels_last improves training time
-        device: Union[torch.device, str] = 'cpu'
+        perf_cfg: Optional[PerformanceConfig] = None
     ):
-        self.model = model.to(device = device, memory_format = memory_format) # Make sure model is on device
+        self.scheduler_cfg = scheduler_cfg
+        self.eval_cfg = eval_cfg
+        self.save_cfg = save_cfg
+        self.perf_cfg = PerformanceConfig() if perf_cfg is None else perf_cfg
+        self.log_cfg = LogConfig() if log_cfg is None else log_cfg
+
+        device = self.perf_cfg.device # Should already be noramlized to a torch.device
+        self.model = model.to(
+            device = device,
+            memory_format = self.perf_cfg.memory_format
+        )
+
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.targ_key = targ_key
-        self.loss_fn = loss_fn
+
+        self.loss_fn = loss_fn.to(device)
         self.loss_norm = loss_norm
         self.optimizer = optimizer
-        self.scheduler_cfg = scheduler_cfg
-        self.eval_cfg = eval_cfg
         self.measure_policy = measure_policy
-        self.save_cfg = save_cfg
-        self.log_cfg = LogConfig() if log_cfg is None else log_cfg
-        self.memory_format = memory_format
-        self.device = device
 
         self._validate_config()
         self._print_save_msgs()
@@ -81,6 +89,13 @@ class ModelTrainer():
         self.val_history = ValHistory() # Tracks average losses and metrics
         self.start_epoch = 0
 
+        # GradScaler is used for CUDA mixed-precision training (AMP).
+        # On other devices, perf_cfg.use_amp must be False, so this is a no-op
+        self.scaler = torch.amp.GradScaler(
+            device = device,
+            enabled = self.perf_cfg.use_amp
+        )
+
         self.log_sec_div = SEC_DIV_CHAR * self.log_cfg.logbox_len
         self.log_end_div = EPOCH_FILL_CHAR * self.log_cfg.logbox_len
 
@@ -89,6 +104,7 @@ class ModelTrainer():
             checkpoint_path = resume_path,
             model = self.model,
             optimizer = self.optimizer,
+            scaler = self.scaler,
             train_history = self.train_history,
             val_history = self.val_history,
             scheduler = self.scheduler,
@@ -139,6 +155,7 @@ class ModelTrainer():
                 save_checkpoint(
                     model = self.model,
                     optimizer = self.optimizer,
+                    scaler = self.scaler,
                     train_history = self.train_history,
                     val_history = self.val_history,
                     scheduler = self.scheduler,
@@ -191,21 +208,33 @@ class ModelTrainer():
 
         self.model.train()
         for batch in self.train_loader:
-            imgs = batch['image'].to(device = self.device, memory_format = self.memory_format)
-            targs = batch[self.targ_key].to(self.device)
+            pcfg = self.perf_cfg
+            device = pcfg.device
+            scaler = self.scaler
+
+            imgs = batch['image'].to(device, memory_format = pcfg.memory_format)
+            targs = batch[self.targ_key].to(device)
             
             self.optimizer.zero_grad() # Zero parameter gradients
 
-            # Compute loss (sum and average) for batch
-            logits = self.model(imgs)
-            batch_items, batch_loss_sum, batch_loss_avg = self._normalize_loss(logits, targs)
-            batch_loss_avg.backward() # Backpropagate on average batch loss
+            # The AMP context is only relevant for CUDA. 
+            # It is disabled for other devices (pcfg.use_amp = False)
+            with torch.autocast(
+                device_type = device.type, 
+                dtype = pcfg.amp_dtype, 
+                enabled = pcfg.use_amp
+            ):
+                # Compute loss (sum and average) for batch
+                logits = self.model(imgs)
+                batch_items, batch_loss_sum, batch_loss_avg = self._normalize_loss(logits, targs)
 
-            self.optimizer.step() # Update parameters
+            scaler.scale(batch_loss_avg).backward() # Backpropagate on average batch loss
+            scaler.step(self.optimizer) # Update parameters
+            scaler.update() # Update grad scalar
 
-            cfg = self.scheduler_cfg
-            if (cfg is not None) and (cfg.step_freq == 'optim_step'):
-                cfg.scheduler.step() # Update learning rates per optimizer step
+            scfg = self.scheduler_cfg
+            if (scfg is not None) and (scfg.step_freq == 'optim_step'):
+                scfg.scheduler.step() # Update learning rates per optimizer step
                 
             loss_sum += batch_loss_sum.detach() # Update running sum loss
             num_items += batch_items # Update number of target items used in summed loss
@@ -222,13 +251,23 @@ class ModelTrainer():
         self.model.eval()
         loss_sum, num_items = 0, 0
         for batch in self.val_loader:
-            imgs = batch['image'].to(device = self.device, memory_format = self.memory_format)
-            targs = batch[self.targ_key].to(self.device)
+            pcfg = self.perf_cfg
+            device = pcfg.device
+
+            imgs = batch['image'].to(device, memory_format = pcfg.memory_format)
+            targs = batch[self.targ_key].to(device)
 
             with torch.inference_mode():
-                # Compute loss (sum and average) for batch
-                logits = self.model(imgs)
-                batch_items, batch_loss_sum, _ = self._normalize_loss(logits, targs)
+                # The AMP context is only relevant for CUDA. 
+                # It is disabled for other devices (pcfg.use_amp = False)
+                with torch.autocast(
+                    device_type = device.type, 
+                    dtype = pcfg.amp_dtype, 
+                    enabled = pcfg.use_amp
+                ):
+                    # Compute loss (sum and average) for batch
+                    logits = self.model(imgs)
+                    batch_items, batch_loss_sum, _ = self._normalize_loss(logits, targs)
                 
             loss_sum += batch_loss_sum # Update running sum loss
             num_items += batch_items # Update number of target items used in summed loss

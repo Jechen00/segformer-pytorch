@@ -3,6 +3,7 @@
 #####################################
 import torch
 from torch import nn
+from torch.amp import GradScaler
 from torch.optim import Optimizer, lr_scheduler
 
 from pathlib import Path
@@ -12,7 +13,7 @@ from src.logging.history import TrainHistory, ValHistory
 from src.engine.measure_policy import MeasurePolicy
 from src.utils import recursive_to_cpu, normalize_file_path, all_or_none
 
-Components: TypeAlias = Literal['model', 'optimizer', 'scheduler', 'measure_policy', 'histories']
+Components: TypeAlias = Literal['model', 'optimizer', 'scaler', 'scheduler', 'measure_policy', 'histories']
 ComponentInput: TypeAlias = Union[Components, Iterable[Components]]
 ALL_COMPONENTS = set(get_args(Components))
 
@@ -23,6 +24,7 @@ ALL_COMPONENTS = set(get_args(Components))
 def save_checkpoint(
     model: nn.Module, 
     optimizer: Optimizer, 
+    scaler: GradScaler,
     train_history: TrainHistory,
     val_history: ValHistory,
     checkpoint_epoch: int,
@@ -31,13 +33,23 @@ def save_checkpoint(
     measure_policy: Optional[MeasurePolicy] = None
 ) -> None:
     '''
-    Saves a checkpoint containing the model, optimizer, (optional) scheduler state dicts.
-    Also saves training history (loss average), validation history (loss average and metrics), 
-    (optional) measure policy along with the epoch index.
+    Saves a checkpoint containing the state dicts for:
+        - Model
+        - Optimizer
+        - Gradient scaler
+        - Training history (loss average)
+        - Validation history (loss average and metrics)
+        - (Optional) learning rate scheduler
+        - (Optional) measure policy
+
+    Additionally saves the epoch index of the checkpoint.
 
     Args:
         model (nn.Module): Model to save.
         optimizer (Optimizer): Optimizer for the `model`.
+        scaler (GradScaler): Gradient scaler for automatic mixed precision (AMP).
+                             Required because the training system always has a scaler instance,
+                             even if AMP is disabled (e.g. CPU/MPS).
         train_history (TrainHistory): Training dataset history containing loss avevalues across epochs.
         val_histories (ValHistory): Validation dataset history containing loss and metric values across epochs.
         checkpoint_epoch (int): Index of the completed epoch this checkpoint refers to.
@@ -56,21 +68,24 @@ def save_checkpoint(
     checkpoint = {
         'model': model.state_dict(),
         'optimizer': optimizer.state_dict(),
+        'scaler': scaler.state_dict(),
         'scheduler': None if scheduler is None else scheduler.state_dict(),
         'measure_policy': None if measure_policy is None else measure_policy.state_dict(),
         'train_history': train_history.state_dict(),
         'val_history': val_history.state_dict(),
         'checkpoint_epoch': checkpoint_epoch
     }
+
     torch.save(obj = checkpoint, f = save_path)
 
 
 def load_checkpoint(
     checkpoint_path: Union[str, Path],
     model: nn.Module,
-    optimizer: Optimizer,
-    train_history: TrainHistory,
-    val_history: ValHistory,
+    optimizer: Optional[Optimizer] = None,
+    scaler: Optional[GradScaler] = None,
+    train_history: Optional[TrainHistory] = None,
+    val_history: Optional[ValHistory] = None,
     scheduler: Optional[lr_scheduler._LRScheduler] = None,
     measure_policy: Optional[MeasurePolicy] = None,
     device: Union[str, torch.device] = 'cpu'
@@ -78,56 +93,60 @@ def load_checkpoint(
     '''
     Loads a saved training checkpoint from `checkpoint_path`.
 
-    The checkpoint is expected to match the format produced by `checkpoint.save_checkpoint()`.
-    Checkpoint keys expected:
-        - 'model'
-        - 'optimizer'
-        - 'train_history'
-        - 'val_history'
-        - 'scheduler'
-        - 'measure_policy'
-        - 'checkpoint_epoch'
+    Note: The checkpoint must have a `model` key to load the model state dict.
+          If an optional argument is provided, the checkpoint must contain the corresponding state dict
+          under a key of the same name (e.g. `optimizer` state dict must be stored under the `optimizer` key).
 
     Args:
         checkpoint_path (Union[str, Path]): Full path to a checkpoint file to load a checkpoint.
         model (nn.Module): Model to load the state_dict from `checkpoint['model']`.
-                           This should already be on device.
-        optimizer (Optimizer): Optimizer for model to load the state_dict from `checkpoint[optimizer]`.
-        train_history (TrainHistory): Training dataset history containing loss values across epochs.
-                                      The state_dict in `checkpoint['train_history']` is 
-                                      always moved to CPU before loading into this PhaseHistory.
-        val_history (ValHistory): Validation dataset history containing loss and metric values across epochs.
-                                    The state_dict in `checkpoint['val_history']` is 
-                                    always moved to CPU before loading into this PhaseHistory.
-        scheduler (optional, lr_scheduler._LRScheduler): Learning rate scheduler for the optimizer.
-                                                         If provided, an existing (non-None) scheduler state_dict
-                                                         must be stored in the `checkpoint['scheduler']`.
+                           This should already be on `device`.
+        optimizer (optional, Optimizer): Optimizer for `model`.
+        scaler (optional, GradScaler): Gradient scaler for automatic mixed precision (AMP).
+        train_history (optional, TrainHistory): Training dataset history containing loss values across epochs.
+                                                If provided, the checkpoint state_dict is always moved to CPU before loading.
+        val_history (optional, ValHistory): Validation dataset history containing loss and metric values across epochs.
+                                            If provided, the checkpoint state_dict is always moved to CPU before loading.
+        scheduler (optional, lr_scheduler._LRScheduler): Learning rate scheduler for `optimizer`.
         measure_policy (optional, MeasurePolicy): Measure policy for early stopping and best score tracking.
-                                                  If provided, an existing (non-None) MeasurePolicy state_dict
-                                                  must be stored in `checkpoint[measure_policy]`.
         device (Union[str, torch.device]): The device to load the checkpoint tensors on to. Default is 'cpu'.
 
     Returns:
         int:  Index of the completed epoch the checkpoint was saved at.
-              Note that this may differ from the scheduler's internal step counter called `last_epoch`.
+              This may differ from the internal step counter in `scheduler`, called `last_epoch`.
     '''
     checkpoint = torch.load(checkpoint_path, map_location = device)
 
-    # Load model and optimizer
-    model.load_state_dict(checkpoint['model'])
-    optimizer.load_state_dict(checkpoint['optimizer'])
+    training_comps = {
+        'model': model,
+        'optimizer': optimizer,
+        'scaler': scaler,
+        'scheduler': scheduler,
+        'measure_policy': measure_policy
+    }
 
-    # Load training and validation history (with tensors on CPU)
-    train_history.load_state_dict(recursive_to_cpu(checkpoint['train_history']))
-    val_history.load_state_dict(recursive_to_cpu(checkpoint['val_history']))
+    history_comps = {
+        'train_history': train_history,
+        'val_history': val_history
+    }
 
-    # Load scheduler
-    if scheduler is not None:
-        scheduler.load_state_dict(checkpoint['scheduler'])
-
-    # Load measure policy
-    if measure_policy is not None:
-        measure_policy.load_state_dict(checkpoint['measure_policy'])
+    valid_training_keys = [key for (key, obj) in training_comps.items() 
+                           if obj is not None]
+    valid_history_keys = [key for (key, obj) in history_comps.items()
+                          if obj is not None]
+    
+    # Check for any missing keys in checkpoint
+    keys_to_check = set(valid_training_keys) | set(valid_history_keys) | {'checkpoint_epoch'}
+    missing = keys_to_check  - checkpoint.keys()
+    if missing:
+        raise KeyError(f'Missing keys in checkpoint: {missing}')
+    
+    # Load state dicts
+    for key in valid_training_keys:
+        training_comps[key].load_state_dict(checkpoint[key])
+    
+    for key in valid_history_keys:
+        history_comps[key].load_state_dict(recursive_to_cpu(checkpoint[key]))
 
     return checkpoint['checkpoint_epoch']
 
@@ -153,7 +172,8 @@ def separate_checkpoint(
         components (optional, ComponentInput): The component(s) to extract and save from the checkpoint.  
                                                This can be a single string or an iterable of strings.
                                                If not provided, defaults to all valid components:
-                                                    {'model', 'optimizer', 'scheduler', 'measure_policy', 'histories'}
+                                                    {'model', 'optimizer', 'scaler', 
+                                                     'scheduler', 'measure_policy', 'histories'}
         base_dir (optional, Union[str, Path]): The base directory where the save directory will be created.
                                                The save directory is `base_dir/checkpoint_epoch_{num}`,
                                                where `num = checkpoint['checkpoint_epoch']`.
@@ -172,18 +192,21 @@ def separate_checkpoint(
     else:
         components = set(components)
 
+    sep_histories = 'histories' in components # Whether to separate histories
+    training_components = components - {'histories'}
+
     # Check for invalid components
     invalid = components - ALL_COMPONENTS
-    if len(invalid) != 0:
+    if invalid:
         raise ValueError(f'Unsupported components: {invalid}')
 
-    # Check for missing components
-    keys_to_check = (components - {'histories'}) | {'checkpoint_epoch'}
-    if 'histories' in components:
+    # Check for missing keys in checkpoint
+    keys_to_check = training_components | {'checkpoint_epoch'}
+    if sep_histories:
         keys_to_check.update(['train_history', 'val_history'])
 
-    missing = [key for key in keys_to_check if key not in checkpoint]
-    if len(missing) != 0:
+    missing = keys_to_check  - checkpoint.keys()
+    if missing:
         raise KeyError(f'Missing keys in checkpoint: {missing}')
 
     # Make directory to save separate files
@@ -192,12 +215,12 @@ def separate_checkpoint(
     save_dir.mkdir(parents = True, exist_ok = True)
 
     # Save components
-    for key in components:
-        if key == 'histories':
-            histories = {
-                'train_history': checkpoint['train_history'],
-                'val_history': checkpoint['val_history']
-            }
-            torch.save(histories, save_dir / 'histories.pth')
-        else:
-            torch.save(checkpoint[key], save_dir / f'{key}.pth')
+    for key in training_components:
+        torch.save(checkpoint[key], save_dir / f'{key}.pth')
+
+    if sep_histories:
+        histories = {
+            'train_history': checkpoint['train_history'],
+            'val_history': checkpoint['val_history']
+        }
+        torch.save(histories, save_dir / 'histories.pth')

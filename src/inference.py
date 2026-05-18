@@ -19,7 +19,8 @@ from src.utils import transpose_list_dict, check_tensor_shapes
 def preprocess_and_predict(
     model: nn.Module,
     samps: Union[Sample, MultiSamples], 
-    img_transforms: Optional[v2.Compose] = None
+    img_transforms: Optional[v2.Compose] = None,
+    memory_format: Optional[torch.memory_format] = None
 ) -> torch.Tensor:
     '''
     Preprocesses samples and computes predictions for them.
@@ -30,11 +31,15 @@ def preprocess_and_predict(
         2. predict
     '''
     imgs = preprocess_imgs(samps, img_transforms)
-    preds = predict(model, imgs)
+    preds = predict(model, imgs, memory_format)
     return preds
 
 
-def predict(model: nn.Module, imgs: torch.Tensor) -> torch.Tensor:
+def predict(
+    model: nn.Module, 
+    imgs: torch.Tensor, 
+    memory_format: Optional[torch.memory_format] = None
+) -> torch.Tensor:
     '''
     Computes predictions for a image classification/segmentation model.
     Assumes model outputs logits with class dimension at `dim = 1`.
@@ -43,6 +48,10 @@ def predict(model: nn.Module, imgs: torch.Tensor) -> torch.Tensor:
         model (nn.Module): The image classification/segmentation model,
         imgs (torch.Tensor): The images to predict on.
                              This should be a tensor of shape `(batch_size, channels, height, width)`.
+        memory_format (optional, torch.memory_format): The memory format to convert `imgs` to before predicting.
+                                                       This should ideally be the same memory format as `model`,
+                                                       but it is not required.
+                                                       If not provided, no memory format conversion is applied.
     Returns:
         torch.Tensor: Model predictions for `imgs`, with shape depending on the type of model.
                       Generally:
@@ -50,12 +59,20 @@ def predict(model: nn.Module, imgs: torch.Tensor) -> torch.Tensor:
                         - Segmentation: `(batch_size, height, width)`
 
     '''
-    device = next(model.parameters()).device
     was_training = model.training
-    model.eval()
 
+    # Send imgs to device of model
+    device = next(model.parameters()).device
+    imgs = imgs.to(device)
+
+    # Send imgs to memory_format if provided
+    if memory_format is not None:
+        imgs = imgs.to(memory_format = memory_format)
+
+    # Get predictions
+    model.eval()
     with torch.inference_mode():
-        logits = model(imgs.to(device))
+        logits = model(imgs)
         preds = logits.argmax(dim = 1).cpu()
         
     if was_training:
