@@ -55,4 +55,4 @@ SampleListDict: TypeAlias = Union[
 ]
 
 # torch.Tensor represents a collated batch of tensors
-MultiSamples: TypeAlias = Union[torch.Tensor, SampleListDict]
+MultiSamples: TypeAlias = Union[torch.Tensor, List[Sample], SampleListDict]

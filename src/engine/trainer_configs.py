@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Literal, Union
 
 from src.metrics.ops import Metric
-from src.metrics.postprocess import MetricSpecLike, normalize_metric_spec
-from src.utils import normalize_file_path
+from src.metrics.postprocess import MetricSpecLike, format_metric_spec
+from src.utils import format_file_path
 
 
 #####################################
@@ -36,11 +36,11 @@ class EvalConfig():
         if self.eval_interval < 1:
             raise ValueError(f'eval_interval must be at least 1 if provided.')
         
-        # Normalize metric specifications (for logging) if provided
+        # Format metric specifications (for logging) if provided
         log_metric_specs = self.log_metric_specs
         if log_metric_specs is not None:
             for name, spec in log_metric_specs.items():
-                log_metric_specs[name] = normalize_metric_spec(spec)
+                log_metric_specs[name] = format_metric_spec(spec)
 
 
 @dataclass
@@ -93,7 +93,7 @@ class SaveConfig():
                 raise ValueError(f'save_dir must be provided if {name_attr} is provided.')
 
             # Check that name is a proper file name
-            p_name = normalize_file_path(name, name_attr)
+            p_name = format_file_path(name, name_attr)
             if len(p_name.parts) != 1:
                 raise ValueError(f'{name_attr} must be a single file name. Got: {name}')
 

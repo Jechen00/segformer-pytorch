@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Dict, Any, Tuple, Optional, TypedDict, List
 
-from src.metrics.postprocess import normalize_measure
+from src.metrics.postprocess import format_measure
 from src.metrics.types import (
     MeasureValue,  MetricResults, MeasureSeries, MetricSeriesResults
 )
@@ -51,7 +51,7 @@ class LossHistory():
         '''
         self.epochs.append(epoch)
 
-        recorded_value = normalize_measure(loss_value)
+        recorded_value = format_measure(loss_value)
         self.values.append(recorded_value)
 
         return recorded_value
@@ -88,7 +88,7 @@ class MetricHistory():
                 recorded_metrics[result_name] = {}
                 result_values = self.values.setdefault(result_name, {})
                 for metric_name, metric_value in metric_result.items():
-                    recorded_value = normalize_measure(metric_value)
+                    recorded_value = format_measure(metric_value)
                     recorded_metrics[result_name][metric_name] = recorded_value
 
                     metric_values = result_values.setdefault(metric_name, [])
@@ -96,7 +96,7 @@ class MetricHistory():
                     
             else:
                 # metric_result is a single metric value
-                recorded_value = normalize_measure(metric_result)
+                recorded_value = format_measure(metric_result)
                 recorded_metrics[result_name] = recorded_value
 
                 metric_values = self.values.setdefault(result_name, [])

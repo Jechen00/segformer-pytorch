@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Union, Dict, Any
 
 from src.models.encoder import MixTransformer
-from src.utils import normalize_file_path
+from src.utils import format_file_path
 
 
 #####################################
@@ -58,7 +58,7 @@ class MiTClassification(nn.Module):
                                           This should end with a file extension 
                                           (e.g. `.pt` or `.pth`).
         '''
-        save_path = normalize_file_path(save_path, 'save_path')
+        save_path = format_file_path(save_path, 'save_path')
         save_path.parent.mkdir(parents = True, exist_ok = True)
         
         torch.save(self.mit.state_dict(), save_path)

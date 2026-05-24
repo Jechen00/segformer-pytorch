@@ -8,18 +8,20 @@ from torchvision.transforms import v2
 from PIL import Image
 from typing import Union, List, Optional
 
-from src.data_setup.types import Sample, MultiSamples
-from src.ml_types import ImageInput
-from src.utils import transpose_list_dict, check_tensor_shapes
+from src.data_setup.types import SampleDict, Sample, MultiSamples
+from src.tensor_shapes import (
+    ensure_batched, _validate_same_shape, _validate_ndim
+)
+from src.utils import transpose_list_dict
 
 
 #####################################
-# Functions
+# Inference Functions
 #####################################
 def preprocess_and_predict(
     model: nn.Module,
     samps: Union[Sample, MultiSamples], 
-    img_transforms: Optional[v2.Compose] = None,
+    transforms: Optional[v2.Compose] = None,
     memory_format: Optional[torch.memory_format] = None
 ) -> torch.Tensor:
     '''
@@ -30,7 +32,7 @@ def preprocess_and_predict(
         1. preprocess_imgs
         2. predict
     '''
-    imgs = preprocess_imgs(samps, img_transforms)
+    imgs = preprocess_imgs(samps, transforms)
     preds = predict(model, imgs, memory_format)
     return preds
 
@@ -83,95 +85,139 @@ def predict(
 
 def preprocess_imgs(
     samps: Union[Sample, MultiSamples], 
-    img_transforms: Optional[v2.Compose] = None
+    transforms: Optional[v2.Compose] = None
 ) -> torch.Tensor:
     '''
     Preprocesses the image(s) in a sample or multiple samples, preparing them for input into `predict`.
 
     This involves:
-        1. Normalizing input format
-        2. Optionalluy applying image transformations
+        1. Formatting input into a sample dictionary or list of sample dictionaries
+        2. Optionally applying transforms
         3. Extracting all images
-        4. Checking that all images are tensors of the same shape
-        5. Stacking images into a collated tensor
+        5. Stacking images into a batched tensor
+
+    Note: After optional image transforms, the images must be tensors of the same shape.
+          If the images are contained in a list, each processed image must be a 3D tensor.
+          Otherwise, the processed image must be a 3D or 4D tensor.
+          If image transforms were not provided, make sure that the input samples 
+          already contain image tensors with the expected shape and number of dimensions.
 
     Args:
         samps (Union[Sample, MultiSamples]): Sample or multiple samples containing image information.
             Supports:
-                - A single image (PIL image or tensor)
+                - A single image. This is a PIL image or 3D tensor of shape (channels, height, width)
                 - A single-sample dictionary, where the 'image' key contains a single image
-                - A list of images (PIL image or tensor)
+                - A list of single images
                 - A multi-sample dictionary, where the 'image' key contains a list of images
-                - A collated tensor, e.g. of shape (batch_size, channels, height, width)
+                - A list of single-sample dictionaries
+                - A batched 4D tensor of shape (batch_size, channels, height, width)
 
-        img_transforms (optional, v2.Compose): Image transfromations applied to `samps` before extracting images.
+        transforms (optional, v2.Compose): Transforms applied to `samps` before extracting images.
+                                           These transforms should be compatible with a sample dictionary,
+                                           where images are stored under the `image` key.
 
     Returns:
-        torch.Tensor: A collated tensor of shape `(batch_size, channels, height, width)`.
+        torch.Tensor: A batched tensor of shape `(batch_size, channels, height, width)`.
                       If the input is a single sample, `batch_size` is 1.
     '''
-    # Check input datatype and normalize
-    if isinstance(samps, dict):
-        # Transpose to a list of dictionaries
-        # This is in case transforms don't support a dictionary of lists
-        if isinstance(samps['image'], list):
-            samps = transpose_list_dict(samps, mode = 'to_rows')
-
-    elif isinstance(samps, list):
-        if len(samps) == 0:
-            raise ValueError('List inputs must be non-empty.')
-
-    elif not isinstance(samps, (Image.Image, torch.Tensor)):
-        raise TypeError(
-            f'Expected samps to be a PIL image, tensor, list, or dictionary. Got: {type(samps)}'
-        )
+    samps = _format_samps(samps)
+    is_list = isinstance(samps, list)
 
     # Apply image transforms if provided
-    if img_transforms is not None:
-        if isinstance(samps, list):
-            samps = [img_transforms(s) for s in samps]
+    if transforms is not None:
+        if is_list:
+            samps = [transforms(s) for s in samps]
         else:
-            samps = img_transforms(samps)
+            samps = transforms(samps)
 
-    # Extract images from samps
-    imgs = extract_imgs(samps)
+    # Extract images from samps and batch
+    # samps is a list of sample dictionaries
+    if is_list:
+        imgs = [s['image'] for s in samps]
+        _validate_same_shape(imgs, context_name = 'processed images')
+        _validate_ndim(imgs[0], ndim = 3, context_name = 'processed images')
+        return torch.stack(imgs)
+    
+    # samps is a sample dictionary
+    imgs = samps['image']
+    if not isinstance(imgs, torch.Tensor):
+        raise ValueError(
+            'Expected processed images to be a 3D or 4D tensor.'
+            f'Got: {type(imgs)}'
+        )
+    
+    return ensure_batched(imgs, unbatched_ndim = 3, context_name = 'processed images')
 
-    # Check images are tensors and shapes are all the same
-    imgs_list = imgs if isinstance(imgs, list) else [imgs]
-    check_tensor_shapes(imgs_list, 'images after optional transforms')
 
-    # Ensure imgs has a batch dimension
-        # Triggers when imgs is a list of samples or samps was a single-sample input
-    if (imgs_list[0].ndim == 3):
-        imgs = torch.stack(imgs_list)
-        
-    return imgs
-
-def extract_imgs(samps: Union[Sample, MultiSamples]) -> Union[ImageInput, List[ImageInput]]:
+#####################################
+# Formatting Functions
+#####################################
+def _format_samps(
+    samps: Union[Sample, MultiSamples]
+) -> Union[SampleDict, List[SampleDict]]:
     '''
-    Gets all images from a sample or multiple samples.
+    Formats image samples for processing in `preprocess_imgs`.
+    This converts all samples into either a sample dictionary or a list of sample dictionaries.
+
+    Note: The value contained in the `image` key of each sample dictionary is preserved. 
+    This means PIL images remain PIL images, 
+    and tensors keep their original shape (include any batch dimension).
 
     Args:
         samps (Union[Sample, MultiSamples]): Sample or multiple samples containing image information.
             Supports:
-                - A single image (PIL image or tensor)
+                - A single image, i.e. a PIL image or 3D tensor of shape (channels, height, width)
                 - A single-sample dictionary, where the 'image' key contains a single image
-                - A list of images (PIL image or tensor)
+                - A list of single images
                 - A multi-sample dictionary, where the 'image' key contains a list of images
-                - A collated tensor, e.g. of shape (batch_size, channels, height, width)
+                - A list of single-sample dictionaries
+                - A batched 4D tensor of shape (batch_size, channels, height, width)
 
     Returns:
-        Union[ImageInput, List[ImageInput]: The extracted images from `samps`.
-                                            The structure depends on the type of input.
-                                            It will either be:
-                                                - A single PIL image
-                                                - A single tensor (possibly collated)
-                                                - A list of PIL images or tensors
+        Union[SampleDict, List[SampleDict]]: Formatted samples.
+            If `samps` is a sampled dictionary, it is returned unchanged.
+            If `samps` is a PIL image or tensor, it is wrapped in a sample dictionary.
+            Otherwise, `samps` is converted into a list of sample dictionaries.
     '''
+    # Dictionary input
     if isinstance(samps, dict):
-        imgs = samps['image']
+        img = samps['image']
+        if isinstance(img, list):
+            return transpose_list_dict(samps, mode = 'to_rows') # List of sample dictionaries
+        
+        elif not isinstance(img, (Image.Image, torch.Tensor)):
+            raise TypeError(
+                "Expected the 'image' key of dictionary inputs to contain "
+                'either a PIL image, a tensor, or a list of PIL images/tensors.'
+                f'Got: {type(samps)}'
+            )
+        
+        return samps # Sample dictionary
+
+    # List input
     elif isinstance(samps, list):
-        imgs = [s['image'] if isinstance(s, dict) else s for s in samps]
+        # Format each element into a sample dictionary
+        formatted_list = []
+        for samp in samps:
+            if isinstance(samp, (Image.Image, torch.Tensor)):
+                formatted_list.append({'image': samp})
+            elif isinstance(samp, dict):
+                formatted_list.append(samp)
+            else:
+                raise TypeError(
+                    'Expected list inputs to only contain '
+                    'PIL images, tensors, or dictionaries'
+                    f'Got: {type(samp)}'
+                )
+            
+        return formatted_list # List of sample dictionaries
+
+    # Image or tensor input
+    elif isinstance(samps, (Image.Image, torch.Tensor)):
+        return {'image': samps} # Sample dictionary
+
     else:
-        imgs = samps  
-    return imgs
+        raise TypeError(
+            'Expected samps to be a PIL image, tensor, list, or dictionary. '
+            f'Got: {type(samps)}'
+        )

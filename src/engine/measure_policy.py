@@ -7,7 +7,7 @@ import warnings
 from typing import Optional, Literal, Tuple, TypedDict, NotRequired
 
 from src.metrics.postprocess import (
-    MetricSpecLike, normalize_metric_spec, select_and_agg_scalar_metric
+    MetricSpecLike, format_metric_spec, select_and_agg_scalar_metric
 )
 from src.metrics.types import MeasureResult
 from src.ml_types import IndexLike, Aggregation
@@ -41,7 +41,7 @@ class MeasurePolicy():
         patience: Optional[int] = None
     ):
         self.measure_type = measure_type
-        self.metric_spec = normalize_metric_spec(metric_spec) if metric_spec is not None else None
+        self.metric_spec = format_metric_spec(metric_spec) if metric_spec is not None else None
         self.mode = mode
         self.min_delta = min_delta
         self.patience = patience

@@ -5,7 +5,7 @@ import torch
 import numpy as np
 
 from PIL import Image
-from typing import Union, List, Tuple, Literal, TypeAlias
+from typing import Union, List, Tuple, Literal, Sequence, TypeAlias
 
 
 #####################################
@@ -15,7 +15,7 @@ ImageInput: TypeAlias = Union[Image.Image, torch.Tensor]
 ImageLabel: TypeAlias = Union[int, torch.Tensor]
 
 RGBTuple: TypeAlias = Tuple[int, int, int]
-RGBLike: TypeAlias = Union[int, RGBTuple]
+FillValue: TypeAlias = Union[float, int, Sequence[float], Sequence[int]]
 
 SpatialSize: TypeAlias = Union[int, Tuple[int, int]]
 

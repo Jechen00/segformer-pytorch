@@ -1,14 +1,18 @@
 #####################################
 # Imports & Dependencies
 #####################################
+import torch
 from torchvision.transforms import v2
 from torchvision.transforms import InterpolationMode
 
 from typing import List, Tuple, Literal, Union, Optional, TypeAlias
 
-from src.ml_types import RGBLike, SpatialSize
-from src.data_setup.transforms.ops import ImageTransform, SegRandomAffine, SegLetterbox, SegResize
+from src.ml_types import FillValue, SpatialSize
+from src.data_setup.transforms.ops import (
+    ImageTransform, SegRandomAffine, SegLetterbox, SegResize, ToImageAndMask
+)
 
+SizingType: TypeAlias = Literal['letterbox', 'resize']
 TransformType: TypeAlias = Literal['phot', 'geo']
 GeoTransform: TypeAlias = Union[SegRandomAffine, SegLetterbox, v2.Compose]
 
@@ -17,13 +21,45 @@ GeoTransform: TypeAlias = Union[SegRandomAffine, SegLetterbox, v2.Compose]
 #####################################
 # Functions
 #####################################
+def get_base_transforms(
+    dtype: torch.dtype = torch.float32,
+    scale: bool = True,
+    size: Optional[SpatialSize] = None,
+    sizing_mode: SizingType = 'letterbox',
+    img_interpolation: Union[InterpolationMode, int] = InterpolationMode.BILINEAR,
+    img_fill: FillValue = 0,
+    mask_fill: FillValue = 255
+) -> v2.Compose:
+    transforms = []
+    if size is not None:
+        if sizing_mode == 'letterbox':
+            size_transform = SegLetterbox(
+                size = size,
+                img_interpolation = img_interpolation,
+                img_fill = img_fill,
+                mask_fill = mask_fill
+            )
+        elif sizing_mode == 'resize':
+            size_transform = SegResize(size = size, img_interpolation = img_interpolation)
+        else:
+            raise ValueError(f'Unknown sizing mode: {sizing_mode}')
+        transforms.append(size_transform)
+
+    transforms.extend([
+        ToImageAndMask(),
+        v2.ToDtype(dtype = dtype, scale = scale)
+    ])
+
+    return v2.Compose(transforms)
+
+
 def get_transforms(
     tf_types: Union[TransformType, List[TransformType], Tuple[TransformType, ...]],
     size: Optional[SpatialSize] = None,
-    sizing_mode: Literal['resize', 'letterbox'] = 'letterbox',
-    img_interpolation: InterpolationMode = InterpolationMode.BILINEAR,
-    img_fill: RGBLike = 0,
-    mask_fill: RGBLike = 255,
+    sizing_mode: SizingType = 'letterbox',
+    img_interpolation: Union[InterpolationMode, int] = InterpolationMode.BILINEAR,
+    img_fill: FillValue = 0,
+    mask_fill: FillValue = 255,
     include_geo_augs: bool = True
 ) -> Union[ImageTransform, Optional[GeoTransform], v2.Compose]:
     '''
@@ -53,22 +89,22 @@ def get_transforms(
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the geometric augmentations of the image.
                                                            Default is `InterpolationMode.BILINEAR`.
                                                            Note that the mask transforms always uses `InterpolationMode.NEAREST`.
-        img_fill (RGBLike): RGB value used to fill parts of the image during geometric transforms.
-                            This RGB value can be:
-                                - a RGB tuple
-                                - an integer `x`, assumed to represent `(x, x, x)`.
-                            This RGB value should be in the same value space as the image.
-                            For example, if the image is scaled to [0, 1], 
-                            `img_fill` values should also be scaled to [0, 1].
-                            Default is `0`.
-        mask_fill (RGBLike): RGB value used to fill parts of the mask during geometric transforms.
-                             This RGB value can be:
-                                - a RGB tuple
-                                - an integer `x`, assumed to represent `(x, x, x)`.
-                             This RGB value should be in the same value space as the segmentation mask.
-                             For example, if mask is scaled to [0, 1], 
-                             `mask_fill` values should also be scaled to [0, 1].
-                             Default is `255`.
+        img_fill (FillValue): Pixel fill value used for the image during geometric transforms.
+                              This can be a float, integer, sequence of floats, or sequence of integers.
+                              If scalar (float or integer), the value is used for all channels.
+                              If sequence, its length must match the number of channels in the input image.
+                              The fill value should be in the same value space as the expected input images.
+                              For example, if the input images are scaled to [0, 1], 
+                              `img_fill` should also be scaled to [0, 1].
+                              Default is `0`.
+        mask_fill (FillValue): Pixel fill value used for the mask during geometric transforms.
+                               This can be a float, integer, sequence of floats, or sequence of integers.
+                               If scalar (float or integer), the value is used for all channels.
+                               If sequence, its length must match the number of channels in the input mask.
+                               The fill value should be in the same value space as the expected input masks.
+                               For example, if the input masks are scaled to [0, 1], 
+                               `mask_fill` should also be scaled to [0, 1].
+                               Default is `255`.
         include_geo_augs (bool): Whether to include geometric augmentations in the transform pipeline.
                                  Default is `True`.
 
@@ -150,10 +186,10 @@ def get_phot_transforms() -> ImageTransform:
 
 def get_geo_transforms(
     size: Optional[SpatialSize] = None,
-    sizing_mode: Literal['resize', 'letterbox'] = 'letterbox',
-    img_interpolation: InterpolationMode = InterpolationMode.BILINEAR,
-    img_fill: RGBLike = 0,
-    mask_fill: RGBLike = 255,
+    sizing_mode: SizingType = 'letterbox',
+    img_interpolation: Union[InterpolationMode, int] = InterpolationMode.BILINEAR,
+    img_fill: FillValue = 0,
+    mask_fill: FillValue = 255,
     include_augs: bool = True
 ) -> Optional[GeoTransform]:
     '''
@@ -170,34 +206,34 @@ def get_geo_transforms(
         size (optional, SpatialSize): Size `(height, width)` to resize both image and segmentation mask.
                                       If `int`, size is assumed to be square.
                                       If not provided, no resizing is applied.
-        sizing_mode (Literal['resize', 'letterbox']): The resizing method to use when `size` is provided.
-                                                      Supported modes:
-                                                            - 'resize': Uses `SegResize`.
-                                                                        Directly scales the image/mask to `size`.
-                                                                        Does not preserve aspect ratio.
-                                                            - 'letterbox': Uses `SegLetterbox`.
-                                                                        Resizes while preserving aspect ratio and 
-                                                                        applies padding to reach the desired output `size`.
-                                                      Default is `letterbox`.
+        sizing_mode (SizingType): The resizing method to use when `size` is provided.
+                                  Supported modes:
+                                    - 'letterbox': Uses `SegLetterbox`.
+                                                Resizes while preserving aspect ratio and 
+                                                applies padding to reach the desired output `size`.
+                                    - 'resize': Uses `SegResize`.
+                                                Directly scales the image/mask to `size`.
+                                                Does not preserve aspect ratio.
+                                  Default is `letterbox`.
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the transforms of the image.
                                                            Default is `InterpolationMode.BILINEAR`.
                                                            Note that the mask transforms always uses `InterpolationMode.NEAREST`.
-        img_fill (RGBLike): RGB value used to fill parts of the image during geometric transforms.
-                            This RGB value can be:
-                                - a RGB tuple
-                                - an integer `x`, assumed to represent `(x, x, x)`.
-                            This RGB value should be in the same value space as the image.
-                            For example, if the image is scaled to [0, 1], 
-                            `img_fill` values should also be scaled to [0, 1].
-                            Default is `0`.
-        mask_fill (RGBLike): RGB value used to fill parts of the mask during geometric transforms.
-                             This RGB value can be:
-                                - a RGB tuple
-                                - an integer `x`, assumed to represent `(x, x, x)`.
-                             This RGB value should be in the same value space as the segmentation mask.
-                             For example, if mask is scaled to [0, 1], 
-                             `mask_fill` values should also be scaled to [0, 1].
-                             Default is `255`.
+        img_fill (FillValue): Pixel fill value used for the image during geometric transforms.
+                              This can be a float, integer, sequence of floats, or sequence of integers.
+                              If scalar (float or integer), the value is used for all channels.
+                              If sequence, its length must match the number of channels in the input image.
+                              The fill value should be in the same value space as the expected input images.
+                              For example, if the input images are scaled to [0, 1], 
+                              `img_fill` should also be scaled to [0, 1].
+                              Default is `0`.
+        mask_fill (FillValue): Pixel fill value used for the mask during geometric transforms.
+                               This can be a float, integer, sequence of floats, or sequence of integers.
+                               If scalar (float or integer), the value is used for all channels.
+                               If sequence, its length must match the number of channels in the input mask.
+                               The fill value should be in the same value space as the expected input masks.
+                               For example, if the input masks are scaled to [0, 1], 
+                               `mask_fill` should also be scaled to [0, 1].
+                               Default is `255`.
         include_augs (bool): Whether to include geometric augmentations in the transform pipeline.
                              Default is `True`.
 
@@ -229,6 +265,8 @@ def get_geo_transforms(
             )
         elif sizing_mode == 'resize':
             size_transform = SegResize(size = size, img_interpolation = img_interpolation)
+        else:
+            raise ValueError(f'Unknown sizing mode: {sizing_mode}')
         transforms.append(size_transform)
 
     # Add geometric transforms

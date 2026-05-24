@@ -11,7 +11,7 @@ from typing import Union, Optional, Dict, Any, Literal, Iterable, TypeAlias, get
 
 from src.logging.history import TrainHistory, ValHistory
 from src.engine.measure_policy import MeasurePolicy
-from src.utils import recursive_to_cpu, normalize_file_path, all_or_none
+from src.utils import recursive_to_cpu, format_file_path, all_or_none
 
 Components: TypeAlias = Literal['model', 'optimizer', 'scaler', 'scheduler', 'measure_policy', 'histories']
 ComponentInput: TypeAlias = Union[Components, Iterable[Components]]
@@ -61,7 +61,7 @@ def save_checkpoint(
     '''
 
     # Validate save_path and create directory if it doesn't exist
-    save_path = normalize_file_path(save_path, 'save_path')
+    save_path = format_file_path(save_path, 'save_path')
     save_path.parent.mkdir(parents = True, exist_ok = True)
 
     # Create checkpoint dictionary and save
@@ -184,7 +184,7 @@ def separate_checkpoint(
     if checkpoint_path is not None:
         checkpoint = torch.load(checkpoint_path, map_location = 'cpu')
 
-    # Normalize components into a set
+    # Format components into a set
     if components is None:
         components = ALL_COMPONENTS
     elif isinstance(components, str):

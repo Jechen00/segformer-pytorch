@@ -9,10 +9,10 @@ from matplotlib.figure import Figure
 from typing import Optional, Tuple, List, Dict
 
 from src.logging.history import TrainHistory, ValHistory
-from src.visualize.layout import make_grid
+from src.visualize.figures import make_grid
 from src.utils import nested_extract
 from src.metrics.postprocess import (
-    MetricSpecLike, normalize_metric_spec, select_and_agg_scalar_metric
+    MetricSpecLike, format_metric_spec, select_and_agg_scalar_metric
 )
 
 
@@ -25,6 +25,9 @@ def plot_loss(
     agg_label: Optional[str] = 'Avg',
     figsize: Optional[Tuple[float, float]] = None
 ) -> Figure:
+    '''
+    Plots the training and validation loss curves.
+    '''
     # Setup curve information
     agg_label = '' if agg_label is None else f' ({agg_label})'
     histories, curve_labels, clrs = [], [], []
@@ -75,6 +78,15 @@ def plot_summary_metrics(
     ncols: Optional[int] = None,
     figsize: Optional[Tuple[float, float]] = None
 ) -> Figure:
+    '''
+    Plots summarized versions of evaluation metric curves.
+    At each evaluation epoch, each metric must be reduced to a single numerical value.
+    For class-wise metrics, this requires applying one of the supported aggregations:
+        - mean
+        - median
+        - min
+        - max
+    '''
     # Setup figure and colors
     num_specs = len(metric_specs)
     fig, axes = make_grid(num_specs, nrows, ncols, figsize)
@@ -87,7 +99,7 @@ def plot_summary_metrics(
 
     # Plotting
     for ax, (label, spec), clr in zip(flat_axes, metric_specs.items(), clrs):
-        spec = normalize_metric_spec(spec)
+        spec = format_metric_spec(spec)
         metric_series = select_and_agg_scalar_metric(
             metric_data = all_metric_series,
             key_path = spec.key_path,
@@ -119,6 +131,10 @@ def plot_class_metrics(
     figsize: Optional[Tuple[float, float]] = None
 ) -> Figure:
     '''
+    Plots class-wise evaluation metric curves.
+    Each evaluation metric is displayed on a separate subplot/panel 
+    and each class recieves their own curve within that panel.
+    
     key_paths (List[str]): List of dot-separated key paths to extract class-wise metrics 
                            from `val_history.metrics.values`.
     metric_labels (optional, List[str]): List of plot labels corresponding to each element in `key_paths`.

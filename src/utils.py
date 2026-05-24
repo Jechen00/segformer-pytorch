@@ -55,7 +55,7 @@ def get_device() -> torch.device:
 def recursive_to_cpu(x: Any) -> Any:
     '''
     Recursively moves all tensors in a nested dictionary/list structure to the CPU.
-    Other objects (e.g. floats, ints, numpy arrays) remain unchanged.
+    Other objects (e.g. floats, ints, ndarrays) remain unchanged.
     
     Args:
         x (Any): Any Python object. Tensors are moved to CPU.
@@ -111,36 +111,6 @@ def all_or_none(*params) -> bool:
     '''
     return all(p is None for p in params) or all(p is not None for p in params)
 
-
-def check_tensor_shapes(
-    tensors: List[torch.Tensor], 
-    context_name: str = 'inputs'
-) -> None:
-    '''
-    Checks that a list of inputs are all tensors and that they all have the same shape.
-
-    Args:
-        tensors (List[torch.Tensor]): A list of tensors of the same shape.
-        context_name (str): Name for the elements in `tensors` to provide context on what they are.
-                            This is used for more specific error messages.
-                            Default is `inputs`.
-    '''
-    ref_shape = None
-    for tensor in tensors:
-        if not isinstance(tensor, torch.Tensor):
-            raise TypeError(
-                f'Expected all {context_name} to be tensors. Got: {type(tensor)}'
-            )
-
-        tensor_shape = tensor.shape
-        if ref_shape is None:
-            ref_shape = tensor_shape
-        elif tensor_shape != ref_shape:
-            raise ValueError(
-                f'Expected all {context_name} to have the same shape. '
-                f'Got: {tuple(ref_shape)} and {tuple(tensor_shape)}'
-            )
-
  
 def get_img_size(img: ImageInput) -> Tuple[int, int]:
     '''
@@ -158,20 +128,20 @@ def get_img_size(img: ImageInput) -> Tuple[int, int]:
     elif isinstance(img, Image.Image):
         w, h = img.size # PIL gives (width, height)
     else:
-        raise TypeError('Expected PIL image or tensor.')
+        raise TypeError(f'Expected PIL image or tensor. Got: {type(img)}')
     
     return (h, w)
 
 
-def normalize_file_path(file_path: Union[str, Path], path_name: Optional[str] = None) -> Path:
+def format_file_path(file_path: Union[str, Path], path_name: Optional[str] = None) -> Path:
     '''
-    Normalize and validate a file path.
+    Formats and validate a file path.
     This converts all `path` inputs into `pathlib.Path` objects.
     It also checks that `path` contains a file extension 
     and does not end with a path separator ('/' or '\\').
 
     Args:
-        file_path (Union[str, Path]): The path to normalize and validate.
+        file_path (Union[str, Path]): The path to format and validate.
         path_name (optional, str): Name of `file_path` to use for error messages.
 
     Returns:
@@ -193,43 +163,59 @@ def normalize_file_path(file_path: Union[str, Path], path_name: Optional[str] = 
     return path
 
 
-def normalize_idxs(idxs: IndexLike) -> Union[int, List[int]]:
+def format_idxs(idxs: IndexLike) -> Union[int, List[int]]:
     '''
-    Normalizes an `IndexLike` so that it only contains Python integers.
-    Specifically, it normalizes to a single integer or a list of integers.
+    Formats an `IndexLike` so that it only contains Python integers.
+    Specifically, it converts to a single integer or a list of integers.
     
     Args:
-        idxs (IndexLike): Indices to normalize.
+        idxs (IndexLike): Indices to format.
                           This must be one of:
                             - A single integer
                             - A list of integers
-                            - A numpy array of integers
-                            - A tensor of integers
+                            - A ndarray of integers (single-element or 1D)
+                            - A tensor of integers (single-element or 1D)
 
     Returns:
-        Union[int, List[int]]: Normalized indices.
-                               This is an integer if `idxs` was an integer.
+        Union[int, List[int]]: Formatted indices.
+                               This is an integer if `idxs` was an integer
+                               or a single-element ndarray/tensor.
                                Otherwise, this is a list of integers.
     '''
+    # Integer input
     if type(idxs) is int:
         return idxs 
     
-    # Normalize to list
-    if isinstance(idxs, (np.ndarray, torch.Tensor)):
-        idxs = [idxs.item()] if idxs.ndim == 0 else idxs.tolist()
+    # Numpy input
+    elif isinstance(idxs, np.ndarray):
+        if idxs.size == 1:
+            return idxs.item()
+        elif idxs.ndim == 1:
+            idxs = idxs.tolist()  # Need to check all elements are integers
+        else:
+            raise ValueError('NumPy ndarray indices must be single-element (size = 1) or 1D.')
+        
+    # Tensor input
+    elif isinstance(idxs, torch.Tensor):
+        if idxs.numel() == 1:
+            return idxs.item()
+        elif idxs.ndim == 1:
+            idxs = idxs.tolist() # Need to check all elements are integers
+        else:
+            raise ValueError('Tensor indices must be single-element (numel() = 1) or 1D.')
+
     elif not isinstance(idxs, list):
         raise TypeError(
-            'Expected indices to be an integer, list, numpy array, or tensor. '
+            'Expected indices to be an integer, list, ndarray, or tensor. '
             f'Got: {type(idxs)}'
         )
     
-    # Check if all elements are integers
+    # Check all elements in a list, ndarray, or tensor are integers
     if not all((type(idx) is int) for idx in idxs):
         raise TypeError(
-            'If indices are a list, numpy array, or tensor, '
+            'If indices are a list, ndarray, or tensor, '
             'all elements must be integers.'
         )
-    
     return idxs
 
 
@@ -285,6 +271,24 @@ def transpose_list_dict(
         raise ValueError(
             f"mode must be 'to_cols' or 'to_rows'. Got: {mode}"
         )
+
+
+def inverse_mapping(mapping: dict) -> dict:
+    '''
+    Returns the inverse (value-key) of a key-value mapping dictionary.
+    The mapping must be injective (one-to-one).
+    '''
+    inverse = {}
+    for key, value in mapping.items():
+        if value not in inverse:
+            inverse[value] = key
+        else:
+            raise ValueError(
+                f'Duplicate value found in mapping: {value}. '
+                'Please ensure that the mapping an injective (one-to-one).'
+            )
+            
+    return inverse
 
 
 def nested_extract(nested_dict: dict, key_path: str, strict: bool = True, default: Any = None) -> Any:

@@ -12,7 +12,7 @@ from typing import (
 from src.utils import make_range
 from src.data_setup.transforms import functional
 from src.data_setup.types import SampleDict, SampleListDict
-from src.ml_types import SpatialSize, RGBLike, ImageInput
+from src.ml_types import SpatialSize, FillValue, ImageInput
 
 TransformLike: TypeAlias = Union[Callable, List[Callable], Tuple[Callable, ...]] 
 
@@ -237,22 +237,22 @@ class SegRandomAffine(SegTransformBase):
                                                               If `None`, no shearing is applied.
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
                                                            Default is `InterpolationMode.BILINEAR`.
-        img_fill (RGBLike): RGB value used to fill areas outside the transformed image, to maintain original shape.
-                            This RGB value can be:
-                                - a RGB tuple
-                                - an integer `x`, assumed to represent `(x, x, x)`.
-                            This RGB value should be in the same value space as the expected input images.
-                            For example, if the input images are scaled to [0, 1], 
-                            `img_fill` values should also be scaled to [0, 1].
-                            Default is `0`.
-        mask_fill (RGBLike): RGB value used to fill areas outside the transformed mask, to maintain original shape.
-                             This RGB value can be:
-                                - a RGB tuple
-                                - an integer `x`, assumed to represent `(x, x, x)`.
-                             This RGB value should be in the same value space as the expected input masks.
-                             For example, if the input masks are scaled to [0, 1], 
-                             `mask_fill` values should also be scaled to [0, 1].
-                             Default is `255`.
+        img_fill (FillValue): Pixel fill value used for areas outside the transformed image, to maintain original shape.
+                              This can be a float, integer, sequence of floats, or sequence of integers.
+                              If scalar (float or integer), the value is used for all channels.
+                              If sequence, its length must match the number of channels in the input image.
+                              The fill value should be in the same value space as the expected input images.
+                              For example, if the input images are scaled to [0, 1], 
+                              `img_fill` should also be scaled to [0, 1].
+                              Default is `0`.
+        mask_fill (FillValue): Pixel fill value used for areas outside the transformed mask, to maintain original shape.
+                               This can be a float, integer, sequence of floats, or sequence of integers.
+                               If scalar (float or integer), the value is used for all channels.
+                               If sequence, its length must match the number of channels in the input mask.
+                               The fill value should be in the same value space as the expected input masks.
+                               For example, if the input masks are scaled to [0, 1], 
+                               `mask_fill` should also be scaled to [0, 1].
+                               Default is `255`.
     '''
     def __init__(
         self,
@@ -261,8 +261,8 @@ class SegRandomAffine(SegTransformBase):
         scale: Optional[Sequence[float]] = None, 
         shear: Optional[Union[int, float, Sequence[float]]] = None, 
         img_interpolation: Union[InterpolationMode, int] = InterpolationMode.BILINEAR,
-        img_fill: RGBLike = 0,
-        mask_fill: RGBLike = 255
+        img_fill: FillValue = 0,
+        mask_fill: FillValue = 255
     ):
         super().__init__(seg_transform = functional.seg_random_affine)
         self.degrees = make_range(degrees)
@@ -319,29 +319,29 @@ class SegLetterbox(SegTransformBase):
                             If `int`, assumed square.
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
                                                            Default is `InterpolationMode.BILINEAR`.
-        img_fill (RGBLike): RGB value used to pad transformed image. 
-                            This RGB value can be:
-                                - a RGB tuple
-                                - an integer `x`, assumed to represent `(x, x, x)`.
-                            This RGB value should be in the same value space as the expected input images.
-                            For example, if the input images are scaled to [0, 1], 
-                            `img_fill` values should also be scaled to [0, 1].
-                            Default is `0`.
-        mask_fill (RGBLike): RGB value used to pad transformed mask.
-                             This RGB value can be:
-                                - a RGB tuple
-                                - an integer `x`, assumed to represent `(x, x, x)`.
-                             This RGB value should be in the same value space as the expected input masks.
-                             For example, if the input masks are scaled to [0, 1], 
-                             `mask_fill` values should also be scaled to [0, 1].
-                             Default is `255`.
+        img_fill (FillValue): Pixel fill value used to pad the transformed image. 
+                              This can be a float, integer, sequence of floats, or sequence of integers.
+                              If scalar (float or integer), the value is used for all channels.
+                              If sequence, its length must match the number of channels in the input image.
+                              The fill value should be in the same value space as the expected input images.
+                              For example, if the input images are scaled to [0, 1], 
+                              `img_fill` should also be scaled to [0, 1].
+                              Default is `0`.
+        mask_fill (FillValue): Pixel fill value used to pad the transformed mask. 
+                               This can be a float, integer, sequence of floats, or sequence of integers.
+                               If scalar (float or integer), the value is used for all channels.
+                               If sequence, its length must match the number of channels in the input mask.
+                               The fill value should be in the same value space as the expected input masks.
+                               For example, if the input masks are scaled to [0, 1], 
+                               `mask_fill` should also be scaled to [0, 1].
+                               Default is `255`.
     '''
     def __init__(
         self,
         size: SpatialSize, 
-        img_interpolation: InterpolationMode = InterpolationMode.BILINEAR,
-        img_fill: RGBLike = 0,
-        mask_fill: RGBLike = 255
+        img_interpolation: Union[InterpolationMode, int] = InterpolationMode.BILINEAR,
+        img_fill: FillValue = 0,
+        mask_fill: FillValue = 255
     ):
         super().__init__(seg_transform = functional.seg_letterbox)
         self.size = size
@@ -390,7 +390,7 @@ class SegResize(SegTransformBase):
     def __init__(
         self, 
         size: SpatialSize, 
-        img_interpolation: InterpolationMode = InterpolationMode.BILINEAR
+        img_interpolation: Union[InterpolationMode, int] = InterpolationMode.BILINEAR
     ):
         super().__init__(seg_transform = functional.seg_resize)
         self.size = size

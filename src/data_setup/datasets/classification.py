@@ -11,7 +11,8 @@ from typing import Optional, Literal, List, Union, Callable
 
 from src.ml_types import ImageInput, ImageLabel, IndexLike
 from src.data_setup.types import ClsSample, ClsSampleList
-from src.utils import transpose_list_dict, normalize_idxs
+from src.tensor_shapes import _validate_ndim
+from src.utils import transpose_list_dict, format_idxs
 
 
 #####################################
@@ -89,7 +90,7 @@ class HFClassificationDataset(Dataset):
                               This must be one of:
                                 - A single integer
                                 - A list of integers
-                                - A numpy array of integers
+                                - A ndarray of integers
                                 - A tensor of integers
             
         Returns:
@@ -109,7 +110,7 @@ class HFClassificationDataset(Dataset):
             return self.get_single_item(idxs)
         else:
             # Indexing with multiple integers
-            idxs = normalize_idxs(idxs)
+            idxs = format_idxs(idxs)
             items = [self.get_single_item(idx) for idx in idxs]
             return transpose_list_dict(items, mode = 'to_cols')
     
@@ -137,7 +138,12 @@ class HFClassificationDataset(Dataset):
             item = self.transform_pipeline(item)
 
         if self.to_tensor:
-            label = item['label']
+            img, label = item['image'], item['label']
+
+            # Validate image tensor of shape (channels, height, width)
+            _validate_ndim(img, ndim = 3, context_name = 'images')
+
+            # Ensure labels are integer tensors
             if not isinstance(label, torch.Tensor):
                 item['label'] = torch.tensor(label, dtype = torch.long)
             else:

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Union, Optional
 
 from typing import List, TypedDict, NotRequired, TypeAlias, get_args
-from src.utils import nested_extract, apply_agg, normalize_idxs
+from src.utils import nested_extract, apply_agg, format_idxs
 
 from src.ml_types import IndexLike, Aggregation
 from src.metrics.types import MeasureValue, MetricResults, MeasureSeries, MetricSeriesResults
@@ -39,9 +39,9 @@ class MetricSpec():
     unit: Optional[str] = None
 
     def __post_init__(self):
-        # Normalize class indices to an integer or tuple of integers
+        # Format class indices to an integer or tuple of integers
         if self.class_idxs is not None:
-            self.class_idxs = normalize_idxs(self.class_idxs)
+            self.class_idxs = format_idxs(self.class_idxs)
 
         # Validate aggregation
         valid_aggs = get_args(Aggregation)
@@ -62,9 +62,9 @@ MetricSpecLike: TypeAlias = Union[MetricSpec, MetricSpecDict]
 #####################################
 # Functions
 #####################################
-def normalize_measure(value: MeasureValue) -> MeasureValue:
+def format_measure(value: MeasureValue) -> MeasureValue:
     '''
-    Normalizes a measure value (e.g. loss or metric) into a format suitable for tasks like logging and saving.
+    Formats a measure value (e.g. loss or metric) so that it is suitable for tasks like logging and saving.
     
     The procedure is as follows:
         - Detach tensors from computational graph (they should ideally be already detached).
@@ -75,7 +75,7 @@ def normalize_measure(value: MeasureValue) -> MeasureValue:
         value (MeasureValue): Computed measure value (a float or tensor).
 
     Returns:
-        MeasureValue: Normalized measure value (a tensor or float).
+        MeasureValue: Formated measure value (a tensor or float).
     '''
     if isinstance(value, torch.Tensor):
         value = value.detach()
@@ -88,9 +88,9 @@ def normalize_measure(value: MeasureValue) -> MeasureValue:
         raise TypeError(f'Expected type float of torch.Tensor. Got {type(value)}.')
     
 
-def normalize_metric_spec(spec: MetricSpecLike) -> MetricSpec:
+def format_metric_spec(spec: MetricSpecLike) -> MetricSpec:
     '''
-    Normalizes a metric specifications to a `MetricSpec` instance.
+    Formats a metric specification to a `MetricSpec` instance.
     If input is already a `MetricSpec` instance, it is returned unchanged.
 
     Args:

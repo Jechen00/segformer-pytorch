@@ -14,11 +14,12 @@ import subprocess
 
 import warnings
 from abc import ABC, abstractmethod
-from typing import Union, Optional, Dict, Literal, TypedDict, TypeAlias
+from typing import Tuple, Union, Optional, Dict, Literal, TypedDict, TypeAlias
 
 from src.data_setup.transforms.ops import ImageTransform, ToImageAndMask
-from src.utils import make_tuple, transpose_list_dict, normalize_idxs
-from src.masks import rgb_to_idx_mask
+from src.masks import is_rgb_tuple, rgb_to_idx_mask
+from src.tensor_shapes import _validate_channel_size, _validate_ndim
+from src.utils import transpose_list_dict, format_idxs
 from src.ml_types import RGBTuple, IndexLike
 from src.data_setup.types import SegSample, SegSampleList
 
@@ -28,7 +29,7 @@ from src.data_setup.types import SegSample, SegSampleList
 #####################################
 class ClassSpec(TypedDict):
     idx: int
-    clr: RGBTuple
+    rgb: RGBTuple
 
 ClassInfo: TypeAlias = Dict[str, ClassSpec]
 
@@ -52,7 +53,7 @@ class SegmentationDatasetBase(ABC):
         self.to_tensor = to_tensor
         
         # Class name, index, and color mappings
-        self._make_mappings() # Creates class_to_idx, idx_to_class, clr_to_idx, idx_to_clr
+        self._make_mappings()
 
         # Create transform pipeline
         self._make_transform_pipeline()
@@ -67,7 +68,7 @@ class SegmentationDatasetBase(ABC):
                               This must be one of:
                                 - A single integer
                                 - A list of integers
-                                - A numpy array of integers
+                                - A ndarray of integers
                                 - A tensor of integers
         '''
         if isinstance(idxs, int):
@@ -75,7 +76,7 @@ class SegmentationDatasetBase(ABC):
             return self.get_single_item(idxs)
         else:
             # Indexing with multiple integers
-            idxs = normalize_idxs(idxs)
+            idxs = format_idxs(idxs)
             items = [self.get_single_item(idx) for idx in idxs]
             return transpose_list_dict(items, mode = 'to_cols')
         
@@ -87,55 +88,63 @@ class SegmentationDatasetBase(ABC):
             item = self.transform_pipeline(item)
             
         if self.to_tensor:
-            # Normalize mask to index mask (training-ready)
-            item['mask'] = self._normalize_mask(item['mask'])
+            img, mask = item['image'], item['mask']
+
+            # Validate image tensor of shape (channels, height, width)
+            _validate_ndim(img, ndim = 3, context_name = 'images')
+
+            # Format mask to index mask (training-ready)
+            item['mask'] = self._format_mask(mask)
+
             return item
+        
         else:
             return item
             
     def _make_mappings(self) -> None:
         # Create mappings based on index
         self.idx_to_class, self.class_to_idx = {}, {}
-        self.idx_to_clr, self.clr_to_idx = {}, {}
+        self.rgb_to_class, self.class_to_rgb = {}, {}
+        self.idx_to_rgb, self.rgb_to_idx = {}, {}
         
-        for name, info in self.class_info.items():
-            clr, idx = info['clr'], info['idx']
+        for name, spec in self.class_info.items():
+            idx, rgb = self._extract_class_spec(spec)
             
             # Check for duplicates
-            if clr in self.clr_to_idx:
-                raise ValueError(f"Duplicate color mapping detected for color ('clr'): {clr}")
-            if idx in self.idx_to_clr:
+            if rgb in self.rgb_to_idx:
+                raise ValueError(f"Duplicate color mapping detected for RGB color ('rgb'): {rgb}")
+            if idx in self.idx_to_rgb:
                 raise ValueError(f"Duplicate index mapping detected for index ('idx'): {idx}")
                 
             self.idx_to_class[idx] = name
             self.class_to_idx[name] = idx
-            self.idx_to_clr[idx] = clr
-            self.clr_to_idx[clr] = idx
+            self.rgb_to_class[rgb] = name
+            self.class_to_rgb[name] = rgb
+            self.idx_to_rgb[idx] = rgb
+            self.rgb_to_idx[rgb] = idx
 
-        # Optionally add ignore index to clr_to_idx, idx_to_clr
+        # Optionally add ignore index to rgb_to_idx, idx_to_rgb
         self._add_ignore_mapping()
             
     def _add_ignore_mapping(self) -> None:
-        ignore_encoding = self.ignore_encoding
         if self.ignore_encoding is None:
-            self.ignore_idx, self.ignore_clr = None, None
+            self.ignore_idx, self.ignore_rgb = None, None
             self._unmapped_idx = -1000 # Unmapped RGB pixels will be flagged ad errors
             return
 
-        idx, clr = ignore_encoding['idx'], ignore_encoding['clr']
-        clr = make_tuple(clr, 3) # Normalize color
+        idx, rgb = self._extract_class_spec(self.ignore_encoding)
 
         # Check for duplicates
-        if clr in self.clr_to_idx:
-            if idx != self.clr_to_idx[clr]:
-                raise ValueError(f"Ignore color conflicts with the class color ('clr'): {clr}")
-        if idx in self.idx_to_clr:
-            if clr != self.idx_to_clr[idx]:
+        if rgb in self.rgb_to_idx:
+            if idx != self.rgb_to_idx[rgb]:
+                raise ValueError(f"Ignore color conflicts with the class RGB color ('rgb'): {rgb}")
+        if idx in self.idx_to_rgb:
+            if rgb != self.idx_to_rgb[idx]:
                 raise ValueError(f"Ignore index conflicts with the class index ('idx'): {idx}")
 
-        self.ignore_idx, self.ignore_clr = idx, clr
-        self.clr_to_idx[clr] = idx
-        self.idx_to_clr[idx] = clr
+        self.ignore_idx, self.ignore_rgb = idx, rgb
+        self.rgb_to_idx[rgb] = idx
+        self.idx_to_rgb[idx] = rgb
 
         self._unmapped_idx = idx # Unmapped RGB pixels will be ignored (assigned ignore index)
 
@@ -162,13 +171,13 @@ class SegmentationDatasetBase(ABC):
             
         self.transform_pipeline = v2.Compose(pipeline) if (len(pipeline) > 0) else None
 
-    def _normalize_mask(self, mask: torch.Tensor) -> torch.Tensor:
+    def _format_mask(self, mask: torch.Tensor) -> torch.Tensor:
         '''
-        Normalizes a segmentation mask to an index mask.
+        Formats a segmentation mask to an index mask.
 
         If `mask` is already an index mask (2D tensor), return it unchanged.
-        If `mask` is a RGB mask (3D tensor) to an index mask.
-        if `mask` is not a 2D or 3D tensor, throw an error.
+        If `mask` is a RGB mask (3D tensor), convert it to an index mask.
+        If `mask` is not a 2D or 3D tensor, raise an error.
         '''
         mask_ndim = mask.ndim
         if mask_ndim == 2:
@@ -177,9 +186,10 @@ class SegmentationDatasetBase(ABC):
         
         elif mask_ndim == 3:
             # Mask is a RGB mask --> need to convert to index mask
+            _validate_channel_size(mask, channel_size = 3, context_name = 'RGB masks')
             idx_mask = rgb_to_idx_mask(
-                rgb_mask = mask,
-                rgb_to_idx = self.clr_to_idx,
+                rgb_masks = mask,
+                rgb_to_idx = self.rgb_to_idx,
                 fill_idx = self._unmapped_idx
             )
 
@@ -197,6 +207,34 @@ class SegmentationDatasetBase(ABC):
                 'Expected mask to be a 2D or 3D tensor after transforms. '
                 f'Got {mask_ndim} dimensions.'
             )
+
+    def _extract_class_spec(self, spec: ClassSpec) -> Tuple[int, RGBTuple]:
+        '''
+        Extracts the index and RGB tuple from a class specification.
+        The extract values are validated as so:
+            1. Checks if the index is an integer 
+            2. Checks if the RGB tuple is a tuple of 3 integers in [0. 255].
+
+        Args:
+            spec (ClassSpec): The class specification to extract and validate
+
+        Returns:
+            idx (int): Index from `spec`.
+            rgb (RGBTuple): RGB tuple from `spec`.
+        '''
+        idx, rgb = spec['idx'], spec['rgb']
+
+        if (type(idx) is not int):
+            raise TypeError(
+                f'Expected Index to be an integer. Got type {type(idx)} for {idx}'
+            )
+        
+        if not is_rgb_tuple(rgb):
+            raise TypeError(
+                f'Expected RGB to be a tuple of three integers in [0, 255]. Got: {rgb}.'
+            )
+        
+        return idx, rgb
 
     @abstractmethod
     def __len__(self) -> int:
@@ -324,7 +362,7 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
     
     def _make_class_info(self) -> ClassInfo:
         class_info = {
-            'human': {'idx': 1, 'clr': (255, 255, 255)},
-            'background': {'idx': 0, 'clr': (0, 0, 0)}
+            'human': {'idx': 1, 'rgb': (255, 255, 255)},
+            'background': {'idx': 0, 'rgb': (0, 0, 0)}
         }
         return class_info

@@ -5,13 +5,19 @@ import torch
 from torch import nn
 from torchvision.transforms import v2
 
-from PIL import Image
+import cv2
 from matplotlib.figure import Figure
-from typing import List, Optional, Union, Tuple
+from typing import List, Optional, Union, Tuple, Literal, Dict
 
 from src.inference import preprocess_and_predict
-from src.visualize.layout import make_grid
-from src.ml_types import ImageInput, ImageLabel
+from src.visualize.format_plot_inputs import format_cls, format_seg
+from src.visualize.figures import (
+    make_cls_figure, make_seg_figure_collage, make_seg_figure_overlay
+)
+from src.data_setup.transforms.functional import reverse_letterbox_numpy
+from src.utils import inverse_mapping
+
+from src.ml_types import ImageInput, ImageLabel, RGBTuple
 
 
 #####################################
@@ -19,107 +25,189 @@ from src.ml_types import ImageInput, ImageLabel
 #####################################
 def plot_cls_preds(
     model: nn.Module,
-    class_names: List[str],
     imgs: Union[ImageInput, List[ImageInput]],
-    labels: Union[ImageLabel, List[ImageLabel]] = None,
-    img_transforms: Optional[v2.Compose] = None,
+    class_names: List[str],
+    targ_labels: Union[ImageLabel, List[ImageLabel]] = None,
+    transforms: Optional[v2.Compose] = None,
     memory_format: Optional[torch.memory_format] = None,
     nrows: Optional[int] = None,
     ncols: Optional[int] = None,
     figsize: Optional[Tuple[float, float]] = None,
-    title_fontsize: float = 18,
+    title_fontsize: float = 18
 ) -> Figure:
     '''
-    Note: `memory_format` will only convert `imgs`.
-          Ideally, `model` and `imgs` should be on the same memory format.
+    Predicts image classification labels and display them as titles for the input images.
+    If target labels are provided, the titles are 
+    colored green for correct predictions and red for incorrect predictions.
+
+    If multiple input images are provided, the results are laid out in a grid of subplots.
     '''
-    # Normalize single-sample images
-    if ((isinstance(imgs, torch.Tensor) and imgs.ndim == 3)
-        or isinstance(imgs, Image.Image)):
-        imgs = [imgs]
-
-    num_imgs = len(imgs)
-
-    # Normalize targets to lists of integers
-    if labels is None:
-        labels = [None] * len(imgs)
-    else:
-        labels = make_labels_list(labels)
-
-    # Setup figure
-    fig, axes = make_grid(num_imgs, nrows, ncols, figsize)
-    flat_axes = axes.flatten() if num_imgs > 1 else [axes]
-
     # Predictions
-    preds = preprocess_and_predict(model, imgs, img_transforms, memory_format)
+    pred_labels = preprocess_and_predict(model, imgs, transforms, memory_format)
+
+    # Formatting
+    imgs, pred_labels, targ_labels = format_cls(imgs, pred_labels, targ_labels)
 
     # Plotting
-    for ax, img, label, pred in zip(flat_axes, imgs, labels, preds):
-        # Plot image
-        if isinstance(img, torch.Tensor):
-            img = img.permute(1, 2, 0).numpy()
-        ax.imshow(img)
-
-        # Make title
-        title = f'Pred: {class_names[pred]}'
-        clr = 'k'
-        if label is not None:
-            title += f'\nTarg: {class_names[label]}'
-            clr = 'g' if (pred == label) else 'r'
-
-        ax.set_title(title, color = clr, fontsize = title_fontsize)
-        ax.axis('off')
-
-    for ax in flat_axes[num_imgs:]:
-        ax.axis('off')
-
-    fig.tight_layout(h_pad = 1.5)
-    return fig
+    return make_cls_figure(
+        imgs = imgs,
+        pred_labels = pred_labels,
+        class_names = class_names,
+        targ_labels = targ_labels,
+        nrows = nrows,
+        ncols = ncols,
+        figsize = figsize,
+        title_fontsize = title_fontsize
+    )
 
 
-def make_labels_list(labels: Union[ImageLabel, List[ImageLabel]]) -> List[int]:
-    # Normalize int and tensor inputs
-    if isinstance(labels, int):
-        return [labels]
+def plot_seg_preds_collage(
+    model: nn.Module,
+    imgs: Union[ImageInput, List[ImageInput]],
+    idx_to_rgb: Dict[int, RGBTuple],
+    transforms: Optional[v2.Compose] = None,
+    unletterbox_preds: bool = False,
+    targ_masks: Optional[Union[ImageInput, List[ImageInput]]] = None,
+    targ_mode: Optional[Literal['index', 'rgb']] = None,
+    fill_rgb: RGBTuple = (114, 114, 114),
+    visible_classes: Optional[List[str]] = None,
+    include_legend: bool = False,
+    rgb_to_class: Optional[Dict[RGBTuple, str]] = None,
+    memory_format: Optional[torch.memory_format] = None,
+    figsize: Optional[Tuple[float, float]] = None,
+    title_fontsize: float = 18
+):
+    '''
+    Predict segmentation index masks and creates a collage showing the
+    input images, optional target masks, and prediction masks side-by-side.
 
-    elif isinstance(labels, torch.Tensor):
-        if labels.ndim > 1:
-            raise ValueError('If labels is a tensor, it must have ndim <= 1.')
-        return labels.int().flatten().tolist()
-
-    elif not isinstance(labels, list):
-        raise TypeError(
-            'If provided, labels must be a tensor, integer, or list of integers.'
-            f'Got: {type(labels)}'
-        )
-        
-    # Normalize list inputs
-    norm_labels = []
-    for label in labels:
-        if isinstance(label, int):
-            norm_labels.append(label)
-        
-        elif isinstance(label, torch.Tensor):
-            if label.numel() != 1:
-                raise ValueError(
-                    'If labels is a list, all tensor elements must be scalars. '
-                    f'Got: label.numel() = {label.numel()}'
-                )
-            norm_labels.append(label.int().item())
-            
-        else:
-            raise TypeError(
-                'If labels is a list, all elements must be a tensor or integer. '
-                f'Got: {type(label)}'
+    If multiple input images are provided, each result is shown on a separate row of the figure.
+    '''
+    # Validate that required mappings are present
+    if visible_classes is not None:
+        if rgb_to_class is None:
+            raise ValueError(
+                'If visible_classes is provided, '
+                'RGB-to-class mapping (rgb_to_class) must also be provided. '
             )
-    return norm_labels
+        try:
+            class_to_rgb = inverse_mapping(rgb_to_class)
+            visible_rgbs = [class_to_rgb[name] for name in visible_classes]
+        except Exception as e:
+            raise ValueError('Unable to create class-to-RGB mapping.') from e
+    else:
+        visible_rgbs = None
+
+    # Predictions
+    pred_masks = preprocess_and_predict(model, imgs, transforms, memory_format)
+    
+    # Formatting
+    imgs, pred_masks, targ_masks = format_seg(
+        imgs = imgs, 
+        pred_masks = pred_masks, 
+        targ_masks = targ_masks,
+        idx_to_rgb = idx_to_rgb,
+        targ_mode = targ_mode,
+        fill_rgb = fill_rgb,
+        visible_rgbs = visible_rgbs
+    )
+
+    # Reverse letterbox on prediction masks if needed
+    if unletterbox_preds:
+        for i, (img, pred) in enumerate(zip(imgs, pred_masks)):
+            pred_masks[i] = reverse_letterbox_numpy(
+                pred,
+                orig_size = img.shape[:2],
+                resize_to_orig = True,
+                interpolation = cv2.INTER_NEAREST_EXACT,
+                input_format = 'HWC'
+            )
+
+    if (rgb_to_class is not None) and (fill_rgb not in rgb_to_class):
+        rgb_to_class[fill_rgb] = 'Filler'
+
+    # Plotting
+    return make_seg_figure_collage(
+        imgs = imgs,
+        pred_masks = pred_masks,
+        targ_masks = targ_masks,
+        include_legend = include_legend,
+        rgb_to_class = rgb_to_class,
+        figsize = figsize,
+        title_fontsize = title_fontsize
+    )
 
 
-#####################################
-# Segmentation Functions
-#####################################
-def plot_seg_preds_collage():
-    return
+def plot_seg_preds_overlay(
+    model: nn.Module,
+    imgs: Union[ImageInput, List[ImageInput]],
+    idx_to_rgb: Dict[int, RGBTuple],
+    transforms: Optional[v2.Compose] = None,
+    unletterbox_preds: bool = False,
+    fill_rgb: RGBTuple = (114, 114, 114),
+    visible_classes: Optional[List[str]] = None,
+    include_legend: bool = False,
+    rgb_to_class: Optional[Dict[RGBTuple, str]] = None,
+    memory_format: Optional[torch.memory_format] = None,
+    pred_alpha: float = 0.5,
+    nrows: Optional[int] = None,
+    ncols: Optional[int] = None,
+    figsize: Optional[Tuple[float, float]] = None
+):
+    '''
+    Predict segmentation index masks and plot them as overlays on top of the input images.
+    
+    If multiple input images are provided, the results are laid out in a grid of subplots.
+    '''
+    # Validate that required mappings are present
+    if visible_classes is not None:
+        if rgb_to_class is None:
+            raise ValueError(
+                'If visible_classes is provided, '
+                'RGB-to-class mapping (rgb_to_class) must also be provided. '
+            )
+        try:
+            class_to_rgb = inverse_mapping(rgb_to_class)
+            visible_rgbs = [class_to_rgb[name] for name in visible_classes]
+        except Exception as e:
+            raise ValueError('Unable to create class-to-RGB mapping.') from e
+    else:
+        visible_rgbs = None
 
-def plot_seg_preds_overlap():
-    return
+    # Predictions
+    pred_masks = preprocess_and_predict(model, imgs, transforms, memory_format)
+    
+    # Formatting
+    imgs, pred_masks, _ = format_seg(
+        imgs = imgs, 
+        pred_masks = pred_masks, 
+        idx_to_rgb = idx_to_rgb,
+        fill_rgb = fill_rgb,
+        visible_rgbs = visible_rgbs
+    )
+
+    # Reverse letterbox on prediction masks if needed
+    if unletterbox_preds:
+        for i, (img, pred) in enumerate(zip(imgs, pred_masks)):
+            pred_masks[i] = reverse_letterbox_numpy(
+                pred,
+                orig_size = img.shape[:2],
+                resize_to_orig = True,
+                interpolation = cv2.INTER_NEAREST_EXACT,
+                input_format = 'HWC'
+            )
+
+    if (rgb_to_class is not None) and (fill_rgb not in rgb_to_class):
+        rgb_to_class[fill_rgb] = 'Filler'
+
+    # Plotting
+    return make_seg_figure_overlay(
+        imgs = imgs,
+        pred_masks = pred_masks,
+        include_legend = include_legend,
+        rgb_to_class = rgb_to_class,
+        pred_alpha = pred_alpha,
+        nrows = nrows,
+        ncols = ncols,
+        figsize = figsize
+    )
