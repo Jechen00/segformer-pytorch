@@ -15,12 +15,15 @@ import subprocess
 
 import warnings
 from abc import ABC, abstractmethod
-from typing import Tuple, Union, Optional, Dict, Literal, TypedDict, TypeAlias, Callable
+from typing import (
+    Tuple, Union, Optional, Dict, Literal, 
+    TypedDict, TypeAlias, Callable, Sequence
+)
 
 from src.data_setup.transforms.ops import ImageTransform, ToImageAndMask
 from src.masks import is_rgb_tuple, rgb_to_idx_mask
 from src.tensor_shapes import _validate_channel_size, _validate_ndim
-from src.utils import transpose_list_dict, format_idxs
+from src.utils import transpose_list_dict, format_idxs, all_or_none
 from src.ml_types import RGBTuple, IndexLike
 from src.data_setup.types import SegSample, SegSampleList
 
@@ -41,6 +44,10 @@ ClassInfo: TypeAlias = Dict[str, ClassSpec]
 class SegmentationDatasetBase(ABC, Dataset):
     '''
     Base class for segmentation datasets.
+
+    Note: `v2.Normalize` only acts on tensors.
+          If normalization is enabled (`norm_mean` and `norm_std` are provided),
+          ensure that either `to_tensor = True` or the provided `transforms` output a tensor.
     '''
     def __init__(
         self,
@@ -48,13 +55,22 @@ class SegmentationDatasetBase(ABC, Dataset):
         geo_transforms: Optional[Callable] = None,
         img_phot_transforms: Optional[Callable] = None,
         to_tensor: bool = True,
+        norm_mean: Optional[Sequence[float]] = None,
+        norm_std: Optional[Sequence[float]] = None,
         ignore_encoding: Optional[ClassSpec] = None
     ):
+        if not all_or_none(norm_mean, norm_std):
+            raise ValueError(
+                'norm_mean and norm_std must either both be provided or both be None (not provided).'
+            )
+        
         self.class_info = class_info
         self.ignore_encoding = ignore_encoding
         self.geo_transforms = geo_transforms
         self.img_phot_transforms = img_phot_transforms
         self.to_tensor = to_tensor
+        self.norm_mean = norm_mean
+        self.norm_std = norm_std
         
         # Class name, index, and color mappings
         self._make_mappings()
@@ -167,7 +183,22 @@ class SegmentationDatasetBase(ABC, Dataset):
 
         self._unmapped_idx = idx # Unmapped RGB pixels will be ignored (assigned ignore index)
 
-    def _make_transform_pipeline(self) -> None:            
+    def _make_transform_pipeline(self) -> None:    
+        '''
+        Creates a single torchvision transform pipeline that may include:
+            1. User-provided geometric transforms (if `geo_transforms` is provided)
+            2. User-provided photometric transforms (if `phot_transforms` is provided)
+            3. Image tensor conversion (if `to_tensor = True`)
+            4. Float32 conversion and scaling (if `to_tensor = True`)
+            5. Normalization (if `norm_mean` and `norm_std` are provided)
+
+        The final transform pipeline is stored in `self.transform_pipeline`.
+        This pipeline will be `None`, if all these conditions are met:
+            - `geo_transforms` is not provided
+            - `phot_transforms` is not provided
+            - `to_tensor = False`
+            - `norm_mean` and `norm_std` are not provided
+        '''     
         pipeline = []
         if self.geo_transforms is not None:
             pipeline.append(self.geo_transforms) # Shared geometric transforms
@@ -187,6 +218,11 @@ class SegmentationDatasetBase(ABC, Dataset):
                 ToImageAndMask(), # Converts to tv_tensors (Image and Mask)
                 v2.ToDtype(torch.float32, scale = True) # Covert image to float32 and scales
             ])
+
+        if self.norm_mean is not None:
+            pipeline.append(
+                v2.Normalize(mean = self.norm_mean, std = self.norm_std)
+            )
             
         self.transform_pipeline = v2.Compose(pipeline) if (len(pipeline) > 0) else None
 
@@ -275,6 +311,15 @@ class SegmentationDatasetBase(ABC, Dataset):
 # Dataset Classes
 #####################################
 class SuperviselyPersonDataset(SegmentationDatasetBase):
+    '''
+    Supervisely human segmentation dataset from:
+        https://www.kaggle.com/datasets/tapakah68/supervisely-filtered-segmentation-person-dataset
+    This is a binary segmentation dataset, where the two classes are 'human' (index 1) and 'background' (index 0).
+
+    Note: `v2.Normalize` only acts on tensors.
+          If normalization is enabled (`norm_mean` and `norm_std` are provided),
+          ensure that either `to_tensor = True` or the provided `transforms` output a tensor.
+    '''
     def __init__(
         self, 
         root: Union[str, Path], 
@@ -282,6 +327,8 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
         geo_transforms: Optional[Callable] = None,
         img_phot_transforms: Optional[Callable] = None,
         to_tensor: bool = True,
+        norm_mean: Optional[Sequence[float]] = None,
+        norm_std: Optional[Sequence[float]] = None,
         ignore_encoding: Optional[ClassSpec] = None,
         train_frac: float = 0.8,
         split_seed: int = 0
@@ -300,6 +347,8 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
             geo_transforms = geo_transforms,
             img_phot_transforms = img_phot_transforms,
             to_tensor = to_tensor,
+            norm_mean = norm_mean,
+            norm_std = norm_std,
             ignore_encoding = ignore_encoding
         )
     

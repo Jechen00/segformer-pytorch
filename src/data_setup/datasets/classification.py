@@ -11,12 +11,12 @@ from abc import ABC, abstractmethod
 import datasets
 from datasets import ClassLabel
 from pathlib import Path
-from typing import Optional, Literal, List, Union, Callable
+from typing import Optional, Literal, List, Union, Callable, Sequence
 
+from src.tensor_shapes import _validate_ndim
+from src.utils import transpose_list_dict, format_idxs, all_or_none
 from src.ml_types import ImageInput, ImageLabel, IndexLike
 from src.data_setup.types import ClsSample, ClsSampleList
-from src.tensor_shapes import _validate_ndim
-from src.utils import transpose_list_dict, format_idxs
 
 
 #####################################
@@ -26,19 +26,39 @@ class ClassificationDatasetBase(ABC, Dataset):
     '''
     Base class for image classification datasets.
 
+    Note: `v2.Normalize` only acts on tensors.
+          If normalization is enabled (`norm_mean` and `norm_std` are provided),
+          ensure that either `to_tensor = True` or the provided `transforms` output a tensor.
+
     Args:
         transforms (optional, Callable): Transform pipeline applied to each sample.
                                          It should accept and return a `ClsSample`.
         to_tensor (bool): Whether to apply tensor and datatype (`float32`) conversions to all samples.
-                          If `True`, the transform pipeline becomes:
-                                1. Image tensor conversion using `ToImage()`
-                                2. Optional user-provided transforms from `transforms`
-                                3. Datatype conversion using `ToDtype(torch.float32, scale = True)`
+                          These conversions are applied **after** any provided `transforms`.
                           Default is `True`.
+        norm_mean (optional, Sequence[float]): Sequence of means (one for each input channel)
+                                               used to normalize images **after** tensor conversion.
+                                               If provided, `norm_std` must also be provided.
+        norm_std (optional, Sequence[float]): Sequence of standard deviations (one for each input channel)
+                                              used to normalize images **after** tensor conversion.
+                                              If provided, `norm_mean` must also be provided.
     '''
-    def __init__(self, transforms: Optional[Callable] = None, to_tensor: bool = True):
+    def __init__(
+        self, 
+        transforms: Optional[Callable] = None, 
+        to_tensor: bool = True,
+        norm_mean: Optional[Sequence[float]] = None,
+        norm_std: Optional[Sequence[float]] = None
+    ):
+        if not all_or_none(norm_mean, norm_std):
+            raise ValueError(
+                'norm_mean and norm_std must either both be provided or both be None (not provided).'
+            )
+        
         self.transforms = transforms
         self.to_tensor = to_tensor
+        self.norm_mean = norm_mean
+        self.norm_std = norm_std
 
         # Create transform pipeline
         self._make_transform_pipeline()
@@ -119,14 +139,17 @@ class ClassificationDatasetBase(ABC, Dataset):
 
     def _make_transform_pipeline(self) -> None:
         '''
-        Creates a single torchvision `v2.Compose` pipeline that may include:
-            1. User-provided transforms (if `self.transforms is not None`)
-            2. Image tensor conversion (if `self.to_tensor = True`)
-            3. Float32 conversion and scaling (if `self.to_tensor = True`)
+        Creates a single torchvision transform pipeline that may include:
+            1. User-provided transforms (if `transforms` is provided)
+            2. Image tensor conversion (if `to_tensor = True`)
+            3. Float32 conversion and scaling (if `to_tensor = True`)
+            4. Normalization (if `norm_mean` and `norm_std` are provided)
 
-        The final `v2.Compose` pipeline is stored in `self.transform_pipeline`.
-        If `self.to_tensor = False` and `self.transforms is None`, 
-        then `self.transform_pipeline` will be `None.
+        The final transform pipeline is stored in `self.transform_pipeline`.
+        This pipeline will be `None`, if all these conditions are met:
+            - `transforms` is not provided
+            - `to_tensor = False`
+            - `norm_mean` and `norm_std` are not provided
         '''
         pipeline = []
         if self.transforms is not None:
@@ -140,6 +163,11 @@ class ClassificationDatasetBase(ABC, Dataset):
                 v2.ToDtype(torch.float32, scale = True) # Converts to float32 and scale
             ])
 
+        if self.norm_mean is not None:
+            pipeline.append(
+                v2.Normalize(mean = self.norm_mean, std = self.norm_std)
+            )
+
         self.transform_pipeline = v2.Compose(pipeline) if (len(pipeline) > 0) else None
 
     @abstractmethod
@@ -152,7 +180,8 @@ class ClassificationDatasetBase(ABC, Dataset):
     @abstractmethod
     def get_raw_item(self, idx: int) -> ClsSample:
         '''
-        Returns a dictionary of raw, unprocessed sample information.
+        Returns a dictionary of the sample information
+        prior to applying the transform pipeline.
         Must include 'image' and 'label'.
         '''
         pass
@@ -166,6 +195,10 @@ class HFClassificationDataset(ClassificationDatasetBase):
     ClassificationDatasetBase wrapper around a Hugging Face classification dataset.
     This allows for optional per-sample image transforms.
     
+    Note: `v2.Normalize` only acts on tensors.
+          If normalization is enabled (`norm_mean` and `norm_std` are provided),
+          ensure that either `to_tensor = True` or the provided `transforms` output a tensor.
+
     Args:
         hf_dataset (datasets.Dataset): Hugging Face dataset containing classification samples.
                                        Each sample must be a dictionary (ClsSample) containing the **same** keys.
@@ -179,20 +212,30 @@ class HFClassificationDataset(ClassificationDatasetBase):
                                            If not provided, will try to fallback to 
                                            `hf_dataset.features['label'].names` if available.
         to_tensor (bool): Whether to apply tensor and datatype (`float32`) conversions to all samples.
-                          If `True`, the transform pipeline becomes:
-                                1. Image tensor conversion using `ToImage()`
-                                2. Optional user-provided transforms from `transforms`
-                                3. Datatype conversion using `ToDtype(torch.float32, scale = True)`
+                          These conversions are applied **after** any provided `transforms`.
                           Default is `True`.
+        norm_mean (optional, Sequence[float]): Sequence of means (one for each input channel)
+                                               used to normalize images **after** tensor conversion.
+                                               If provided, `norm_std` must also be provided.
+        norm_std (optional, Sequence[float]): Sequence of standard deviations (one for each input channel)
+                                              used to normalize images **after** tensor conversion.
+                                              If provided, `norm_mean` must also be provided.
     '''
     def __init__(
         self, 
         hf_dataset: datasets.Dataset, 
         transforms: Optional[Callable] = None,
         class_names: Optional[List[str]] = None,
-        to_tensor: bool = True
+        to_tensor: bool = True,
+        norm_mean: Optional[Sequence[float]] = None,
+        norm_std: Optional[Sequence[float]] = None
     ):
-        super().__init__(transforms = transforms, to_tensor = to_tensor)
+        super().__init__(
+            transforms = transforms, 
+            to_tensor = to_tensor, 
+            norm_mean = norm_mean, 
+            norm_std = norm_std
+        )
         self.hf_dataset = hf_dataset
 
         # Setup class names
@@ -233,6 +276,10 @@ class MiniImageNetDataset(HFClassificationDataset):
 
     MiniImageNet will optionally transform the raw samples and also optionally convert them to tensors.
 
+    Note: `v2.Normalize` only acts on tensors.
+          If normalization is enabled (`norm_mean` and `norm_std` are provided),
+          ensure that either `to_tensor = True` or the provided `transforms` output a tensor.
+
     Args:
         root (Union[str, Path]): Directory to download the dataset in.
                                  This is the `cache_dir` of the HF dataset.
@@ -242,18 +289,23 @@ class MiniImageNetDataset(HFClassificationDataset):
                                          This must be compatible with the samples of the Mini-ImageNet dataset.
                                          It should accept and return a `ClsSample`.
         to_tensor (bool): Whether to apply tensor and datatype (`float32`) conversions to all samples.
-                          If `True`, the transform pipeline becomes:
-                                1. Image tensor conversion using `ToImage()`
-                                2. Optional user-provided transforms from `transforms`
-                                3. Datatype conversion using `ToDtype(torch.float32, scale = True)`
+                          These conversions are applied **after** any provided `transforms`.
                           Default is `True`.
+        norm_mean (optional, Sequence[float]): Sequence of means (one for each input channel)
+                                               used to normalize images **after** tensor conversion.
+                                               If provided, `norm_std` must also be provided.
+        norm_std (optional, Sequence[float]): Sequence of standard deviations (one for each input channel)
+                                              used to normalize images **after** tensor conversion.
+                                              If provided, `norm_mean` must also be provided.
     '''
     def __init__(
         self, 
         root: Union[str, Path],
         split: Literal['train', 'val', 'test'],
         transforms: Optional[Callable] = None,
-        to_tensor: bool = True
+        to_tensor: bool = True,
+        norm_mean: Optional[Sequence[float]] = None,
+        norm_std: Optional[Sequence[float]] = None
     ):
         self.split = split
         self.root = Path(root)
@@ -273,8 +325,15 @@ class MiniImageNetDataset(HFClassificationDataset):
             hf_dataset = self.hf_dataset,
             class_names = class_names,
             transforms = transforms,
-            to_tensor = to_tensor
+            to_tensor = to_tensor,
+            norm_mean = norm_mean,
+            norm_std = norm_std
         )
+
+    def get_raw_item(self, idx: int) -> ClsSample:
+        item = self.hf_dataset[idx].copy()
+        item['image'] = item['image'].convert('RGB') # Convert all to RGB (3 channels)
+        return item
 
     def _get_class_names(self) -> List[str]:
         '''
@@ -316,6 +375,10 @@ class HumanBinaryDataset(HFClassificationDataset):
     Note: This dataset tends to include multiple images of the same person (though from different perspectives).
           As a result, the train/validation split may contain images of the same person in both sets, leading to data leakage.
 
+    Note: `v2.Normalize` only acts on tensors.
+          If normalization is enabled (`norm_mean` and `norm_std` are provided),
+          ensure that either `to_tensor = True` or the provided `transforms` output a tensor.
+
     Args:
         root (Union[str, Path]): Directory to download the dataset in.
                                  This is the `cache_dir` of the HF dataset.
@@ -325,11 +388,14 @@ class HumanBinaryDataset(HFClassificationDataset):
                                          This must be compatible with the samples of the human vs non-human dataset.
                                          It should accept and return a `ClsSample`.
         to_tensor (bool): Whether to apply tensor and datatype (`float32`) conversions to all samples.
-                          If `True`, the transform pipeline becomes:
-                                1. Image tensor conversion using `ToImage()`
-                                2. Optional user-provided transforms from `transforms`
-                                3. Datatype conversion using `ToDtype(torch.float32, scale = True)`
+                          These conversions are applied **after** any provided `transforms`.
                           Default is `True`.
+        norm_mean (optional, Sequence[float]): Sequence of means (one for each input channel)
+                                               used to normalize images **after** tensor conversion.
+                                               If provided, `norm_std` must also be provided.
+        norm_std (optional, Sequence[float]): Sequence of standard deviations (one for each input channel)
+                                              used to normalize images **after** tensor conversion.
+                                              If provided, `norm_mean` must also be provided.
         train_frac (float): The fraction of the raw dataset to use as the training dataset.
                             The remaining fraction (`1 - train_frac`) is used as the validation dataset.
                             Default is `0.9` (90% of raw data for training, 10% of raw data for validation).
@@ -343,6 +409,8 @@ class HumanBinaryDataset(HFClassificationDataset):
         split: Literal['train', 'val'], 
         transforms: Optional[Callable] = None,
         to_tensor: bool = True,
+        norm_mean: Optional[Sequence[float]] = None,
+        norm_std: Optional[Sequence[float]] = None,
         train_frac: float = 0.9, 
         split_seed: int = 0
     ):
@@ -358,12 +426,11 @@ class HumanBinaryDataset(HFClassificationDataset):
         dataset_split = raw_dataset.train_test_split(test_size = (1 - train_frac), seed = split_seed)
         dataset_split_key = 'test' if split == 'val' else split # train -> train and val -> test
         
-        # Class names
-        # class_names = ['human', 'nonhuman']
-        
         # Initialize HFClassificationDataset
         super().__init__(
             hf_dataset = dataset_split[dataset_split_key],
             transforms = transforms,
-            to_tensor = to_tensor
+            to_tensor = to_tensor,
+            norm_mean = norm_mean,
+            norm_std = norm_std
         )

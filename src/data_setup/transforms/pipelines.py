@@ -5,8 +5,9 @@ import torch
 from torchvision.transforms import v2
 from torchvision.transforms import InterpolationMode
 
-from typing import List, Tuple, Literal, Union, Optional, TypeAlias
+from typing import List, Tuple, Literal, Union, Optional, TypeAlias, Sequence
 
+from src.utils import all_or_none
 from src.ml_types import FillValue, SpatialSize
 from src.data_setup.transforms.ops import (
     ImageTransform, SegRandomAffine, SegLetterbox, SegResize, ToImageAndMask
@@ -28,8 +29,69 @@ def get_base_transforms(
     sizing_mode: SizingType = 'letterbox',
     img_interpolation: Union[InterpolationMode, int] = InterpolationMode.BILINEAR,
     img_fill: FillValue = 0,
-    mask_fill: FillValue = 255
+    mask_fill: FillValue = 255,
+    norm_mean: Optional[Sequence[float]] = None,
+    norm_std: Optional[Sequence[float]] = None
 ) -> v2.Compose:
+    '''
+    Creates a torchvision pipeline of base transforms.
+    This may include:
+        1. Optional sizing transforms (resize or letterbox)
+        2. Image and Mask tensor conversion (always included)
+        3. Datatype conversion and optional scaling to [0, 1] (always included)
+        4. Optional Normalization
+
+    Note: datatype conversion and normalization are only applied to images, not segmentation masks.
+    
+    Args:
+        dtype (torch.dtype): The datatype used for datatype conversion. Default is `torch.float32`.
+        scale (bool). Whether to scale values to [0, 1] after datatype conversion.
+                      This requires `dtype` to be float-like.
+                      Default is `True`.
+        size (optional, SpatialSize): Size `(height, width)` to resize both image and segmentation mask.
+                                      If `int`, size is assumed to be square.
+                                      If not provided, no resizing is applied.
+        sizing_mode (SizingType): The resizing method to use when `size` is provided.
+                                  Supported modes:
+                                    - 'letterbox': Uses `SegLetterbox`.
+                                                Resizes while preserving aspect ratio and 
+                                                applies padding to reach the desired output `size`.
+                                    - 'resize': Uses `SegResize`.
+                                                Directly scales the image/mask to `size`.
+                                                Does not preserve aspect ratio.
+                                  Default is `letterbox`.
+        img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the sizing transform.
+                                                           Default is `InterpolationMode.BILINEAR`.
+                                                           Note that the mask transforms always uses `InterpolationMode.NEAREST`.
+        img_fill (FillValue): Pixel fill value used for the sizing transform when `sizing_mode='letterbox'`.
+                              This can be a float, integer, sequence of floats, or sequence of integers.
+                              If scalar (float or integer), the value is used for all channels.
+                              If sequence, its length must match the number of channels in the input image.
+                              The fill value should be in the same value space as the expected input images.
+                              For example, if the input images are scaled to [0, 1], 
+                              `img_fill` should also be scaled to [0, 1].
+                              Default is `0`.
+        mask_fill (FillValue): Pixel fill value used for the sizing transform when `sizing_mode='letterbox'`.
+                               This can be a float, integer, sequence of floats, or sequence of integers.
+                               If scalar (float or integer), the value is used for all channels.
+                               If sequence, its length must match the number of channels in the input mask.
+                               The fill value should be in the same value space as the expected input masks.
+                               For example, if the input masks are scaled to [0, 1], 
+                               `mask_fill` should also be scaled to [0, 1].
+                               Default is `255`.
+        norm_mean (optional, Sequence[float]): Sequence of means (one for each input channel) used to normalize images.
+                                               If provided, `norm_std` must also be provided.
+        norm_std (optional, Sequence[float]): Sequence of standard deviations (one for each input channel) used to normalize images.
+                                              If provided, `norm_mean` must also be provided.
+
+    Returns:
+        v2.Compose: The torchvision pipeline of base transforms.
+    '''
+    if not all_or_none(norm_mean, norm_std):
+        raise ValueError(
+            'norm_mean and norm_std must either both be provided or both be None (not provided).'
+        )
+        
     transforms = []
     if size is not None:
         if sizing_mode == 'letterbox':
@@ -49,6 +111,11 @@ def get_base_transforms(
         ToImageAndMask(),
         v2.ToDtype(dtype = dtype, scale = scale)
     ])
+
+    if norm_mean is not None:
+        transforms.append(
+            v2.Normalize(mean = norm_mean, std = norm_std)
+        )
 
     return v2.Compose(transforms)
 
@@ -86,6 +153,18 @@ def get_transforms(
             To include only one type, input only the string or a singleton list/tuple.
             To include both types, example inputs are `['phot', 'geo']` or `['geo', 'phot']`. 
             The order of the types in `tf_types` determine which transforms are applied first.
+        size (optional, SpatialSize): Size `(height, width)` to resize both image and segmentation mask.
+                                      If `int`, size is assumed to be square.
+                                      If not provided, no resizing is applied.
+        sizing_mode (SizingType): The resizing method to use when `size` is provided.
+                                  Supported modes:
+                                    - 'letterbox': Uses `SegLetterbox`.
+                                                Resizes while preserving aspect ratio and 
+                                                applies padding to reach the desired output `size`.
+                                    - 'resize': Uses `SegResize`.
+                                                Directly scales the image/mask to `size`.
+                                                Does not preserve aspect ratio.
+                                  Default is `letterbox`.
         img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the geometric augmentations of the image.
                                                            Default is `InterpolationMode.BILINEAR`.
                                                            Note that the mask transforms always uses `InterpolationMode.NEAREST`.
