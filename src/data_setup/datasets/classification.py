@@ -5,8 +5,12 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.transforms import v2
 
+import requests
+from abc import ABC, abstractmethod
+
 import datasets
 from datasets import ClassLabel
+from pathlib import Path
 from typing import Optional, Literal, List, Union, Callable
 
 from src.ml_types import ImageInput, ImageLabel, IndexLike
@@ -16,25 +20,15 @@ from src.utils import transpose_list_dict, format_idxs
 
 
 #####################################
-# Classes
+# Base Classification Class
 #####################################
-class HFClassificationDataset(Dataset):
+class ClassificationDatasetBase(ABC, Dataset):
     '''
-    PyTorch Dataset wrapper around a Hugging Face classification dataset.
-    This allows for optional per-sample image transforms.
-    
+    Base class for image classification datasets.
+
     Args:
-        hf_dataset (datasets.Dataset): Hugging Face dataset containing classification samples.
-                                       Each sample must be a dictionary (ClsSample) containing the **same** keys.
-                                       Required keys are:
-                                           - image (ImageInput): Image sample.
-                                           - label (Union[int, torch.Tensor]): Class label for the image.
         transforms (optional, Callable): Transform pipeline applied to each sample.
-                                         This must be compatible with the samples in `hf_dataset`.
                                          It should accept and return a `ClsSample`.
-        class_names (optional, List[str]): List of class names, where index corresponds to label encoding in `hf_dataset`.
-                                           If not provided, will try to fallback to 
-                                           `hf_dataset.features['label'].names` if available.
         to_tensor (bool): Whether to apply tensor and datatype (`float32`) conversions to all samples.
                           If `True`, the transform pipeline becomes:
                                 1. Image tensor conversion using `ToImage()`
@@ -42,42 +36,13 @@ class HFClassificationDataset(Dataset):
                                 3. Datatype conversion using `ToDtype(torch.float32, scale = True)`
                           Default is `True`.
     '''
-    def __init__(
-        self, 
-        hf_dataset: datasets.Dataset, 
-        transforms: Optional[Callable] = None,
-        class_names: Optional[List[str]] = None,
-        to_tensor: bool = True
-    ):
-        self.hf_dataset = hf_dataset
+    def __init__(self, transforms: Optional[Callable] = None, to_tensor: bool = True):
+        self.transforms = transforms
+        self.to_tensor = to_tensor
 
         # Create transform pipeline
-        self._init_transform_pipeline(transforms, to_tensor)
+        self._make_transform_pipeline()
 
-        # Setup class names
-        if class_names is not None:
-            self.class_names = class_names
-        else:
-            feature_labels = hf_dataset.features.get('label')
-            if isinstance(feature_labels, ClassLabel):
-                self.class_names = feature_labels.names
-            else:
-                self.class_names = None
-
-        if self.class_names is not None:
-            self.class_to_idx, self.idx_to_class = {}, {}
-            for i, label in enumerate(self.class_names):
-                self.class_to_idx[label] = i
-                self.idx_to_class[i] = label
-        else:
-            self.class_to_idx, self.idx_to_class = None, None
-
-    def __len__(self) -> int:
-        return len(self.hf_dataset)
-
-    def __repr__(self) -> str:
-        return self.hf_dataset.__repr__()
-    
     def __getitem__(self, idxs: IndexLike) -> Union[ClsSample, ClsSampleList]:
         '''
         Gets a single-sample or multi-sample dictionary containing image and label information.
@@ -116,7 +81,7 @@ class HFClassificationDataset(Dataset):
     
     def get_single_item(self, idx: int) -> ClsSample:
         '''
-        Gets a sample dictionary containing image and label information, given a **singe** index.
+        Gets a sample dictionary containing image and label information, given a **single** index.
         If `self.transforms` is provided, the image are transformed.
         If `self.to_tensor = True`, the image and label are converted to tensors.
         Note that tensor conversion happens after image transformation.
@@ -132,11 +97,12 @@ class HFClassificationDataset(Dataset):
         if not isinstance(idx, int):
             raise TypeError(f'Expected integer index. Got: {type(idx)}')
         
-        item = self.hf_dataset[idx].copy()
-
+        item = self.get_raw_item(idx)
+        
         if self.transform_pipeline is not None:
+            # Image in item is always a tensor if self.to_tensor = True
             item = self.transform_pipeline(item)
-
+            
         if self.to_tensor:
             img, label = item['image'], item['label']
 
@@ -148,27 +114,27 @@ class HFClassificationDataset(Dataset):
                 item['label'] = torch.tensor(label, dtype = torch.long)
             else:
                 item['label'] = label.to(torch.long)
-
+        
         return item
 
     def _make_transform_pipeline(self) -> None:
         '''
         Creates a single torchvision `v2.Compose` pipeline that may include:
-            1. User-provided transforms (if `self._transforms is not None`)
+            1. User-provided transforms (if `self.transforms is not None`)
             2. Image tensor conversion (if `self.to_tensor = True`)
             3. Float32 conversion and scaling (if `self.to_tensor = True`)
 
         The final `v2.Compose` pipeline is stored in `self.transform_pipeline`.
-        If `self.return_tensor = False` and `self._transforms is None`, 
+        If `self.to_tensor = False` and `self.transforms is None`, 
         then `self.transform_pipeline` will be `None.
         '''
         pipeline = []
-        if self._transforms is not None:
-            pipeline.append(self._transforms)
+        if self.transforms is not None:
+            pipeline.append(self.transforms)
 
-        if self._to_tensor:
+        if self.to_tensor:
             # Note: I put ToImage() after user-provided transforms
-                # because geometric transforms seem to work better with PIl images
+                # because geometric transforms seem to work better with PIL images
             pipeline.extend([
                 v2.ToImage(), # Converts to an image tensor
                 v2.ToDtype(torch.float32, scale = True) # Converts to float32 and scale
@@ -176,46 +142,160 @@ class HFClassificationDataset(Dataset):
 
         self.transform_pipeline = v2.Compose(pipeline) if (len(pipeline) > 0) else None
 
-    def _init_transform_pipeline(self, transforms: Callable, to_tensor: bool) -> None:
+    @abstractmethod
+    def __len__(self) -> int:
         '''
-        Initializes the transform pipeline `self.transform_pipeline`.
-        Also sets the internal attributes `self._transforms` and `self._to_tensor`.
+        Returns the number of samples in the dataset
         '''
-        self._transforms = transforms
-        self._to_tensor = to_tensor
-        self._make_transform_pipeline()
+        pass
 
-    @property
-    def transforms(self) -> Optional[Callable]:
+    @abstractmethod
+    def get_raw_item(self, idx: int) -> ClsSample:
         '''
-        Returns user-provided transforms.
+        Returns a dictionary of raw, unprocessed sample information.
+        Must include 'image' and 'label'.
         '''
-        return self._transforms
+        pass
 
-    @transforms.setter
-    def transforms(self, value) -> None:
-        '''
-        Sets user-provided transforms.
-        Rebuilds transform pipeline when changed.
-        '''
-        self._transforms = value
-        self._make_transform_pipeline()
 
-    @property
-    def to_tensor(self) -> bool:
-        '''
-        Returns boolean for whether Image tensor conversions are applied.
-        '''
-        return self._to_tensor
+#####################################
+# Hugging Face Dataset Classes
+#####################################
+class HFClassificationDataset(ClassificationDatasetBase):
+    '''
+    ClassificationDatasetBase wrapper around a Hugging Face classification dataset.
+    This allows for optional per-sample image transforms.
     
-    @to_tensor.setter
-    def return_tensor(self, value) -> None:
+    Args:
+        hf_dataset (datasets.Dataset): Hugging Face dataset containing classification samples.
+                                       Each sample must be a dictionary (ClsSample) containing the **same** keys.
+                                       Required keys are:
+                                           - image (ImageInput): Image sample.
+                                           - label (Union[int, torch.Tensor]): Class label for the image.
+        transforms (optional, Callable): Transform pipeline applied to each sample.
+                                         This must be compatible with the samples in `hf_dataset`.
+                                         It should accept and return a `ClsSample`.
+        class_names (optional, List[str]): List of class names, where index corresponds to label encoding in `hf_dataset`.
+                                           If not provided, will try to fallback to 
+                                           `hf_dataset.features['label'].names` if available.
+        to_tensor (bool): Whether to apply tensor and datatype (`float32`) conversions to all samples.
+                          If `True`, the transform pipeline becomes:
+                                1. Image tensor conversion using `ToImage()`
+                                2. Optional user-provided transforms from `transforms`
+                                3. Datatype conversion using `ToDtype(torch.float32, scale = True)`
+                          Default is `True`.
+    '''
+    def __init__(
+        self, 
+        hf_dataset: datasets.Dataset, 
+        transforms: Optional[Callable] = None,
+        class_names: Optional[List[str]] = None,
+        to_tensor: bool = True
+    ):
+        super().__init__(transforms = transforms, to_tensor = to_tensor)
+        self.hf_dataset = hf_dataset
+
+        # Setup class names
+        if class_names is not None:
+            self.class_names = class_names
+        else:
+            feature_labels = hf_dataset.features.get('label').names
+            if isinstance(feature_labels, ClassLabel):
+                self.class_names = feature_labels.names
+            else:
+                self.class_names = None
+
+        if self.class_names is not None:
+            self.class_to_idx, self.idx_to_class = {}, {}
+            for i, label in enumerate(self.class_names):
+                self.class_to_idx[label] = i
+                self.idx_to_class[i] = label
+        else:
+            self.class_to_idx, self.idx_to_class = None, None
+
+    def __len__(self) -> int:
+        return len(self.hf_dataset)
+
+    def __repr__(self) -> str:
+        return self.hf_dataset.__repr__()
+    
+    def get_raw_item(self, idx: int) -> ClsSample:
+        return self.hf_dataset[idx].copy()
+    
+
+class MiniImageNet(HFClassificationDataset):
+    '''
+    Mini-ImageNet dataset from https://huggingface.co/datasets/timm/mini-imagenet
+
+    A sample from the raw Mini-ImageNet HF dataset is a dictionary with the keys:
+        - image (Image.Image): PIL image in RGB format. Shape varies with sample.
+        - label (int): Class index for the image sample.
+
+    MiniImageNet will optionally transform the raw samples and also optionally convert them to tensors.
+
+    Args:
+        root (Union[str, Path]): Directory to download the dataset in.
+                                 This is the `cache_dir` of the HF dataset.
+        split (Literal['train', 'val', 'test']): Whether to construct the training dataset (`train`),
+                                                 validation dataset (`val`), or test dataset (`test`).
+        transforms (optional, Callable): Transform pipeline applied to each sample.
+                                         This must be compatible with the samples of the Mini-ImageNet dataset.
+                                         It should accept and return a `ClsSample`.
+        to_tensor (bool): Whether to apply tensor and datatype (`float32`) conversions to all samples.
+                          If `True`, the transform pipeline becomes:
+                                1. Image tensor conversion using `ToImage()`
+                                2. Optional user-provided transforms from `transforms`
+                                3. Datatype conversion using `ToDtype(torch.float32, scale = True)`
+                          Default is `True`.
+    '''
+    def __init__(
+        self, 
+        root: Union[str, Path],
+        split: Literal['train', 'val', 'test'],
+        transforms: Optional[Callable] = None,
+        to_tensor: bool = True
+    ):
+        self.split = split
+        self.root = Path(root)
+        self.data_dir = self.root / 'timm___mini-imagenet'
+
+        # Load raw HF dataset
+        self.hf_dataset = datasets.load_dataset(
+            'timm/mini-imagenet',
+            cache_dir = root,
+            split = split if split != 'val' else 'validation'
+        )
+
+        class_names = self._get_class_names()
+
+        # Initialize HFClassificationDataset
+        super().__init__(
+            hf_dataset = self.hf_dataset,
+            class_names = class_names,
+            transforms = transforms,
+            to_tensor = to_tensor
+        )
+
+    def _get_class_names(self) -> List[str]:
         '''
-        Sets whether Image tensor conversions are applied.
-        Rebuilds transform pipeline when changed.
+        Returns a list of class names for the Mini-ImageNet HF dataset
+        The ordering of the list matches the index order of the dataset.
         '''
-        self._to_tensor = value
-        self._make_transform_pipeline()
+        # Fetch synset ID to class name mapping
+        mapping_url = 'https://gist.githubusercontent.com/aaronpolhamus/964a4411c0906315deb9f4a3723aac57/raw'
+        response = requests.get(mapping_url)
+        response.raise_for_status()
+
+        synset_to_class = {}
+        for line in response.text.splitlines():
+            labeling = line.strip().split()
+            synset_to_class[labeling[0]] = labeling[2]
+
+        self.synset_to_class = synset_to_class
+        
+        # Get class names from synset ids
+        self.synset_ids = self.hf_dataset.features['label'].names
+        return [synset_to_class[synset_id] for synset_id in self.synset_ids]
 
 
 class HumanBinaryDataset(HFClassificationDataset):
@@ -228,12 +308,17 @@ class HumanBinaryDataset(HFClassificationDataset):
     Additionally, a letterbox transform (fill = 0) has already been applied to the images in the raw HF dataset.
 
     A sample from the raw human vs non-human HF dataset is a dictionary with the keys:
-        - image (PIL.Image): 224 x 244 image in RGB format.
+        - image (Image.Image): 224 x 244 image in RGB format.
         - label (int): Class index for the image sample.
 
     HumanBinaryDataset will optionally transform the raw samples and also optionally convert them to tensors.
 
+    Note: This dataset tends to include multiple images of the same person (though from different perspectives).
+          As a result, the train/validation split may contain images of the same person in both sets, leading to data leakage.
+
     Args:
+        root (Union[str, Path]): Directory to download the dataset in.
+                                 This is the `cache_dir` of the HF dataset.
         split (Literal['train', 'val']): Whether to construct the training dataset (`train`) 
                                          or the validation dataset (`val`).
         transforms (optional, Callable): Transform pipeline applied to each sample.
@@ -254,6 +339,7 @@ class HumanBinaryDataset(HFClassificationDataset):
     '''
     def __init__(
         self, 
+        root: Union[str, Path],
         split: Literal['train', 'val'], 
         transforms: Optional[Callable] = None,
         to_tensor: bool = True,
@@ -262,9 +348,11 @@ class HumanBinaryDataset(HFClassificationDataset):
     ):
         self.split = split
         self.train_frac = train_frac
+        self.root = Path(root)
+        self.data_sir = self.root / 'prithivMLmods___human-vs-non_human'
         
         # Load raw HF dataset
-        raw_dataset = datasets.load_dataset('prithivMLmods/Human-vs-NonHuman', split = 'train')
+        raw_dataset = datasets.load_dataset('prithivMLmods/Human-vs-NonHuman', cache_dir = root, split = 'train')
         
         # Create train/val split
         dataset_split = raw_dataset.train_test_split(test_size = (1 - train_frac), seed = split_seed)
