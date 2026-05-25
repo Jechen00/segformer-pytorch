@@ -142,7 +142,7 @@ def preprocess_imgs(
     imgs = samps['image']
     if not isinstance(imgs, torch.Tensor):
         raise ValueError(
-            'Expected processed images to be a 3D or 4D tensor.'
+            'Expected processed images to be a 3D or 4D tensor. '
             f'Got: {type(imgs)}'
         )
     

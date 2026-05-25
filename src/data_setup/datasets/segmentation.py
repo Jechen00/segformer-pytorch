@@ -102,6 +102,8 @@ class SegmentationDatasetBase(ABC):
             return item
             
     def _make_mappings(self) -> None:
+        self.class_names = [None] * len(self.class_info)
+
         # Create mappings based on index
         self.idx_to_class, self.class_to_idx = {}, {}
         self.rgb_to_class, self.class_to_rgb = {}, {}
@@ -117,6 +119,7 @@ class SegmentationDatasetBase(ABC):
                 raise ValueError(f"Duplicate index mapping detected for index ('idx'): {idx}")
                 
             self.idx_to_class[idx] = name
+            self.class_names[idx] = name # List version of idx_to_class
             self.class_to_idx[name] = idx
             self.rgb_to_class[rgb] = name
             self.class_to_rgb[name] = rgb
