@@ -223,7 +223,7 @@ class HFClassificationDataset(ClassificationDatasetBase):
         return self.hf_dataset[idx].copy()
     
 
-class MiniImageNet(HFClassificationDataset):
+class MiniImageNetDataset(HFClassificationDataset):
     '''
     Mini-ImageNet dataset from https://huggingface.co/datasets/timm/mini-imagenet
 

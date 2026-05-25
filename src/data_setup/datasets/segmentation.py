@@ -2,6 +2,7 @@
 # Imports & Dependencies
 #####################################
 import torch
+from torch.utils.data import Dataset
 from torchvision.transforms import v2
 
 import pandas
@@ -14,7 +15,7 @@ import subprocess
 
 import warnings
 from abc import ABC, abstractmethod
-from typing import Tuple, Union, Optional, Dict, Literal, TypedDict, TypeAlias
+from typing import Tuple, Union, Optional, Dict, Literal, TypedDict, TypeAlias, Callable
 
 from src.data_setup.transforms.ops import ImageTransform, ToImageAndMask
 from src.masks import is_rgb_tuple, rgb_to_idx_mask
@@ -37,12 +38,15 @@ ClassInfo: TypeAlias = Dict[str, ClassSpec]
 #####################################
 # Base Segmentation Class
 #####################################
-class SegmentationDatasetBase(ABC):
+class SegmentationDatasetBase(ABC, Dataset):
+    '''
+    Base class for segmentation datasets.
+    '''
     def __init__(
         self,
         class_info: ClassInfo,
-        geo_transforms: Optional[v2.Compose] = None,
-        img_phot_transforms: Optional[v2.Compose] = None,
+        geo_transforms: Optional[Callable] = None,
+        img_phot_transforms: Optional[Callable] = None,
         to_tensor: bool = True,
         ignore_encoding: Optional[ClassSpec] = None
     ):
@@ -70,6 +74,18 @@ class SegmentationDatasetBase(ABC):
                                 - A list of integers
                                 - A ndarray of integers
                                 - A tensor of integers
+
+        Returns:
+            A single-sample or multi-sample dictionary depending 
+            whether the input was a single index or a collection of indices.
+
+            Single-Sample (SegSample) has the keys (non-exhaustive):
+                - image (ImageInput): Transformed image sample (original if no transforms).
+                - mask (ImageInput): Transformed segmentation mask (original if no transforms).
+
+            Multi-Sample (SegSampleList) has the keys (non-exhaustive):
+                - image (List[ImageInput]): List of transformed image samples (original if no transforms).
+                - mask (List[ImageInput]): List of transformed segmentation mask (original if no transforms).
         '''
         if isinstance(idxs, int):
             # Indexing with a single integer
@@ -80,7 +96,10 @@ class SegmentationDatasetBase(ABC):
             items = [self.get_single_item(idx) for idx in idxs]
             return transpose_list_dict(items, mode = 'to_cols')
         
-    def get_single_item(self, idx: int) -> SegSample:        
+    def get_single_item(self, idx: int) -> SegSample:    
+        if not isinstance(idx, int):
+            raise TypeError(f'Expected integer index. Got: {type(idx)}')
+         
         item = self.get_raw_item(idx)
         
         if self.transform_pipeline is not None:
@@ -96,10 +115,7 @@ class SegmentationDatasetBase(ABC):
             # Format mask to index mask (training-ready)
             item['mask'] = self._format_mask(mask)
 
-            return item
-        
-        else:
-            return item
+        return item
             
     def _make_mappings(self) -> None:
         self.class_names = [None] * len(self.class_info)
@@ -261,16 +277,17 @@ class SegmentationDatasetBase(ABC):
 class SuperviselyPersonDataset(SegmentationDatasetBase):
     def __init__(
         self, 
-        data_dir: Union[str, Path], 
+        root: Union[str, Path], 
         split: Literal['train', 'val'],
-        geo_transforms: Optional[v2.Compose] = None,
-        img_phot_transforms: Optional[v2.Compose] = None,
+        geo_transforms: Optional[Callable] = None,
+        img_phot_transforms: Optional[Callable] = None,
         to_tensor: bool = True,
         ignore_encoding: Optional[ClassSpec] = None,
         train_frac: float = 0.8,
         split_seed: int = 0
     ):
-        self.data_dir = Path(data_dir)
+        self.root = Path(root)
+        self.data_dir = self.root / 'supervisely_person'
         self.split = split
         self.train_frac = train_frac
         self.split_seed = split_seed
@@ -304,7 +321,7 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
         if data_dir.is_dir():
             # Dataset directory already exists
             warnings.warn(
-                f'A directory at {data_dir} already exists. '
+                f'A supervisely_person directory already exists at the root {self.root}. '
                 'Supervisely Person dataset will not be downloaded.',
                 UserWarning
             )
