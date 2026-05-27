@@ -49,7 +49,6 @@ class ModelTrainer():
         val_loader: DataLoader,
         targ_key: str,
         loss_fn: nn.Module,
-        loss_norm: Literal['batch', 'element', 'valid', 'none'],
         optimizer: Optimizer,
         scheduler_cfg: Optional[SchedulerConfig] = None,
         eval_cfg: Optional[EvalConfig] = None,
@@ -75,7 +74,6 @@ class ModelTrainer():
         self.targ_key = targ_key
 
         self.loss_fn = loss_fn.to(device)
-        self.loss_norm = loss_norm
         self.optimizer = optimizer
         self.measure_policy = measure_policy
 
@@ -85,8 +83,8 @@ class ModelTrainer():
         if self.measure_policy is not None:
             self.measure_policy.reset() # Ensure a fresh state
 
-        self.train_history = TrainHistory() # Tracks average losses
-        self.val_history = ValHistory() # Tracks average losses and metrics
+        self.train_history = TrainHistory() # Tracks average batch losses
+        self.val_history = ValHistory() # Tracks average batch losses and metrics
         self.start_epoch = 0
 
         # GradScaler is used for CUDA mixed-precision training (AMP).
@@ -204,7 +202,8 @@ class ModelTrainer():
         return self.train_history, self.val_history
            
     def _train_step(self) -> torch.Tensor:
-        loss_sum, num_items = 0, 0
+        num_batches = len(self.train_loader)
+        loss_sum = 0
 
         self.model.train()
         for batch in self.train_loader:
@@ -226,9 +225,9 @@ class ModelTrainer():
             ):
                 # Compute loss (sum and average) for batch
                 logits = self.model(imgs)
-                batch_items, batch_loss_sum, batch_loss_avg = self._normalize_loss(logits, targs)
+                loss = self.loss_fn(logits, targs)
 
-            scaler.scale(batch_loss_avg).backward() # Backpropagate on average batch loss
+            scaler.scale(loss).backward() # Backpropagate on average batch loss
             scaler.step(self.optimizer) # Update parameters
             scaler.update() # Update grad scalar
 
@@ -236,12 +235,14 @@ class ModelTrainer():
             if (scfg is not None) and (scfg.step_freq == 'optim_step'):
                 scfg.scheduler.step() # Update learning rates per optimizer step
                 
-            loss_sum += batch_loss_sum.detach() # Update running sum loss
-            num_items += batch_items # Update number of target items used in summed loss
+            loss_sum += loss.detach() # Update running sum loss
 
-        return loss_sum / num_items # Average loss across items
+        return loss_sum / num_batches # Average batch loss
 
     def _val_step(self, metrics: Optional[Dict[str, Metric]]) -> ValResults:
+        num_batches = len(self.val_loader)
+        loss_sum = 0
+
         # Reset evaluation metrics
         if metrics is not None:
             for metric in metrics.values():
@@ -249,7 +250,6 @@ class ModelTrainer():
 
         # Start step loop  
         self.model.eval()
-        loss_sum, num_items = 0, 0
         for batch in self.val_loader:
             pcfg = self.perf_cfg
             device = pcfg.device
@@ -267,10 +267,9 @@ class ModelTrainer():
                 ):
                     # Compute loss (sum and average) for batch
                     logits = self.model(imgs)
-                    batch_items, batch_loss_sum, _ = self._normalize_loss(logits, targs)
+                    loss = self.loss_fn(logits, targs)
                 
-            loss_sum += batch_loss_sum # Update running sum loss
-            num_items += batch_items # Update number of target items used in summed loss
+            loss_sum += loss # Update running sum loss
             
             if metrics is not None:
                 # Update evaluation metric states
@@ -285,38 +284,9 @@ class ModelTrainer():
             metric_results = None
 
         return {
-            'loss': loss_sum / num_items, # Average loss across items
+            'loss': loss_sum / num_batches, # Average batch loss
             'metrics': metric_results
         }
-
-    def _normalize_loss(
-        self, 
-        logits: torch.Tensor, 
-        targs: torch.Tensor
-    ) -> Tuple[int, torch.Tensor, torch.Tensor]:
-        batch_loss_sum = self.loss_fn(logits, targs)
-        
-        if self.loss_norm == 'batch':
-            # Normalize across batch samples
-            batch_items = targs.shape[0]
-            
-        elif self.loss_norm == 'element':
-            # Normalize across all elements in the batch
-            batch_items = targs.numel()
-            
-        elif self.loss_norm == 'valid':
-            # Normalize across all valid elements in the batch
-            # Example use: segmentation tasks with an ignore index
-            valid_mask = (targs != self.loss_fn.ignore_index)
-            batch_items = valid_mask.sum().clamp_min(1)
-            
-        elif self.loss_norm == 'none':
-            # No normalization
-            batch_items = 1
-            
-        batch_loss_avg = batch_loss_sum / batch_items
-        
-        return batch_items, batch_loss_sum, batch_loss_avg
 
     def _log_epoch(
         self, 
