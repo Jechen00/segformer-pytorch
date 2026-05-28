@@ -6,7 +6,9 @@ from torch import nn
 from torchvision.ops import StochasticDepth
 
 import numpy as np
+import copy
 from itertools import islice
+from numbers import Real
 from typing import Sequence, Union, List, Optional
 
 from src.ml_types import SpatialSize 
@@ -34,8 +36,9 @@ class EncoderBlock(nn.Module):
         hid_dim (int): Number of hidden channels in intermediate layers of the mix-FFN.
         activation (optional, nn.Module): Activation function applied within the mix-FFN.
                                           If `None`, defaults to GELU.
-        attn_dropout_prob (float): Dropout probability for the attention weights. Default is `0.0`.
-        sdepth_prob (float): Stochastic depth probability to drop residuals in residual connections. Default is `0.0`.
+        ffn_dropout_prob (Real): Dropout probability for the mix-FFN. Default is `0.0`.
+        attn_dropout_prob (Real): Dropout probability for the attention weights. Default is `0.0`.
+        sdepth_prob (Real): Stochastic depth probability to drop residuals in residual connections. Default is `0.0`.
     '''
     def __init__(
         self, 
@@ -44,8 +47,9 @@ class EncoderBlock(nn.Module):
         reduce_ratio: int,
         hid_dim: int,
         activation: Optional[nn.Module] = None,
-        attn_dropout_prob: float = 0.0,
-        sdepth_prob: float = 0.0
+        ffn_dropout_prob: Real = 0.0,
+        attn_dropout_prob: Real = 0.0,
+        sdepth_prob: Real = 0.0
     ):
         super().__init__()
         self.seq_attn = nn.Sequential(
@@ -54,7 +58,7 @@ class EncoderBlock(nn.Module):
         )
         self.seq_mix_ffn = nn.Sequential(
             ChannelwiseLayerNorm(feature_dim),
-            MixFFN(feature_dim, hid_dim, activation)
+            MixFFN(feature_dim, hid_dim, activation, ffn_dropout_prob)
         )
         self.sdepth = StochasticDepth(sdepth_prob, mode = 'row')
         
@@ -97,11 +101,15 @@ class EncoderStage(nn.Module):
         hid_dim (int): Number of hidden channels in intermediate layers of the mix-FFN.
         activation (optional, nn.Module): Activation function applied within the mix-FFN.
                                           If `None`, defaults to GELU.
-        attn_dropout_prob (float): Dropout probability for the attention weights. Default is `0.0`.
-        sdepth_probs (float or Sequence[float]): Stochastic depth probability for each encoder block.
-                                                 If `Sequence[float]`, the length must equal `num_blks`.
-                                                 If `float`, the same value is used for all encoder blocks.
-                                                 Default is `0.0`.
+        ffn_dropout_prob (Real): Dropout probability for the mix-FFN. Default is `0.0`.
+        attn_dropout_prob (Real): Dropout probability for the attention weights. Default is `0.0`.
+        sdepth_probs (Union[Real, Sequence[Real]]): 
+                Stochastic depth probability for each encoder block.
+                Supports:
+                    - `Sequence[Real]`: Sequence containing one probability per encoder block.
+                                        Length must equal `num_blks`.
+                    - `Real`: A single probability applied to all encoder blocks.
+                Default is `0.0` for all encoder blocks.
     '''
     def __init__(
         self,
@@ -114,11 +122,12 @@ class EncoderStage(nn.Module):
         reduce_ratio: int,
         hid_dim: int,
         activation: Optional[nn.Module] = None,
-        attn_dropout_prob: float = 0.0,
-        sdepth_probs: Union[float, Sequence[float]] = 0.0 
+        ffn_dropout_prob: Real = 0.0,
+        attn_dropout_prob: Real = 0.0,
+        sdepth_probs: Union[Real, Sequence[Real]] = 0.0 
     ):
         super().__init__()
-        if isinstance(sdepth_probs, float):
+        if isinstance(sdepth_probs, Real):
             sdepth_probs = [sdepth_probs] * num_blks
         elif len(sdepth_probs) != num_blks:
             raise ValueError('Length of sdepth_probs must equal num_blks.')
@@ -130,7 +139,7 @@ class EncoderStage(nn.Module):
         self.layer_norm1 = ChannelwiseLayerNorm(feature_dim)
         self.blocks = nn.ModuleList([
             EncoderBlock(feature_dim, num_heads, reduce_ratio, hid_dim, activation, 
-                         attn_dropout_prob, sdepth_probs[i])
+                         ffn_dropout_prob, attn_dropout_prob, sdepth_probs[i])
             for i in range(num_blks)
         ])
         self.layer_norm2 = ChannelwiseLayerNorm(feature_dim)
@@ -165,15 +174,28 @@ class MixTransformer(nn.Module):
         num_heads (Sequence[int]): Number of attention heads for the efficient self-attention in each encoder stage.
         reduce_ratios (Sequence[int]): Reduction ratio for the efficient self-attention in each encoder stage.
         hid_dims (Sequence[int]): Hidden dimension of the mix-FFN in each encoder stage.
-        activations (optional, Sequence[nn.Module]): Activation function for the mix-FFN in each encoder stage.
-                                                     If `None`, defaults to GELU for each mix-FFN.
-        attn_dropout_probs (optional, Sequence[float]): Dropout probability for the attention weights
-                                                        in each encoder stage.
-                                                        If `None`, defaults to `0.0` for all encoder stages.
-        max_sdepth_prob (float): Maximum stochastic depth probability.
-                                 The probability starts at `0.0` and linearly increases across all encoder blocks,
-                                 reaching `max_sdepth_prob` at the final block of the final stage.
-                                 Default is `0.0`.
+        activations (optional, Union[nn.Module, Sequence[nn.Module]]): 
+                Activation functions for the mix-FFN in each encoder stage.
+                Supports:
+                    - `Sequence[nn.Module]`: Sequence containing one activation per encoder stage.
+                    - `nn.Module`: A single activation that will be deep-copied to each encoder stage.
+                    - `None`: Defaults to using GELU for each encoder stage.
+        ffn_dropout_probs (Union[Real, Sequence[Real]]): 
+                Dropout probabilities for the mix-FFN in each encoder stage.
+                Supports:
+                    - `Sequence[Real]`: Sequence containing one dropout probability per encoder stage.
+                    - `Real`: A single dropout probability applied to all encoder stage.
+                Default is `0.0` for all encoder stages.
+        attn_dropout_probs (Union[Real, Sequence[Real]]): 
+                Dropout probabilities for the attention weights in each encoder stage.
+                Supports:
+                    - `Sequence[Real]`: Sequence containing one dropout probability per encoder stage.
+                    - `Real`: A single dropout probability applied to all encoder stage.
+                Default is `0.0` for all encoder stages.
+        max_sdepth_prob (Real): Maximum stochastic depth probability.
+                                The probability starts at `0.0` and linearly increases across all encoder blocks,
+                                reaching `max_sdepth_prob` at the final block of the final stage.
+                                Default is `0.0`.
     '''
     def __init__(
         self,
@@ -185,16 +207,23 @@ class MixTransformer(nn.Module):
         num_heads: Sequence[int],
         reduce_ratios: Sequence[int],
         hid_dims: Sequence[int],
-        activations: Optional[Sequence[nn.Module]] = None,
-        attn_dropout_probs: Optional[Sequence[float]] = None,
-        max_sdepth_prob: float = 0.0
+        activations: Optional[Union[nn.Module, Sequence[nn.Module]]] = None,
+        ffn_dropout_probs: Union[Real, Sequence[Real]] = 0.0,
+        attn_dropout_probs: Union[Real, Sequence[Real]] = 0.0,
+        max_sdepth_prob: Real = 0.0
     ):
         super().__init__()
         num_stages = len(feature_dims)
         if activations is None:
             activations = [nn.GELU() for _ in range(num_stages)]
-        if attn_dropout_probs is None:
-            attn_dropout_probs = [0.0] * num_stages
+        elif isinstance(activations, nn.Module):
+            activations = [copy.deepcopy(activations) for _ in range(num_stages)]
+            
+        if isinstance(ffn_dropout_probs, Real):
+            ffn_dropout_probs = [ffn_dropout_probs] * num_stages
+
+        if isinstance(attn_dropout_probs, Real):
+            attn_dropout_probs = [attn_dropout_probs] * num_stages
             
         stage_fields = [
             ('in_channels', [in_channels, *feature_dims[:-1]]),
@@ -206,6 +235,7 @@ class MixTransformer(nn.Module):
             ('reduce_ratios', reduce_ratios),
             ('hid_dims', hid_dims),
             ('activations', activations),
+            ('ffn_dropout_probs', ffn_dropout_probs),
             ('attn_dropout_probs', attn_dropout_probs)
         ]
         

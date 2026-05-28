@@ -71,7 +71,7 @@ class MiTClassification(nn.Module):
         Args:
             mit_kwargs (Dict[str, Any]): Dictionary of keyword arguments for the `MixTransformer` backbone. 
                                          The required arguments for the `MixTransformer` can be found in
-                                         `src.models.MixTransformer`.
+                                         `src.models.encoder.MixTransformer`.
             num_classes (int): Number of classes
         
         Returns:

@@ -5,6 +5,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+from numbers import Real
 from typing import Optional
 
 
@@ -59,10 +60,10 @@ class ChannelwiseLayerNorm(nn.Module):
 
     Args:
         num_channels (int): Number of input channels.
-        eps (float): Value added to denominator of the layer norm for numerical stability. 
-                     Default is `1e-7`.
+        eps (float): Small value added to denominator of the layer norm to prevent numerical errors. 
+                     Default is `1e-6`.
     '''
-    def __init__(self, num_channels: int, eps: float = 1e-7):
+    def __init__(self, num_channels: int, eps: float = 1e-6):
         super().__init__()
 
         self.eps = eps
@@ -105,9 +106,9 @@ class EfficientSelfAttention(nn.Module):
                             before computing attention. 
                             Sequence length is reduced by roughly `reduce_ratio**2`.
                             If `reduce_ratio = 1`, no reduction is applied. Default is `1`.
-        dropout_prob (float): Dropout probability for the attention weights. Default is `0.0`.
+        dropout_prob (Real): Dropout probability for the attention weights. Default is `0.0`.
     '''
-    def __init__(self, num_heads: int, feature_dim: int, reduce_ratio: int = 1, dropout_prob: float = 0.0):
+    def __init__(self, num_heads: int, feature_dim: int, reduce_ratio: int = 1, dropout_prob: Real = 0.0):
         super().__init__()
         if feature_dim % num_heads != 0:
             raise ValueError('feature_dim must be divisible by num_heads.')
@@ -175,8 +176,17 @@ class MixFFN(nn.Module):
         hid_dim (int): Number of hidden channels in intermediate layers.
         activation (optional, nn.Module): Activation function applied after 3x3 convolutional layer.
                                           If `None`, defaults to GELU.
+        dropout_prob (Real): Dropout probability applied after the activation
+                             and after the last linear layer (1x1 convolutional layer).
+                             This follows from the original implementation.
     '''
-    def __init__(self, feature_dim: int, hid_dim: int, activation: Optional[nn.Module] = None):
+    def __init__(
+        self, 
+        feature_dim: int, 
+        hid_dim: int, 
+        activation: Optional[nn.Module] = None,
+        dropout_prob: Real = 0.0
+    ):
         super().__init__()
         if activation is None:
             activation = nn.GELU()
@@ -185,7 +195,9 @@ class MixFFN(nn.Module):
             nn.Conv2d(feature_dim, hid_dim, kernel_size = 1), # First linear layer
             nn.Conv2d(hid_dim, hid_dim, kernel_size = 3, padding = 'same', groups = hid_dim), # Depth-wise convolutional layer
             activation,
-            nn.Conv2d(hid_dim, feature_dim, kernel_size = 1) # Second linear layer
+            nn.Dropout(p = dropout_prob),
+            nn.Conv2d(hid_dim, feature_dim, kernel_size = 1), # Second linear layer
+            nn.Dropout(p = dropout_prob)
         )
         
     def forward(self, X: torch.Tensor) -> torch.Tensor:

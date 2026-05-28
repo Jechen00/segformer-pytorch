@@ -5,7 +5,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from typing import Sequence, Optional
+from numbers import Real
+from typing import Sequence, Optional, Union
 
 from src.ml_types import SpatialSize
 from src.models.encoder import MixTransformer
@@ -68,15 +69,28 @@ class SegFormerDefault(EncoderDecoder):
         num_heads (Sequence[int]): Number of attention heads for the efficient self-attention in each encoder stage.
         reduce_ratios (Sequence[int]): Reduction ratio for the efficient self-attention in each encoder stage.
         hid_dims (Sequence[int]): Hidden dimension of the mix-FFN in each encoder stage.
-        enc_activations (optional, Sequence[nn.Module]): Activation function for the mix-FFN in each encoder stage.
-                                                         If `None`, defaults to GELU for each mix-FFN.
-        attn_dropout_probs (optional, Sequence[float]): Dropout probability for the attention weights
-                                                        in each encoder stage.
-                                                        If `None`, defaults to `0.0` for all encoder stages.
-        max_sdepth_prob (float): Maximum stochastic depth probability.
-                                 The probability starts at `0.0` and linearly increases across all encoder blocks,
-                                 reaching `max_sdepth_prob` at the final block of the final stage.
-                                 Default is `0.0`.
+        enc_activations (optional, Union[nn.Module, Sequence[nn.Module]]): 
+                Activation functions for the mix-FFN in each encoder stage.
+                Supports:
+                    - `Sequence[nn.Module]`: Sequence containing one activation per encoder stage.
+                    - `nn.Module`: A single activation that will be deep-copied to each encoder stage.
+                    - `None`: Defaults to using GELU for each encoder stage.
+        ffn_dropout_probs (Union[Real, Sequence[Real]]): 
+                Dropout probabilities for the mix-FFN in each encoder stage.
+                Supports:
+                    - `Sequence[Real]`: Sequence containing one dropout probability per encoder stage.
+                    - `Real`: A single dropout probability applied to all encoder stage.
+                Default is `0.0` for all encoder stages.
+        attn_dropout_probs (Union[Real, Sequence[Real]]): 
+                Dropout probabilities for the attention weights in each encoder stage.
+                Supports:
+                    - `Sequence[Real]`: Sequence containing one dropout probability per encoder stage.
+                    - `Real`: A single dropout probability applied to all encoder stage.
+                Default is `0.0` for all encoder stages.
+        max_sdepth_prob (Real): Maximum stochastic depth probability.
+                                The probability starts at `0.0` and linearly increases across all encoder blocks,
+                                reaching `max_sdepth_prob` at the final block of the final stage.
+                                Default is `0.0`.
         
         fused_channels (int): Number of channels used to project each encoder feature map
                               to a unified channel dimension before fusing.
@@ -84,15 +98,14 @@ class SegFormerDefault(EncoderDecoder):
         dec_activation (optional, nn.Module): Activation function for the convolutional layer
                                               used to fuse encoder feature maps in the decoder.
                                               Default is `None`.
-        channel_dropout_prob (float): Probability of channelwise dropout applied 
-                                      after fusing encoder feature maps in the decoder.
-                                      Entire feature channels are randomly zeroed during training.
-                                      Default is `0.0`.
+        channel_dropout_prob (Real): Probability of channelwise dropout applied 
+                                     after fusing encoder feature maps in the decoder.
+                                     Entire feature channels are randomly zeroed during training.
+                                     Default is `0.0`.
     '''
     def __init__(
         self, 
         in_channels: int,
-
         feature_dims: Sequence[int],
         patch_sizes: Sequence[SpatialSize],
         strides: Sequence[SpatialSize],
@@ -100,20 +113,19 @@ class SegFormerDefault(EncoderDecoder):
         num_heads: Sequence[int],
         reduce_ratios: Sequence[int],
         hid_dims: Sequence[int],
-
         fused_channels: int, 
         num_classes: int,
-
-        enc_activations: Optional[Sequence[nn.Module]] = None,
-        attn_dropout_probs: Optional[Sequence[float]] = None,
-        max_sdepth_prob: float = 0.0,
-
+        enc_activations: Optional[Union[nn.Module, Sequence[nn.Module]]] = None,
+        ffn_dropout_probs: Union[Real, Sequence[Real]] = 0.0,
+        attn_dropout_probs: Union[Real, Sequence[Real]] = 0.0,
+        max_sdepth_prob: Real = 0.0,
         dec_activation: Optional[nn.Module] = None,
-        channel_dropout_prob: float = 0.0
+        channel_dropout_prob: Real = 0.0
     ):
         encoder = MixTransformer(in_channels, feature_dims, patch_sizes, strides,
                                  num_blks, num_heads, reduce_ratios, hid_dims,
-                                 enc_activations, attn_dropout_probs, max_sdepth_prob)
+                                 enc_activations, ffn_dropout_probs, 
+                                 attn_dropout_probs, max_sdepth_prob)
         
         decoder = MLPDecoder(feature_dims, fused_channels, num_classes,
                              dec_activation, channel_dropout_prob)

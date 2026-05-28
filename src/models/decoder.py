@@ -5,6 +5,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+from numbers import Real
 from typing import List, Sequence, Optional
 
 from src.models.modules import ConvBNAct
@@ -26,9 +27,9 @@ class MLPDecoder(nn.Module):
         activation (optional, nn.Module): Activation function for the convolutional layer
                                           used to fuse encoder feature maps.
                                           Default is `None`.
-        channel_dropout_prob (float): Probability of channelwise dropout applied after fusing encoder feature maps.
-                                      Entire feature channels are randomly zeroed during training.
-                                      Default is `0.0`.
+        channel_dropout_prob (Real): Probability of channelwise dropout applied after fusing encoder feature maps.
+                                     Entire feature channels are randomly zeroed during training.
+                                     Default is `0.0`.
     '''
     def __init__(
         self, 
@@ -36,7 +37,7 @@ class MLPDecoder(nn.Module):
         fused_channels: int, 
         num_classes: int,
         activation: Optional[nn.Module] = None,
-        channel_dropout_prob: float = 0.0
+        channel_dropout_prob: Real = 0.0
     ):
         super().__init__()
         self.num_classes = num_classes

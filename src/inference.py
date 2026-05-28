@@ -25,7 +25,7 @@ def preprocess_and_predict(
     memory_format: Optional[torch.memory_format] = None
 ) -> torch.Tensor:
     '''
-    Preprocesses samples and computes predictions for them.
+    Preprocesses samples and computes predictions on their images.
     Assumes model outputs logits with class dimension at `dim = 1`.
 
     This is done by calling:
@@ -105,12 +105,12 @@ def preprocess_imgs(
     Args:
         samps (Union[Sample, MultiSamples]): Sample or multiple samples containing image information.
             Supports:
-                - A single image. This is a PIL image or 3D tensor of shape (channels, height, width)
+                - A single image. This is a PIL image or 3D tensor of shape `(channels, height, width)`
                 - A single-sample dictionary, where the 'image' key contains a single image
                 - A list of single images
                 - A multi-sample dictionary, where the 'image' key contains a list of images
                 - A list of single-sample dictionaries
-                - A batched 4D tensor of shape (batch_size, channels, height, width)
+                - A batched 4D tensor of shape `(batch_size, channels, height, width)`
 
         transforms (optional, v2.Compose): Transforms applied to `samps` before extracting images.
                                            These transforms should be compatible with a sample dictionary,
@@ -161,21 +161,21 @@ def _format_samps(
 
     Note: The value contained in the `image` key of each sample dictionary is preserved. 
     This means PIL images remain PIL images, 
-    and tensors keep their original shape (include any batch dimension).
+    and tensors keep their original shape (including any batch dimension).
 
     Args:
         samps (Union[Sample, MultiSamples]): Sample or multiple samples containing image information.
             Supports:
-                - A single image, i.e. a PIL image or 3D tensor of shape (channels, height, width)
+                - A single image. This is a PIL image or 3D tensor of shape `(channels, height, width)`
                 - A single-sample dictionary, where the 'image' key contains a single image
                 - A list of single images
                 - A multi-sample dictionary, where the 'image' key contains a list of images
                 - A list of single-sample dictionaries
-                - A batched 4D tensor of shape (batch_size, channels, height, width)
+                - A batched 4D tensor of shape `(batch_size, channels, height, width)`
 
     Returns:
         Union[SampleDict, List[SampleDict]]: Formatted samples.
-            If `samps` is a sampled dictionary, it is returned unchanged.
+            If `samps` is a sample dictionary, it is returned unchanged.
             If `samps` is a PIL image or tensor, it is wrapped in a sample dictionary.
             Otherwise, `samps` is converted into a list of sample dictionaries.
     '''
