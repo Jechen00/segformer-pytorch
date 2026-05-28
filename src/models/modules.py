@@ -133,7 +133,7 @@ class EfficientSelfAttention(nn.Module):
             X (torch.Tensor): Input tensor of shape `(batch_size, feature_dim, height, width)`.
             
         Returns:
-            torch.Tensor: Output tensor from applying efficient self-attention to `X`` 
+            torch.Tensor: Output tensor from applying efficient self-attention to `X` 
                           and reshaping back to a feature map.
                           Shape is `(batch_size, feature_dim, height, width)`.
         '''

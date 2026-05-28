@@ -9,7 +9,7 @@ from torch.optim import Optimizer, lr_scheduler
 import time
 from pathlib import Path
 import warnings
-from typing import Literal, Optional, Union, Dict, Tuple, TypedDict
+from typing import Optional, Union, Dict, Tuple, TypedDict
 
 from src.logging.history import TrainHistory, ValHistory
 from src.logging.formatting import (
@@ -39,9 +39,6 @@ class ValResults(TypedDict):
 # Model Trainer Class
 #####################################
 class ModelTrainer():
-    '''
-    Expect reduction = 'sum'
-    '''
     def __init__(
         self,
         model: nn.Module,
@@ -348,21 +345,7 @@ class ModelTrainer():
         for log_str in epoch_log_secs:
             print(log_str)
 
-    def _validate_config(self) -> None:
-        # Check loss_fn has the correct attributes
-        if (hasattr(self.loss_fn, 'reduction')) and (self.loss_fn.reduction != 'sum'):
-            raise ValueError("loss_fn.reduction must be 'sum' if defined.")
-   
-        if self.loss_norm not in ['batch', 'element', 'valid', 'none']:
-            raise ValueError(
-                "loss_norm must be 'batch', 'element', 'valid' or 'none'."
-            )
-        
-        if (self.loss_norm == 'valid') and (not hasattr(self.loss_fn, 'ignore_index')):
-            raise AttributeError(
-                "loss_fn must define an ignore_index attribute if loss_norm = 'valid'."
-            )
-        
+    def _validate_config(self) -> None:        
         # Check if eval_cfg is provided when measure_info = 'metric'
         mp = self.measure_policy
         metric_policy_no_eval = (

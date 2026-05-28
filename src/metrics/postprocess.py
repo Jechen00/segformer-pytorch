@@ -21,13 +21,16 @@ from src.metrics.types import MeasureValue, MetricResults, MeasureSeries, Metric
 @dataclass
 class MetricSpec():
     '''
-    Specification for selecting and optionally aggregating a metric.
-    This class stores the config for `select_and_agg_metric`,
-    along with metadata for the metric (e.g. unit).
+    Specification for selecting and optionally aggregating a metric
+    from a results dictionary (`MetricResults` or `MetricSeriesResults`).
     
+    This class stores the config for `select_and_agg_metric`, 
+    along with metadata for the metric (i.e. unit).
+
+    Note: See `src.metrics.types` for example structures of results dictionaries.
+
     Attributes:
-        key_path (str): Dot-separated key path to extract a metric from
-                        a metric results dictionary (`MetricResults` or `MetricSeriesResults`).
+        key_path (str): Dot-separated key path to extract a metric from a results dictionary.
         class_idxs (optional, IndexLike): Optional class indices used to subset tensors in the extracted metric.
         agg (optional, Aggregation): Optional aggregation method applied to tensors after extracting and subsetting.
                                      If provided, must be one of: 'mean', 'median', 'min', 'max'.
@@ -66,7 +69,7 @@ def format_measure(value: MeasureValue) -> MeasureValue:
     '''
     Formats a measure value (e.g. loss or metric) so that it is suitable for tasks like logging and saving.
     
-    The procedure is as follows:
+    For tensors, the procedure is as follows:
         - Detach tensors from computational graph (they should ideally be already detached).
         - Moves multi-element tensors to CPU.
         - Converts single-element tensors to Python floats.
@@ -75,7 +78,7 @@ def format_measure(value: MeasureValue) -> MeasureValue:
         value (MeasureValue): Computed measure value (a float or tensor).
 
     Returns:
-        MeasureValue: Formated measure value (a tensor or float).
+        MeasureValue: Formatted measure value (a float or tensor).
     '''
     if isinstance(value, torch.Tensor):
         value = value.detach()
@@ -94,7 +97,7 @@ def format_metric_spec(spec: MetricSpecLike) -> MetricSpec:
     If input is already a `MetricSpec` instance, it is returned unchanged.
 
     Args:
-        spec (List[MetricSpecLike]): A metric specifications. 
+        spec (List[MetricSpecLike]): A metric specification. 
                                      This is either a `MetricSpec` instance
                                      or a `MetricSpecDict` dictionary.
     Returns:
@@ -106,7 +109,7 @@ def format_metric_spec(spec: MetricSpecLike) -> MetricSpec:
         return spec
     else:
         raise TypeError(
-            'spec must be a MetricSpec instance or a MetricSpecDict dictionary.'
+            'spec must be a MetricSpec instance or a `MetricSpecDict` dictionary.'
         )
     
 
@@ -117,19 +120,18 @@ def select_and_agg_metric(
     agg: Optional[Aggregation] = None
 ) -> Union[MeasureValue, MeasureSeries]:
     '''
-    Extract a metric from a possibly nested result dictionary using a dot-separated key path.
+    Extract a metric from a result dictionary (`MetricResults` or `MetricSeriesResults`)
+    using a dot-separated key path.
 
     If the metric is a tensor:
         - Optionally subset it based on class indices
         - Optionally aggregate it across all dimensions (e.g. mean, median, min, max)
-
     If the metric is a list of tensors, this procedure is applied independently to each tensor.
+
+    Note: See `src.metrics.types` for example structures of results dictionaries.
 
     Args:
         metric_data (Union[MetricResults, MetricSeriesResults]): Result dictionary to extract from.
-                                                                 If nested, the maximum depth is 2.
-                                                                 All leaf values of this dictionary must be
-                                                                 a float, tensor, or a list of floats/tensors.
         key_path (str): Dot-separated key path consisting of only keys from `metric_data`.
         class_idxs (optional, IndexLike): Class indices used to subset tensors in the extracted metric.
                                           If not provided, no subsetting is applied.
@@ -139,11 +141,13 @@ def select_and_agg_metric(
                                      If not provided, no aggregation is applied.
 
     Returns:
-        Union[MeasureValue, MeasureSeries]: Metric extracted from `key_path`, 
-                                            with optional class subsetting and aggregation.
-                                            The data type matches the raw extracted metric in `metric_data`.
-                                            If both `class_idxs` and `agg` are `None`, 
-                                            a shallow copy of the raw extracted metric is returned.
+        Union[MeasureValue, MeasureSeries]: 
+            Metric extracted from `metric_data` at `key_path`, with optional class subsetting and aggregation.
+            The return type depends on the structure of `metric_data`:
+                - If `metric_data` is a `MetricResults`: Returns a float of tensor.
+                - If `metric_data` is a `MetricSeriesResults`: Returns a list of floats or a list of tensors.
+            If both `class_idxs` and `agg` are `None`, 
+            a shallow copy of the raw extracted metric is returned.
 
     '''
     metric_values = nested_extract(metric_data, key_path) # Extract metric
@@ -188,11 +192,10 @@ def select_and_agg_scalar_metric(
     If `select_and_agg_metric` returns a tensor or list of tensors, 
     each tensor must be single-element and is converted to a float using `.item()`.
 
+    Note: See `src.metrics.types` for example structures of results dictionaries.
+
     Args:
         metric_data (Union[MetricResults, MetricSeriesResults]): Result dictionary to extract from.
-                                                                 If nested, the maximum depth is 2.
-                                                                 All leaf values of this dictionary must be
-                                                                 a float, tensor, or a list of floats/tensors.
         key_path (str): Dot-separated key path consisting of only keys from `metric_data`.
         class_idxs (optional, IndexLike): Class indices used to subset tensors in the extracted metric.
                                           If not provided, no subsetting is applied.
@@ -202,8 +205,12 @@ def select_and_agg_scalar_metric(
                                      If not provided, no aggregation is applied.
 
     Returns:
-        Union[float, List[float]]: Extracted metric from `key_path`, with optional class subsetting and aggregation.
-                                   Each tensor in the result is converted to a Python float.
+        Union[float, List[float]]:
+            Metric extracted from `metric_data` at `key_path`, with optional class subsetting and aggregation.
+            Each tensor in the result is converted to a Python float.
+            The return type depends on the structure of `metric_data`:
+                - If `metric_data` is a `MetricResults`: Returns a float.
+                - If `metric_data` is a `MetricSeriesResults`: Returns a list of floats.
     '''
     metric_values = select_and_agg_metric(metric_data, key_path, class_idxs, agg)
 

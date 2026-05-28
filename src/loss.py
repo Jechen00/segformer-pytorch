@@ -198,7 +198,7 @@ class DiceLoss(nn.Module):
 
         # Remove background index from calculations if needed
         if self.exclude_bg_idx is not None:
-            fg_class_idxs = torch.arange(self.num_classes) != self.exclude_bg_idx
+            fg_class_idxs = torch.arange(self.num_classes, device = targs.device) != self.exclude_bg_idx
             targs = targs[:, fg_class_idxs]
             preds = preds[:, fg_class_idxs]
 
@@ -210,7 +210,7 @@ class DiceLoss(nn.Module):
 
         # Compute Dice loss
         dice_num = 2 * (targs * preds).sum(dim = -1) + self.eps # Shape: (batch_size, num_valid_classes)
-        dice_denom = (targs + preds).sum(dim = -1) + self.eps # Shape: (batch_size, num_valid_classes)
+        dice_denom = (targs**2).sum(dim = -1) + (preds**2).sum(dim = -1) + self.eps # Shape: (batch_size, num_valid_classes)
 
         dice_loss = 1 - (dice_num / dice_denom) # Shape: (batch_size, num_valid_classes)
 

@@ -62,7 +62,9 @@ def recursive_to_cpu(x: Any) -> Any:
                  Dictionaries and lists are traversed recursively.
         
     Returns:
-        Any: The same object as the input `x`, but with all tensors moved to CPU.
+        Any: A version of `x`, but with tensors
+             and tensors contained in nested dictionaries/lists 
+             recursively moved to CPU.
     '''
     if isinstance(x, torch.Tensor):
         return x.cpu()
@@ -107,21 +109,21 @@ def make_range(x: Any) -> Union[Tuple[Real, Real], Any]:
       
 def all_or_none(*params) -> bool:
     '''
-    Checks if params are all None or all provided (not None).
+    Checks if `params` are all `None` or all not `None` (all provided).
     '''
     return all(p is None for p in params) or all(p is not None for p in params)
 
  
 def get_img_size(img: ImageInput) -> Tuple[int, int]:
     '''
-    Gets the spatial size (height, width) of and image.
+    Gets the spatial size `(height, width)` of and image.
 
     Args:
         img (ImageInput): A PIL image or tensor.
-                          If `torch.Tensor`, shape should be (..., height, width).
+                          If tensor, shape should be `(..., height, width)`.
 
     Returns:
-        Tuple[int, int]: Tuple representing (height, width) of `img`.
+        Tuple[int, int]: Tuple representing `(height, width)` of `img`.
     '''
     if isinstance(img, torch.Tensor):
         h, w = img.shape[-2:] # height, width
@@ -169,7 +171,7 @@ def format_idxs(idxs: IndexLike) -> Union[int, List[int]]:
     Specifically, it converts to a single integer or a list of integers.
     
     Args:
-        idxs (IndexLike): Indices to format.
+        idxs (IndexLike): idxs to format.
                           This must be one of:
                             - A single integer
                             - A list of integers
@@ -177,7 +179,7 @@ def format_idxs(idxs: IndexLike) -> Union[int, List[int]]:
                             - A tensor of integers (single-element or 1D)
 
     Returns:
-        Union[int, List[int]]: Formatted indices.
+        Union[int, List[int]]: Formatted idxs.
                                This is an integer if `idxs` was an integer
                                or a single-element ndarray/tensor.
                                Otherwise, this is a list of integers.
@@ -206,14 +208,14 @@ def format_idxs(idxs: IndexLike) -> Union[int, List[int]]:
 
     elif not isinstance(idxs, list):
         raise TypeError(
-            'Expected indices to be an integer, list, ndarray, or tensor. '
+            'Expected idxs to be an integer, list, ndarray, or tensor. '
             f'Got: {type(idxs)}'
         )
     
     # Check all elements in a list, ndarray, or tensor are integers
     if not all((type(idx) is int) for idx in idxs):
         raise TypeError(
-            'If indices are a list, ndarray, or tensor, '
+            'If idxs is a list, ndarray, or tensor, '
             'all elements must be integers.'
         )
     return idxs
@@ -229,10 +231,10 @@ def transpose_list_dict(
     Args:
         data (Union[List[Dict[str, Any]], Dict[str, List[Any]]]):
             A list of dictionaries or a dictionary of lists, depending on `mode`.
-                - `mode = 'to_cols'`: List of dictionaries, 
-                                      All dictionaries are expected to have the same keys.
-                - `mode = 'to_rows'`: Dictionary of lists.
-                                      All lists are expected to have the same length.
+                - `mode='to_cols'`: List of dictionaries, 
+                                    All dictionaries are expected to have the same keys.
+                - `mode='to_rows'`: Dictionary of lists.
+                                    All lists are expected to have the same length.
 
         mode (Literal['to_cols', 'to_rows']): The mode of transpose.
             - `to_cols`: Transposes a list of dictionaries into a dictionary of lists.
@@ -240,8 +242,8 @@ def transpose_list_dict(
         
     Returns:
         Union[List[Dict[str, Any]], Dict[str, List[Any]]]:
-            - `mode = 'to_cols'`: Dictionary of lists, all with the same length.
-            - `mode = 'to_rows'`: List of dictionaries, all with the same keys.
+            - `mode='to_cols'`: Dictionary of lists, all with the same length.
+            - `mode='to_rows'`: List of dictionaries, all with the same keys.
     '''
     if mode == 'to_cols':
         if not isinstance(data, list):
@@ -303,9 +305,9 @@ def nested_extract(nested_dict: dict, key_path: str, strict: bool = True, defaul
         strict (bool): If `True`, raises a `KeyError` on missing keys or when an intermediate value is not a dictionary.
                        If `False`, does not raise any errors and instead returns a `default` value.
         default (Any): A default value to return when encountering missing keys and `strict=False`.
-                       Default is None.
+                       Default is `None`.
     Returns:
-        Any: The extracted value from nested_dict after traversing through `key_path`.
+        Any: The extracted value from `nested_dict` after traversing through `key_path`.
     '''
     value = nested_dict
     for key in key_path.split('.'):

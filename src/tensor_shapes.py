@@ -25,6 +25,9 @@ def ensure_batched(
         context_name (str): Name for `tensor` to provide context on what it represents.
                             This is for more specific error messages.
                             Default is `inputs`.
+
+    Returns:
+        torch.Tensor: The tensor with a batch dimension.
     '''
     batched_ndim = unbatched_ndim + 1
 

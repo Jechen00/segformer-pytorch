@@ -193,27 +193,7 @@ class SegmentationMetrics(ConfusionMatrix):
         ignore_idx (optional, int): Index to ignore during computation.
                                     Targets with this index (and their predictions) are ignored
                                     when computing the confusion matrix and related metrics.
-        exclude_bg_idx (optional, int): Index of the background class.
-                                        This must be an integer in the range `[0, num_classes - 1]`.
-                                        If provided, additional foreground-only means 
-                                        are computed for the class-wise metrics (Dice and IoU).
-                                        These means exclude the background class when averaging.
     '''
-    def __init__(
-        self, 
-        num_classes: int, 
-        ignore_idx: Optional[int] = None,
-        exclude_bg_idx: Optional[int] = None
-    ):
-        if exclude_bg_idx is not None:
-            if not (0 <= exclude_bg_idx < num_classes):
-                raise ValueError(
-                    'If exclude_bg_idx is provided, it must be an integer in the range [0, num_classes - 1].'
-                )
-
-        super().__init__(num_classes = num_classes, ignore_idx = ignore_idx)
-        self.exclude_bg_idx = exclude_bg_idx
-
     def compute(self) -> MetricGroup:
         '''
         Computes the semantic segmentation metrics across all target-prediction updates.
@@ -226,18 +206,10 @@ class SegmentationMetrics(ConfusionMatrix):
                 - mean_dice (torch.Tensor): Mean Dice across all classes 
                                             with at least one target or predicted element.
                                             This is a scalar tensor.
-                - mean_dice_fg (optional, torch.Tensor): Mean dice across all foreground classes 
-                                                         with at least one target or predicted element.
-                                                         This is a only computed if `exclude_bg_idx` is provided.
-                                                         If computed, this is a scalar tensor.
                 - iou (torch.Tensor): Per-class Iou tensor of shape `(num_classes,)`.
                 - mean_iou (torch.Tensor): Mean IoU across all classes 
                                           with at least one target or predicted element.
-                                           This is a scalar tensor.
-                - mean_iou_fg (torch.Tensor): Mean IoU across all foreground classes 
-                                              with at least one target or predicted element.
-                                              This is a only computed if `exclude_bg_idx` is provided.
-                                              If computed, this is a scalar tensor.                    
+                                           This is a scalar tensor.                  
                 - tot_count (torch.Tensor): Total number of non-ignored target elements.
                                             This is a scalar tensor.
         '''
@@ -268,19 +240,11 @@ class SegmentationMetrics(ConfusionMatrix):
         # Mask for classes with at least one target or predicted element
         present_mask = (conf_mat.sum(dim = 1) > 0) | (conf_mat.sum(dim = 0) > 0)
 
-        # Mask for only foreground classes
-        exclude_bg_idx = self.exclude_bg_idx
-        if exclude_bg_idx is not None:
-            fg_mask = torch.arange(self.num_classes) != exclude_bg_idx
-            present_fg_mask = present_mask & fg_mask
-
         return {
             'accuracy': accuracy,
             'dice': dice,
             'mean_dice': dice[present_mask].mean(),
-            'mean_dice_fg': None if exclude_bg_idx is None else dice[present_fg_mask].mean(),
             'iou': iou,
             'mean_iou': iou[present_mask].mean(),
-            'mean_iou_fg': None if exclude_bg_idx is None else iou[present_fg_mask].mean(),
             'tot_count': tot_count
         }

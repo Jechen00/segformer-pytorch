@@ -17,7 +17,9 @@ from src.models.decoder import MLPDecoder
 #####################################
 class EncoderDecoder(nn.Module):
     '''
-    Generic encoder-decoder architecture.
+    An encoder-decoder architecture that resizes the decoder output
+    back to the same spatial size as the encoder input.
+    The resizing uses bilinear interpolation and is applied through `F.interpolate`.
 
     Args:
         encoder (nn.Module): Encoder that processes an input tensor into one or more representations.
@@ -57,7 +59,7 @@ class SegFormerDefault(EncoderDecoder):
     The architecture follows the SegFormer paper: https://arxiv.org/abs/2105.15203
 
     Args:
-        in_channels (int): Number of input channels
+        in_channels (int): Number of input channels.
 
         feature_dims (Sequence[int]): Dimension of output features (channels or embeddings) in each encoder stage.
         patch_sizes (Sequence[SpatialSize]): Patch size for the patch embedding in each encoder stage.
@@ -90,6 +92,7 @@ class SegFormerDefault(EncoderDecoder):
     def __init__(
         self, 
         in_channels: int,
+
         feature_dims: Sequence[int],
         patch_sizes: Sequence[SpatialSize],
         strides: Sequence[SpatialSize],
