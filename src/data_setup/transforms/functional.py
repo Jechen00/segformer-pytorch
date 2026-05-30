@@ -1,6 +1,7 @@
 #####################################
 # Imports & Dependencies
 #####################################
+import torch
 from torchvision.transforms import v2
 from torchvision import tv_tensors
 from torchvision.transforms import InterpolationMode
@@ -67,8 +68,8 @@ def seg_random_affine(
         - PIL image
         - tensor of shape (..., height, width)
 
-    Note: The transform parameters are sampled using v2.RandomAffine.params: 
-          https://docs.pytorch.org/vision/main/generated/torchvision.transforms.v2.RandomAffine.html
+    Note: The transform parameters are sampled using v2.RandomAffine.get_params: 
+        https://docs.pytorch.org/vision/main/generated/torchvision.transforms.v2.RandomAffine.html
 
     Args:
         img (ImageInput):  Input image to transform. 
@@ -134,6 +135,82 @@ def seg_random_affine(
         mask = F.affine(mask, *affine_params, 
                         interpolation = InterpolationMode.NEAREST, 
                         fill = mask_fill)
+    return img, mask
+
+
+def seg_random_perspective(
+    img: ImageInput, 
+    mask: Optional[ImageInput] = None,
+    distortion_scale: float = 0.5, 
+    p: float = 0.5,
+    img_interpolation: Union[InterpolationMode, int] = InterpolationMode.BILINEAR,
+    img_fill: FillValue = 0,
+    mask_fill: FillValue = 255
+) -> Tuple[ImageInput, ImageInput]:
+    '''
+    Functional random perspective transform for a **single** sample.
+    The same random perspective parameters are applied to image and optional mask.
+
+    Note: This supports separate fill values for the image and mask.
+          The interpolation method for the image is also user-defined,
+          while the method for the mask is always `InterpolationMode.NEAREST`.
+    
+    Note: Supported datatypes for the image and mask are:
+        - PIL image
+        - tensor of shape (..., height, width)
+
+    Note: The transform parameters are sampled using v2.RandomPerspective.get_params: 
+        https://docs.pytorch.org/vision/main/generated/torchvision.transforms.RandomPerspective.html
+
+    Args:
+        img (ImageInput):  Input image to transform. 
+        mask (optional, ImageInput): Segmentation mask for the image, with the same spatial dimensions.
+        distortion_scale (float): Value to control the degree of distortion from the random perspective transform.
+                                  Must be in the range `[0, 1]`.
+                                  Default is `0.5`.
+        p (float): Probability of applying the random perspective transform to `img` and `mask`.
+                   Default is `0.5`.
+        img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
+                                                           Default is `InterpolationMode.BILINEAR`.
+        img_fill (FillValue): Pixel fill value used for areas outside the transformed image, to maintain original shape.
+                              This can be a float, integer, sequence of floats, or sequence of integers.
+                              If scalar (float or integer), the value is used for all channels.
+                              If sequence, its length must match the number of channels in the input image.
+                              The fill value should be in the same value space as the expected input images.
+                              For example, if the input images are scaled to [0, 1], 
+                              `img_fill` should also be scaled to [0, 1].
+                              Default is `0`.
+        mask_fill (FillValue): Pixel fill value used for areas outside the transformed mask, to maintain original shape.
+                               This can be a float, integer, sequence of floats, or sequence of integers.
+                               If scalar (float or integer), the value is used for all channels.
+                               If sequence, its length must match the number of channels in the input mask.
+                               The fill value should be in the same value space as the expected input masks.
+                               For example, if the input masks are scaled to [0, 1], 
+                               `mask_fill` should also be scaled to [0, 1].
+                               Default is `255`.
+
+    Returns:
+        img (ImageInput): Output image.
+                          With probability `p`, the random perspective transform is applied.
+                          With probability `1-p`, the original input image is returned.
+                          The spatial size and datatype always matches the input image.
+        mask (optional, ImageInput): Segmentation mask for the output image. 
+                                     Spatial size and datatype matches the input mask.
+                                     This is `None` if an input mask was not provided.
+    '''
+    if torch.rand(1) < p:
+        # Get a single set of random perspective parameters to apply to both image and mask
+        h, w = get_img_size(img)
+        startpoints, endpoints = v2.RandomPerspective.get_params(w, h, distortion_scale)
+
+        # Apply perspective transform
+        img = F.perspective(img, startpoints, endpoints, 
+                            interpolation = img_interpolation, 
+                            fill = img_fill)
+        if mask is not None:
+            mask = F.perspective(mask, startpoints, endpoints, 
+                                 interpolation = InterpolationMode.NEAREST, 
+                                 fill = mask_fill)
     return img, mask
 
 

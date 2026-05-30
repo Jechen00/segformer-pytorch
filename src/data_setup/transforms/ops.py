@@ -300,6 +300,82 @@ class SegRandomAffine(SegTransformBase):
         }
 
 
+class SegRandomPerspective(SegTransformBase):
+    '''
+    Random perspective transform for both images and optional segmentation masks.
+    For a single sample with an image and mask, the same random perspective parameters are applied to both.
+
+    This uses `functional.seg_random_perspective` to apply transforms.
+
+    Note: This supports separate fill values for the image and mask.
+          The interpolation method for the image is also user-defined,
+          while the method for the mask is always `InterpolationMode.NEAREST`.
+
+    Args:
+        distortion_scale (float): Value to control the degree of distortion from the random perspective transform.
+                                  Must be in the range `[0, 1]`.
+                                  Default is `0.5`.
+        p (float): Probability of applying the random perspective transform to `img` and `mask`.
+                   Default is `0.5`.
+        img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
+                                                           Default is `InterpolationMode.BILINEAR`.
+        img_fill (FillValue): Pixel fill value used for areas outside the transformed image, to maintain original shape.
+                              This can be a float, integer, sequence of floats, or sequence of integers.
+                              If scalar (float or integer), the value is used for all channels.
+                              If sequence, its length must match the number of channels in the input image.
+                              The fill value should be in the same value space as the expected input images.
+                              For example, if the input images are scaled to [0, 1], 
+                              `img_fill` should also be scaled to [0, 1].
+                              Default is `0`.
+        mask_fill (FillValue): Pixel fill value used for areas outside the transformed mask, to maintain original shape.
+                               This can be a float, integer, sequence of floats, or sequence of integers.
+                               If scalar (float or integer), the value is used for all channels.
+                               If sequence, its length must match the number of channels in the input mask.
+                               The fill value should be in the same value space as the expected input masks.
+                               For example, if the input masks are scaled to [0, 1], 
+                               `mask_fill` should also be scaled to [0, 1].
+                               Default is `255`.
+    '''
+    def __init__(
+        self,
+        distortion_scale: float = 0.5, 
+        p: float = 0.5,
+        img_interpolation: Union[InterpolationMode, int] = InterpolationMode.BILINEAR,
+        img_fill: FillValue = 0,
+        mask_fill: FillValue = 255
+    ):
+        self.distortion_scale = distortion_scale
+        self.p = p
+        self.img_interpolation = img_interpolation
+        self.img_fill = img_fill
+        self.mask_fill = mask_fill
+        super().__init__(seg_transform = functional.seg_random_perspective)
+
+    def __repr__(self) -> str:
+        '''
+        Returns a representational string for the `SegRandomPerspective` instance.
+        '''
+        repr_str = (
+            f'SegRandomPerspective(distortion_scale = {self.distortion_scale}, p = {self.p}, '
+            f'img_interpolation = {self.img_interpolation}, img_fill = {self.img_fill}, '
+            f'mask_fill = {self.mask_fill})'
+        )
+        return repr_str
+    
+    @property
+    def transform_kwargs(self) -> Dict[str, Any]:
+        '''
+        Returns the transform keyword arguments used for `functional.seg_random_perspective`.
+        '''
+        return {
+            'distortion_scale': self.distortion_scale,
+            'p': self.p,
+            'img_interpolation': self.img_interpolation,
+            'img_fill': self.img_fill,
+            'mask_fill': self.mask_fill
+        }
+
+
 class SegLetterbox(SegTransformBase):
     '''
     Letterbox transform for both images and optional segmentation masks.

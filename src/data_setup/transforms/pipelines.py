@@ -10,7 +10,8 @@ from typing import List, Tuple, Literal, Union, Optional, TypeAlias, Sequence
 from src.utils import all_or_none
 from src.ml_types import FillValue, SpatialSize
 from src.data_setup.transforms.ops import (
-    ImageTransform, SegRandomAffine, SegLetterbox, SegResize, ToImageAndMask
+    ImageTransform, SegRandomAffine, SegLetterbox, 
+    SegRandomPerspective, SegResize, ToImageAndMask
 )
 
 SizingType: TypeAlias = Literal['letterbox', 'resize']
@@ -255,10 +256,16 @@ def get_phot_transforms() -> ImageTransform:
         v2.ColorJitter(
             brightness = 0.5,
             saturation = 0.4,
-            hue = 0.02
+            hue = 0.02,
+            contrast = 0.2
         ),
         v2.RandomGrayscale(p = 0.05),
-        v2.RandomApply([v2.GaussianBlur(kernel_size = 3, sigma = (0.1, 1.5))], p = 0.1)
+        v2.RandomApply([
+            v2.RandomChoice([
+                v2.GaussianBlur(kernel_size = 3, sigma = (0.1, 1.0)),
+                v2.RandomAdjustSharpness(sharpness_factor = 2, p = 1)
+            ])
+        ], p = 0.1)
     ]
     return ImageTransform(transforms)
 
@@ -352,13 +359,22 @@ def get_geo_transforms(
     if include_augs:
         transforms.extend([
             v2.RandomHorizontalFlip(p = 0.5),
-            SegRandomAffine(
-                degrees = 5,
-                scale = (0.9, 1.1),
-                translate = (0.05, 0.05),
-                img_interpolation = img_interpolation,
-                img_fill = img_fill,
-                mask_fill = mask_fill
-            )
+            v2.RandomChoice([
+                SegRandomAffine(
+                    degrees = 5,
+                    scale = (0.9, 1.1),
+                    translate = (0.05, 0.05),
+                    img_interpolation = img_interpolation,
+                    img_fill = img_fill,
+                    mask_fill = mask_fill
+                ),
+                SegRandomPerspective(
+                    distortion_scale = 0.25,
+                    p = 1,
+                    img_interpolation = img_interpolation,
+                    img_fill = img_fill,
+                    mask_fill = mask_fill
+                )
+            ], p = [0.8, 0.2])
         ])
     return transforms[0] if len(transforms) == 1 else v2.Compose(transforms)

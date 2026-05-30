@@ -330,7 +330,7 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
         norm_mean: Optional[Sequence[float]] = None,
         norm_std: Optional[Sequence[float]] = None,
         ignore_encoding: Optional[ClassSpec] = None,
-        train_frac: float = 0.8,
+        train_frac: float = 0.9,
         split_seed: int = 0
     ):
         self.root = Path(root)
