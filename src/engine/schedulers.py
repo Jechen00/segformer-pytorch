@@ -14,22 +14,26 @@ class WarmupMultiStepLR(lr_scheduler.MultiStepLR):
         https://docs.pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.MultiStepLR.html
     
     Args:
-        optimizer (torch.optim.Optimizer): Optimizater whose learning rates will be changed by the scheduler.
-        pre_warmup_lrs (float or List[float]): A list of learning rates for each parameter group 
-                                               at the start of training (epoch 0).
-                                               The scheduler will linearly increase the learning rate 
-                                               from these values to the base learning rates over the warmup period.
-                                               If provided a `float`, it is assumed that all parameter groups have the same
-                                               `pre_warmup_lrs` value.
-        milestones (list): List of indices for the milestone epochs to apply learning rate decay.
-                        These indices must be after the value of `warmup_epochs`.
-        warmup_epochs (int): Number of epochs over which to linearly increase the learning rates from 
-                            pre_warmup_lrs to the base learning rates. 
-                            On epoch `warmup_epochs` learning rates will reach the base learning rates.
-                            If `warmup_epochs = 0`, the behavior of the scheduler will be the same as MultiStepLR.
-                            Default is 5.
-        gamma (float): Multiplicative factor for the learning rate decay. Default is 0.1.
-        last_epoch (int): The index of last epoch. Default is -1, which indicates the start of training.
+        optimizer (torch.optim.Optimizer): 
+            Optimizater whose learning rates will be changed by the scheduler.
+        pre_warmup_lrs (float or List[float]): 
+            A list of learning rates for each parameter group at the start of training (epoch 0).
+            The scheduler will linearly increase the learning rate 
+            from these values to the base learning rates over the warmup period.
+            If provided a `float`, it is assumed that all parameter groups have the same `pre_warmup_lrs` value.
+        milestones (list): 
+            List of indices for the milestone epochs to apply learning rate decay.
+            These indices must be after the value of `warmup_epochs`.
+        warmup_epochs (int): 
+            Number of epochs over which to linearly increase the learning rates from 
+            pre_warmup_lrs to the base learning rates. 
+            On epoch `warmup_epochs` learning rates will reach the base learning rates.
+            If `warmup_epochs = 0`, the behavior of the scheduler will be the same as MultiStepLR.
+            Default is 5.
+        gamma (float): 
+            Multiplicative factor for the learning rate decay. Default is 0.1.
+        last_epoch (int): 
+            The index of last epoch. Default is -1, which indicates the start of training.
     '''
     def __init__(self, 
                  optimizer: Optimizer, 
@@ -78,34 +82,38 @@ class WarmupCosineAnnealingLR(lr_scheduler.CosineAnnealingLR):
         https://docs.pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.CosineAnnealingLR.html
     
     Args:
-        optimizer (torch.optim.Optimizer): Optimizater whose learning rates will be changed by the scheduler.
-        pre_warmup_lrs (float or List[float]): A list of learning rates for each parameter group 
-                                               at the start of training (epoch 0).
-                                               The scheduler will linearly increase the learning rate 
-                                               from these values to the base learning rates over the warmup period.
-                                               If provided a `float`, it is assumed that all parameter groups have the same
-                                               `pre_warmup_lrs` value.
-        T_max (int): Maximum number of scheduler steps over which to anneal the learning rate with a cosine curve. 
-                     The learning rate decays from `base_lr` to `eta_min` over this period.
-                     After `T_max` scheduler steps, the learning rates will remain constant at `eta_min`.
-                     Must be greater than `warmup_steps`. 
-        eta_min (float): Minimum learning rate from the scheduler. 
-                         This is the learning rate after cosine annealing stops. Default is 0.0.
-        warmup_steps (int): Number of scheduler steps over which to linearly increase the learning rates from 
-                            `pre_warmup_lrs` to the base learning rates. 
+        optimizer (torch.optim.Optimizer): 
+            Optimizater whose learning rates will be changed by the scheduler.
+        pre_warmup_lrs (float or List[float]): 
+            A list of learning rates for each parameter group at the start of training (epoch 0).
+            The scheduler will linearly increase the learning rate 
+            from these values to the base learning rates over the warmup period.
+            If provided a `float`, it is assumed that all parameter groups have the same `pre_warmup_lrs` value.
+        T_max (int): 
+            Maximum number of scheduler steps over which to anneal the learning rate with a cosine curve. 
+            The learning rate decays from `base_lr` to `eta_min` over this period.
+            After `T_max` scheduler steps, the learning rates will remain constant at `eta_min`.
+            Must be greater than `warmup_steps`. 
+        eta_min (float): 
+            Minimum learning rate from the scheduler. 
+            This is the learning rate after cosine annealing stops. Default is 0.0.
+        warmup_steps (int): 
+            Number of scheduler steps over which to linearly increase the learning rates from 
+            `pre_warmup_lrs` to the base learning rates. 
 
-                            Example:
-                                If the `scheduler.step()` is called only at the end of every epoch and `warmup_steps = 5`,
-                                by the start of epoch 5, the learning rates will be the base learning rates.
+            Example:
+                If the `scheduler.step()` is called only at the end of every epoch and `warmup_steps = 5`,
+                by the start of epoch 5, the learning rates will be the base learning rates.
 
-                             If `warmup_steps = 0`, the behavior of the scheduler will be the same as CosineAnnealingLR.
-                             Default is 5.
+            If `warmup_steps = 0`, the behavior of the scheduler will be the same as CosineAnnealingLR.
+            Default is `5`.
                              
-        last_epoch (int): The index of last scheduler step. 
-                          Note that this is a counter for the number of scheduler steps, not for the number of epochs.
-                          The name is just used to match PyTorch conventions and documentation 
-                          (which are a bit misleading themselves).
-                          Default is -1, which indicates the start of training.
+        last_epoch (int): 
+            The index of last scheduler step. 
+            Note that this is a counter for the number of scheduler steps, not for the number of epochs.
+            The name is just used to match PyTorch conventions and documentation 
+            (which are a bit misleading themselves).
+            Default is -1, which indicates the start of training.
     '''
     def __init__(self, 
                  optimizer: Optimizer, 

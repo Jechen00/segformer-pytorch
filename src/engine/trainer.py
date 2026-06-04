@@ -39,6 +39,71 @@ class ValResults(TypedDict):
 # Model Trainer Class
 #####################################
 class ModelTrainer():
+    '''
+    Implements a training pipeline for supervised learning tasks
+    (e.g. image classification or semantic segmentation).
+
+    This trains a model on a training dataset and evaluates it on a validation dataset.
+    The series of computed measures are stored:
+        -  `train_history`: Average batch loss from training.
+        - `val_history`: Average batch loss and optional metrics from validation.
+
+    It also optionally saves a training checkpoint and best-model state dictionary.
+
+    Task Notes:
+        - The trainer predicts labels by applying `argmax` to the
+          class dimension of the model logits (assumed dimension 1).
+          Consequently, each target elements must only have a **single** label.
+          For example:
+            - Image classification must have one class label per image.
+            - Semantic segmentation must have one class label per pixel.
+
+    Dataloader Notes:
+        - Each batch from the training and validation dataloaders must
+          be represented as a dictionary containing:
+                - image (torch.Tensor): The images for the batch.
+                - targ_key (torch.Tensor): The corresponding targets for the batch.
+          Here, `targ_key` is a key defined by the user when initializing `ModelTrainer`.
+
+    Args:
+        model (nn.Module): 
+            The model to train.
+        train_loader (DataLoader): 
+            Dataloader for the training dataset.
+        val_loader (DataLoader): 
+            Dataloader for the validation dataset.
+        targ_key (str): 
+            Dictionary key used to access the target tensor from each batch returned by the dataloaders.
+        loss_fn (nn.Module):
+            Loss function.
+            Must accept model logits and targets (e.g. `loss_fn(logits, targs)`)
+            and return a scalar value.
+        optimizer (Optimizer):
+            Optimizer used to update `model` weights based on the loss computed by `loss_fn`.
+        scheduler_cfg (optional, SchedulerConfig):
+            Configuration for the learning rate scheduler.
+            If not provided, the learning rate of `optimizer` will remain constant during training.
+        eval_cfg (optional, EvalConfig):
+            Configuration for validation metric evaluations.
+            If not provided, validation metrics will not be computed during training
+            and `val_history` will only track the average batch loss.
+        measure_policy (optional, MeasurePolicy):
+            Measure policy that defines a best score (a loss or metric)
+            used to determine model improvement during training.
+            If not provided, improvements are not tracked,
+            early stopping is disabled, and best-model saving is disabled.
+        save_cfg (optional, SaveConfig):
+            Configuration for saving the training checkpoint 
+            and an optional best model (requires `measure_policy` to be provided).
+            If not provided, saving will be disabled.
+        log_cfg (optional, LogConfig):
+            Configuration for log formatting.
+            If not provided, a default `LogConfig()` instance is used.
+        perf_cfg (optional, PerformanceConfig):
+            Configuration for performance settings.
+            If not provided, a default `PerformanceConfig()` instance is used,
+            which includes training on CPU.
+    '''
     def __init__(
         self,
         model: nn.Module,
@@ -95,6 +160,17 @@ class ModelTrainer():
         self.log_end_div = EPOCH_FILL_CHAR * self.log_cfg.logbox_len
 
     def load_checkpoint(self, resume_path: Union[str, Path]) -> None:
+        '''
+        Loads a training checkpoint into this `ModelTrainer` instance
+        from the file at `resume_path`.
+
+        This loads the saved model weights and training state
+        (e.g. optimizer, scaler, histories, scheduler, etc.).
+
+        Args:
+            resume_path (Union[str, Path]):
+                The path to the saved checkpoint file.
+        '''
         ckpt_epoch = load_checkpoint(
             checkpoint_path = resume_path,
             model = self.model,
@@ -104,7 +180,7 @@ class ModelTrainer():
             val_history = self.val_history,
             scheduler = self.scheduler,
             measure_policy = self.measure_policy,
-            device = self.device
+            device = self.perf_cfg.device
         )
         self.start_epoch = ckpt_epoch + 1
         print(
@@ -113,7 +189,29 @@ class ModelTrainer():
             f'Calling self.train(num_epochs) will resume training from epoch {self.start_epoch}.'
         )
 
-    def train(self, num_epochs: int) -> Tuple[TrainHistory, ValHistory]:        
+    def train(self, num_epochs: int) -> Tuple[TrainHistory, ValHistory]:    
+        '''
+        Trains the model on the training dataset and evaluates it on the validation dataset.
+
+        Note: See `src.logging.history.TrainHistory` and `src.logging.history.ValHistory`
+        for details on the attributes of the returned history objects.
+
+        Args:
+            num_epochs (int):
+                The maximum number of epochs to train for.
+                If early stopping is enabled, training may stop before reaching this limit.
+                If resuming from a checkpoint, training continues from `checkpoint_epoch + 1`
+                to `num_epochs` (or up to early stopping).
+
+        Returns:
+            train_history (TrainHistory):
+                Training-phase history containing the average batch losses (per epoch).
+                Can also be accessed from the `train_history` attribute.
+            val_history (ValHistory):
+                Validation-phase history containing the average batch losses (per epoch)
+                and optional metric values (per evaluation epoch).
+                Can also be accessed from the `val_history` attribute.
+        '''    
         for epoch in range(self.start_epoch, num_epochs):
             # ------------------------------------
             # Training step
@@ -199,6 +297,15 @@ class ModelTrainer():
         return self.train_history, self.val_history
            
     def _train_step(self) -> torch.Tensor:
+        '''
+        Performs the training phase of a single epoch.
+        This loops through the training dataset once, computing the loss 
+        for each batch and updating the model weights.
+
+        Returns:
+            torch.Tensor:
+                The average batch loss, computed across all batches in the epoch.
+        '''
         num_batches = len(self.train_loader)
         loss_sum = 0
 
@@ -237,6 +344,28 @@ class ModelTrainer():
         return loss_sum / num_batches # Average batch loss
 
     def _val_step(self, metrics: Optional[Dict[str, Metric]]) -> ValResults:
+        '''
+        Performs the validation phase of a single epoch.
+        This loops through the validation dataset once, computing the loss 
+        for each batch and optionally updating the metrics. 
+        The metrics are computed after all batches have been processed.
+
+        Note: See `src.metrics.types` for an example structure of `MetricResults`.
+
+        Args:
+            metrics (optional, Dict[str, Metric]):
+                Dictionary mapping task names to metric objects (must implement the `Metric` protocol).
+                Each of the metric objects are reset before processing the batches.
+        Returns:
+            ValResults:
+                Dictionary containing validation results for the epoch.
+                This includes:
+                    - loss (torch.Tensor): 
+                        Average batch loss, computed across all batches in the epoch.
+                    - metrics (optional, MetricResults):
+                        Metric result dictionary containing the computed metrics.
+                        This is `None` if `metrics` was not provided as input.
+        '''
         num_batches = len(self.val_loader)
         loss_sum = 0
 
@@ -293,6 +422,28 @@ class ModelTrainer():
         train_time: float, 
         val_time: float
     ) -> None:
+        '''
+        Formats and prints the training and validation logs of an epoch.
+        Also records the loss values and metrics into `train_history` and `val_history`.
+
+        Args:
+            epoch (int):
+                The epoch index being logged.
+            train_loss (torch.Tensor):
+                Average training loss, computed across all batches in the epoch.
+            val_results (ValResults):
+                Results from the validation phase of the epoch.
+                This contains:
+                    - loss (torch.Tensor): 
+                        Average validation loss, computed across all batches in the epoch.
+                    - metrics (optional, MetricResults):
+                        Optional metric result dictionary containing 
+                        the computed validation metrics.
+            train_time (float):
+                Computation time for the training phase of the epoch.
+            val_time (float):
+                Computation time for the validation phase of the epoch.
+        '''
         log_kwargs = {
             'logbox_len': self.log_cfg.logbox_len,
             'max_row_entries': self.log_cfg.max_row_entries,
@@ -345,7 +496,10 @@ class ModelTrainer():
         for log_str in epoch_log_secs:
             print(log_str)
 
-    def _validate_config(self) -> None:        
+    def _validate_config(self) -> None:   
+        '''
+        Validates the configuration of the model trainer.
+        '''    
         # Check if eval_cfg is provided when measure_info = 'metric'
         mp = self.measure_policy
         metric_policy_no_eval = (
@@ -360,19 +514,23 @@ class ModelTrainer():
             )
         
     def _print_save_msgs(self) -> None:
+        '''
+        Prints information about where the training checkpoint and the best model will be saved.
+        Prints warnings if checkpoint or best-model saving is disabled.
+        '''
         cfg = self.save_cfg
         if not self.should_save_ckpt:
             warnings.warn(
-                f'ckpt_name not provided in save_cfg. Training checkpoints will not be saved.',
+                f'No checkpoint save path provided. Training checkpoint will not be saved.',
                 UserWarning
             )
         else:
-            print(f'{BOLD_ON}[NOTE]{BOLD_OFF} Checkpoints will be saved at: {cfg.ckpt_path}')
+            print(f'{BOLD_ON}[NOTE]{BOLD_OFF} Training checkpoint will be saved at: {cfg.ckpt_path}')
 
         if self.measure_policy is not None:
             if not self.should_save_best_model:
                 warnings.warn(
-                    f'best_model_name not provided in save_cfg, but measure_policy was provided.'
+                    f'No best-model save path provided, but a measure policy was provided.'
                     'The best model will not be saved.',
                     UserWarning
                 )
@@ -383,9 +541,10 @@ class ModelTrainer():
     @property
     def should_save_best_model(self)-> bool:
         '''
-        Returns whether best model saving is available.
-        Saving a best model is only considered when 
-        `self.measure_policy` is provided to determine improvement.
+        Best-model saving is available.
+
+        Note: During training, saving a best model is only ever considered if
+              `measure_policy` was provided at initialization.
         '''
         cfg = self.save_cfg
         return (cfg is not None) and (cfg.best_model_name is not None)
@@ -393,18 +552,25 @@ class ModelTrainer():
     @property
     def should_save_ckpt(self) -> bool:
         '''
-        Returns whether checkpoint saving is available.
+        Whether checkpoint saving is available.
         '''
         cfg = self.save_cfg
         return (cfg is not None) and (cfg.ckpt_name is not None)
 
     @property
     def should_log_metrics(self) -> bool:
+        '''
+        Whether logging evaluation metrics is available.
+        '''
         cfg = self.eval_cfg
         return(cfg is not None) and (cfg.log_metric_specs is not None)
     
     @property
     def scheduler(self) -> Optional[lr_scheduler._LRScheduler]:
+        '''
+        Learning rate scheduler.
+        Returns `None` if `scheduler_cfg` was not provided at initialization.
+        '''
         if self.scheduler_cfg is None:
             return None
         else:
@@ -412,6 +578,10 @@ class ModelTrainer():
         
     @property
     def metrics(self) -> Optional[Dict[str, Metric]]:
+        '''
+        Metrics used to evaluate the model on the validation dataset.
+        Returns `None` if `eval_cfg` was not provided at initialization.
+        '''
         if self.eval_cfg is None:
             return None
         else:

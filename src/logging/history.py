@@ -52,12 +52,14 @@ class LossHistory():
         Note: See `src.metrics.postprocess.format_measure` for details on formatting.
 
         Args:
-            loss_value (MeasureValue): Loss value in the form of 
-                                       a float or a single-element tensor.
-            epoch (int): The epoch that `loss_value` corresponds to.
+            loss_value (MeasureValue): 
+                Loss value in the form of a float or a single-element tensor.
+            epoch (int): 
+                The epoch that `loss_value` corresponds to.
 
         Returns:
-            MeasureValue: The loss value, formatted for logging and saving.             
+            MeasureValue: 
+                The loss value, formatted for logging and saving.             
         '''
         self.epochs.append(epoch)
 
@@ -71,9 +73,10 @@ class LossHistory():
         Returns the state dictionary for this `LossHistory` instance.
 
         Returns:
-            LossHistoryState: State dictionary containing:
-                - values (MeasureSeries): List of loss values recorded across epochs.
-                - epochs (List[int]): List of epochs corresponding to recorded losses in `values`.
+            LossHistoryState: 
+                State dictionary containing:
+                    - values (MeasureSeries): List of loss values recorded across epochs.
+                    - epochs (List[int]): List of epochs corresponding to recorded losses in `values`.
         '''
         return {
             'values': self.values,
@@ -85,7 +88,8 @@ class LossHistory():
         Loads a state dictionary into this `LossHistory` instance.
 
         Args:
-            state_dict (LossHistoryState): State dictionary to load.
+            state_dict (LossHistoryState): 
+                State dictionary to load.
                 This must contain:
                     - values (MeasureSeries): List of loss values recorded across epochs.
                     - epochs (List[int]): List of epochs corresponding to recorded losses in `values`.
@@ -112,12 +116,15 @@ class MetricHistory():
         Note: See `src.metrics.types` for an example structure of `MetricResults`.
 
         Args:
-            metric_results (MetricResults): Metric result dictionary to format and store.
-            epoch (int): The epoch corresponding to `metric_results`.
+            metric_results (MetricResults): 
+                Metric result dictionary to format and store.
+            epoch (int): 
+                The epoch corresponding to `metric_results`.
 
         Returns:
-            MetricResults: The metric result dictionary, with all of its values formatted for logging and saving.
-                           The layout is the same as the input `metric_results`.
+            MetricResults: 
+                The metric result dictionary, with all of its values formatted for logging and saving.
+                The layout is the same as the input `metric_results`.
         '''
         self.epochs.append(epoch)
         
@@ -149,11 +156,12 @@ class MetricHistory():
         Returns the state dictionary for this `MetricHistory` instance.
 
         Returns:
-            MetricHistoryState: State dictionary containing:
-                - values (MetricSeriesResults): Dictionary containing metric result lists.
-                                                See `src.metrics.types` for 
-                                                an example structure of `MetricSeriesResults`.
-                - epochs (List[int]): List of epochs corresponding to recorded values in `values`.
+            MetricHistoryState: 
+                State dictionary containing:
+                    - values (MetricSeriesResults): Dictionary containing metric result lists.
+                                                    See `src.metrics.types` for 
+                                                    an example structure of `MetricSeriesResults`.
+                    - epochs (List[int]): List of epochs corresponding to recorded values in `values`.
         '''
         return {
             'values': self.values,
@@ -165,7 +173,8 @@ class MetricHistory():
         Loads a state dictionary into this `MetricHistory` instance.
 
         Args:
-            state_dict (MetricHistoryState): State dictionary to load.
+            state_dict (MetricHistoryState): 
+                State dictionary to load.
                 This must contain:
                     - values (MetricSeriesResults): Dictionary containing metric result lists.
                                                     See `src.metrics.types` for 
@@ -183,11 +192,20 @@ class PhaseHistory():
     '''
     Stores the histories (e.g. loss and metrics) for a phase (e.g. training or validation).
 
+    Important attributes:
+        - `loss.values` (MeasureSeries): Series of recorded loss values.
+        - `loss.epochs` (List[int]): Series of epochs corresponding to `self.loss.values`.
+
+        - `metrics.values` (MetricSeriesGroup): Dictionary containing series of recorded metric values.
+        - `metrics.epochs` (List[int]): Series of epochs corresponding to `metrics.values`.
+        
     Args:
-        loss (optional, LossHistory): Loss history object for tracking loss values over epochs.
-                                      If `None`, defaults to a fresh `LossHistory` instance.
-        metrics (optional, MetricHistory): Metric history object for tracking metric values over epochs.
-                                           If `None`, no metrics are recorded.
+        loss (optional, LossHistory): 
+            Loss history object for tracking loss values over epochs.
+            If `None`, defaults to a fresh `LossHistory` instance.
+        metrics (optional, MetricHistory): 
+            Metric history object for tracking metric values over epochs.
+            If `None`, no metrics are recorded.
     '''
     def __init__(self, loss: Optional[LossHistory] = None, metrics: Optional[MetricHistory] = None):
         self.loss = LossHistory() if loss is None else loss
@@ -212,12 +230,16 @@ class PhaseHistory():
               when attempting to store a metric result dictionary.
 
         Args:
-            loss_value (MeasureValue): Loss value in the form of a float or a single-element tensor.
-            epoch (int): The epoch corresponding to `loss_value` and `metric_results`.
-            metric_results (optional, MetricResults): Metric result dictionary to format and store.
+            loss_value (MeasureValue): 
+                Loss value in the form of a float or a single-element tensor.
+            epoch (int): 
+                The epoch corresponding to `loss_value` and `metric_results`.
+            metric_results (optional, MetricResults): 
+                Metric result dictionary to format and store.
 
         Returns:
-            recorded_loss (MeasureValue): The loss value, formatted for logging and saving.   
+            recorded_loss (MeasureValue): 
+                The loss value, formatted for logging and saving.   
             recorded_metrics (optional, MetricResults): 
                 The metric result dictionary, with all of its values formatted for logging and saving.  
                 The layout is the same as the input `metric_results`.
@@ -254,8 +276,10 @@ class PhaseHistory():
             }
 
         Args:
-            value (float): The best score value.
-            epoch (int): The epoch corresponding to `value`.
+            value (float): 
+                The best score value.
+            epoch (int): 
+                The epoch corresponding to `value`.
             measure_info (optional, Dict[str, Any]): 
                 Dictionary containing additional information for the best score.
                 This could include information like the measure name (e.g. accuracy).
@@ -271,15 +295,16 @@ class PhaseHistory():
         Returns the state dictionary for this `PhaseHistory` instance.
 
         Returns:
-            PhaseHistoryState: State dictionary containing:
-                - loss (LossHistoryState): State dictionary for the loss history.
-                - metrics (optional, MetricHistoryState): State dictionary for the metric history.
-                                                          This is `None` if no metric history was
-                                                          provided at initialization (`metrics` is None).
-                - best_score (optional, BestScoreDict): Best score dictionary stored in this phase history.
-                                                        See the `set_best` method for details on its contents.
-                                                        This is `None` if a best score was never set 
-                                                        (`set_best` was never called.).
+            PhaseHistoryState: 
+                State dictionary containing:
+                    - loss (LossHistoryState): State dictionary for the loss history.
+                    - metrics (optional, MetricHistoryState): State dictionary for the metric history.
+                                                              This is `None` if no metric history was
+                                                              provided at initialization (`metrics` is None).
+                    - best_score (optional, BestScoreDict): Best score dictionary stored in this phase history.
+                                                            See the `set_best` method for details on its contents.
+                                                            This is `None` if a best score was never set 
+                                                            (`set_best` was never called.).
         '''
         return {
             'loss': self.loss.state_dict(),
@@ -296,7 +321,8 @@ class PhaseHistory():
               Otherwise, a `ValueError` will be raised when attempting to load a `MetricHistoryState`.
 
         Args:
-            state_dict (PhaseHistoryState): State dictionary to load.
+            state_dict (PhaseHistoryState): 
+                State dictionary to load.
                 This must contain:
                     - loss (LossHistoryState): State dictionary for the loss history.
                     - metrics (optional, MetricHistoryState): State dictionary for the metric history,
@@ -333,6 +359,10 @@ class TrainHistory(PhaseHistory):
     '''
     Training-phase history.
     This only tracks loss information.
+    
+    Important attributes:
+        - `loss.values` (MeasureSeries): Series of recorded loss values.
+        - `loss.epochs` (List[int]): Series of epochs corresponding to `self.loss.values`.
     '''
     def __init__(self):
         super().__init__(loss = LossHistory())
@@ -342,6 +372,13 @@ class ValHistory(PhaseHistory):
     '''
     Validation-phase history.
     This tracks both loss and metric information.
+
+    Important attributes:
+        - `loss.values` (MeasureSeries): Series of recorded loss values.
+        - `loss.epochs` (List[int]): Series of epochs corresponding to `self.loss.values`.
+
+        - `metrics.values` (MetricSeriesGroup): Dictionary containing series of recorded metric values.
+        - `metrics.epochs` (List[int]): Series of epochs corresponding to `metrics.values`.
     '''
     def __init__(self):
         super().__init__(loss = LossHistory(), metrics = MetricHistory())

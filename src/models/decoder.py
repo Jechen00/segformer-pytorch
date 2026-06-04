@@ -5,10 +5,10 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from numbers import Real
 from typing import List, Sequence, Optional
 
 from src.models.modules import ConvBNAct
+from src.ml_types import PythonNum
 
 
 #####################################
@@ -20,16 +20,18 @@ class MLPDecoder(nn.Module):
     This is implemented with convolutional layers instead of linear layers.
     
     Args:
-        feature_dims (Sequence[int]): Dimension of output features (channels or embeddings) in each encoder stage.
-        fused_channels (int): Number of channels used to project each encoder feature map
-                              to a unified channel dimension before fusing.
+        feature_dims (Sequence[int]): 
+            Dimension of output features (channels or embeddings) in each encoder stage.
+        fused_channels (int): 
+            Number of channels used to project each encoder feature map to a unified channel dimension before fusing.
         num_classes (int): Number of segmentation classes.
-        activation (optional, nn.Module): Activation function for the convolutional layer
-                                          used to fuse encoder feature maps.
-                                          Default is `None`.
-        channel_dropout_prob (Real): Probability of channelwise dropout applied after fusing encoder feature maps.
-                                     Entire feature channels are randomly zeroed during training.
-                                     Default is `0.0`.
+        activation (optional, nn.Module): 
+            Activation function for the convolutional layer used to fuse encoder feature maps.
+            Default is `None`.
+        channel_dropout_prob (PythonNum): 
+            Probability of channelwise dropout applied after fusing encoder feature maps.
+            Entire feature channels are randomly zeroed during training.
+            Default is `0.0`.
     '''
     def __init__(
         self, 
@@ -37,7 +39,7 @@ class MLPDecoder(nn.Module):
         fused_channels: int, 
         num_classes: int,
         activation: Optional[nn.Module] = None,
-        channel_dropout_prob: Real = 0.0
+        channel_dropout_prob: PythonNum = 0.0
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -54,15 +56,15 @@ class MLPDecoder(nn.Module):
     def forward(self, encoder_outs: List[torch.Tensor]) -> torch.Tensor:
         '''
         Args:
-            encoder_outs (List[torch.Tensor]): List of encoder output feature maps.
-                                               The length of the list should match `feature_dims`.
-                                               The i-th element is a tensor of shape
-                                               `(batch_size, feature_dims[i], fmap_height, fmap_width)`.
+            encoder_outs (List[torch.Tensor]): 
+                List of encoder output feature maps.
+                The length of the list should match `feature_dims`.
+                The i-th element is a tensor of shape `(batch_size, feature_dims[i], fmap_height, fmap_width)`.
             
         Returns:
-            torch.Tensor: Segmentation logit mask of shape `(batch_size, num_classes, fmap1_height, fmap1_width)`,
-                          where `(fmap1_height, fmap1_width)` is the spatial resolution of the 
-                          first encoder stage feature map.
+            torch.Tensor: 
+                Segmentation logit mask of shape `(batch_size, num_classes, fmap1_height, fmap1_width)`,
+                where `(fmap1_height, fmap1_width)` is the spatial resolution of the first encoder stage feature map.
         '''
         fused_X = []
         for X, stage_conv in zip(encoder_outs, self.stage_convs):

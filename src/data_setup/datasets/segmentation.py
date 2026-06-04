@@ -32,6 +32,16 @@ from src.data_setup.types import SegSample, SegSampleList
 # Class Typings
 #####################################
 class ClassSpec(TypedDict):
+    '''
+    Dictionary containing specifications for a class in a semantic segmentation dataset.
+    RGB values should be in [0, 255].
+
+    Example:
+        {
+            'idx': 1,
+            'rgb': (255, 255, 255)
+        }
+    '''
     idx: int
     rgb: RGBTuple
 
@@ -43,11 +53,75 @@ ClassInfo: TypeAlias = Dict[str, ClassSpec]
 #####################################
 class SegmentationDatasetBase(ABC, Dataset):
     '''
-    Base class for segmentation datasets.
+    Base class for semantic segmentation datasets.
 
-    Note: `v2.Normalize` only acts on tensors.
+    Dataset Notes: 
+        - See `sec.data_setup.types` for details on 
+          the sample dictionary types: `SegSample` and `SegSampleList`.
+
+    Tensor and Transform Notes:
+        - If images and masks are converted to tensors (from `transforms` or `to_tensor=True`):
+            - Images are expected to be 3D (channels, height, width)
+            - Index masks are expected to be 2D (height, width)
+            - RGB masks are expected to be 3D (3, height, width) with a channel size of 3.
+
+        - `v2.Normalize` only acts on tensors.
           If normalization is enabled (`norm_mean` and `norm_std` are provided),
-          ensure that either `to_tensor = True` or the provided `transforms` output a tensor.
+          ensure that either `to_tensor=True` or the provided `transforms` output a tensor.
+
+        - If the original dataset contains RGB masks and they are converted 
+          to tensors (from `transforms` or `to_tensor=True`), 
+          they will be converted to index masks using `class_info`.
+          As such, `class_info` should contain all RGB colors that 
+          may appear in the masks of the dataset.
+          Any undefined RGB colors will either 
+          be assigned the ignore index (if `ignore_encoding` is provided)
+          or cause a `ValueError` to be raised.
+
+    Args:
+        class_info (ClassInfo):
+            Mapping from class names to specification dictionaries (`ClassSpec`).
+            Each specification dictionary contains:
+                - idx (int): Class integer index.
+                - rgb (RGBTuple): Class RGB tuple with values in [0, 255].
+            Each class must have a unique index and unique RGB tuple.
+            From this, the following attributes are created:
+                - `idx_to_class`: Mapping from index to class name.
+                - `class_to_idx`: Mapping from class name to index.
+                - `rgb_to_class`: Mapping from RGB color to class name.
+                - `class_to_rgb`: Mapping from class name to RGB color.
+                - `idx_to_rgb`: Mapping from index to RGB color.
+                - `rgb_to_idx`: Mapping from RGB color to index.
+        geo_transforms (optional, Callable):
+            Geometric transform pipeline applied to **both** the image and mask of each sample.
+            This must accept and return a sample dictionary (`SegSample`).
+        img_phot_transforms (optional, Callable):
+            Photometric transform pipeline applied to **only** the image of each sample.
+            This must accept and return a sample dictionary (`SegSample`).
+        to_tensor (bool): 
+            Whether to apply tensor conversions to all samples **after** 
+            any provided `geo_transforms` and `img_phot_transforms`.
+            Images are scaled to [0, 1] with dtype `torch.float32`.
+            Masks are converted to index masks with dtype `torch.long`.
+            Default is `True`.
+        norm_mean (optional, Sequence[float]): 
+            Sequence of means (one for each input channel) 
+            used to normalize images **after** tensor conversion.
+            Masks are never normalized.
+            If provided, `norm_std` must also be provided.
+        norm_std (optional, Sequence[float]): 
+            Sequence of standard deviations (one for each input channel) 
+            used to normalize images **after** tensor conversion.
+            Masks are never normalized.
+            If provided, `norm_mean` must also be provided.
+        ignore_encoding (optional, ClassSpec):
+            Encoding that defines the integer index and RGB color
+            used for ignored pixels in the segmentation masks.
+            The combination of index and RGB color must not conflict
+            with those in `class_info`.
+            If provided, the ignore index and color can be a accessed
+            through the attributes `ignore_idx` and `ignore_rgb`;
+            otherwise, these attributes are set to `None`.
     '''
     def __init__(
         self,
@@ -80,28 +154,33 @@ class SegmentationDatasetBase(ABC, Dataset):
         
     def __getitem__(self, idxs: IndexLike) -> Union[SegSample, SegSampleList]:
         '''
-        Gets a single-sample or multi-sample dictionary containing image and segmentation mask.
-        Images are transformed if provided and labels are converted to tensors.
+        Gets a single-sample or multi-sample dictionary containing image and mask data.
+        If a transform pipeline is available, the images and masks are transformed accordingly 
+        (see `_make_transform_pipeline` for details).
 
         Args:
-            idxs (IndexLike): Index or collection of indices for the samples to retrieve.
-                              This must be one of:
-                                - A single integer
-                                - A list of integers
-                                - A ndarray of integers
-                                - A tensor of integers
+            idxs (IndexLike): 
+                Index or collection of indices for the samples to retrieve.
+                This supports:
+                    - A single integer
+                    - A list of integers
+                    - A ndarray of integers
+                        - Must be single-element or 1D with shape (batch_size,)
+                    - A tensor of integers
+                        - Must be single-element or 1D with shape (batch_size,)
 
         Returns:
-            A single-sample or multi-sample dictionary depending 
-            whether the input was a single index or a collection of indices.
+            Union[SegSample, SegSampleList]
+                A single-sample or multi-sample dictionary depending on
+                whether the input was a single index or a collection of indices.
 
-            Single-Sample (SegSample) has the keys (non-exhaustive):
-                - image (ImageInput): Transformed image sample (original if no transforms).
-                - mask (ImageInput): Transformed segmentation mask (original if no transforms).
+                Single-Sample (SegSample) contains the following (non-exhaustive):
+                    - image (ImageInput): Transformed image sample (original if no transform pipeline).
+                    - mask (ImageInput): Segmentation mask for the image.
 
-            Multi-Sample (SegSampleList) has the keys (non-exhaustive):
-                - image (List[ImageInput]): List of transformed image samples (original if no transforms).
-                - mask (List[ImageInput]): List of transformed segmentation mask (original if no transforms).
+                Multi-Sample (SegSampleList) contains the following (non-exhaustive):
+                    - image (List[ImageInput]): List of transformed image samples (original if no transform pipeline).
+                    - mask (List[ImageInput]): List of segmentation masks for the images.
         '''
         if isinstance(idxs, int):
             # Indexing with a single integer
@@ -113,27 +192,54 @@ class SegmentationDatasetBase(ABC, Dataset):
             return transpose_list_dict(items, mode = 'to_cols')
         
     def get_single_item(self, idx: int) -> SegSample:    
+        '''
+        Gets a sample dictionary containing the image and mask data for a **single** index.
+        If a transform pipeline is available, the image and mask is transformed accordingly 
+        (see `_make_transform_pipeline` for details).
+
+        Args:
+            idx (int): 
+                Index of the sample to retrieve.
+            
+        Returns:
+            SegSample: 
+                Single-sample dictionary containing (non-exhaustive):
+                    - image (ImageInput): Transformed image sample (original if no transform pipeline).
+                    - mask (ImageInput): Segmentation mask for the image.
+        '''
         if not isinstance(idx, int):
             raise TypeError(f'Expected integer index. Got: {type(idx)}')
          
-        item = self.get_raw_item(idx)
+        item = self.get_base_item(idx)
         
         if self.transform_pipeline is not None:
             # Image and mask in item are always tensors if self.to_tensor = True
             item = self.transform_pipeline(item)
             
-        if self.to_tensor:
-            img, mask = item['image'], item['mask']
+        img, mask = item['image'], item['mask']
 
+        if isinstance(img, torch.Tensor):
             # Validate image tensor of shape (channels, height, width)
             _validate_ndim(img, ndim = 3, context_name = 'images')
 
-            # Format mask to index mask (training-ready)
+        if isinstance(mask, torch.Tensor):
+            # Convert mask to index mask (training-ready)
             item['mask'] = self._format_mask(mask)
 
         return item
             
     def _make_mappings(self) -> None:
+        '''
+        Creates the following class-related mappings:
+            - `idx_to_class`: Mapping from index to class name.
+            - `class_to_idx`: Mapping from class name to index.
+            - `rgb_to_class`: Mapping from RGB color to class name.
+            - `class_to_rgb`: Mapping from class name to RGB color.
+            - `idx_to_rgb`: Mapping from index to RGB color.
+            - `rgb_to_idx`: Mapping from RGB color to index.
+        If `ignore_encoding` was provided at initialization, 
+        the ignore encoding is also included in `idx_to_rgb` and `rgb_to_idx`.
+        '''
         self.class_names = [None] * len(self.class_info)
 
         # Create mappings based on index
@@ -162,9 +268,19 @@ class SegmentationDatasetBase(ABC, Dataset):
         self._add_ignore_mapping()
             
     def _add_ignore_mapping(self) -> None:
+        '''
+        Sets up handling of ignore/unmapped RGB pixels for RGB-to-index mask conversions.
+
+        If `ignore_encoding` was provided:
+            - The ignore index and RGB color are added to the mappings `rgb_to_idx` and `idx_to_rgb`.
+            - The ignore index is assigned to unmapped RGB pixels during conversions.
+
+        If `ignore_encoding` was not provided:
+            - A `ValueError` is raised for unmapped RGB pixels during conversions.
+        '''
         if self.ignore_encoding is None:
             self.ignore_idx, self.ignore_rgb = None, None
-            self._unmapped_idx = -1000 # Unmapped RGB pixels will be flagged ad errors
+            self._unmapped_idx = -10000 # Unmapped RGB pixels will be flagged and errored
             return
 
         idx, rgb = self._extract_class_spec(self.ignore_encoding)
@@ -188,15 +304,16 @@ class SegmentationDatasetBase(ABC, Dataset):
         Creates a single torchvision transform pipeline that may include:
             1. User-provided geometric transforms (if `geo_transforms` is provided)
             2. User-provided photometric transforms (if `phot_transforms` is provided)
-            3. Image tensor conversion (if `to_tensor = True`)
-            4. Float32 conversion and scaling (if `to_tensor = True`)
+            3. Image tensor conversion (if `to_tensor=True`)
+            4. Float32 conversion and scaling (if `to_tensor=True`)
             5. Normalization (if `norm_mean` and `norm_std` are provided)
 
         The final transform pipeline is stored in `self.transform_pipeline`.
-        This pipeline will be `None`, if all these conditions are met:
+        There will be no transform pipeline (`transform_pipeline` is `None`), 
+        if all these conditions are met:
             - `geo_transforms` is not provided
             - `phot_transforms` is not provided
-            - `to_tensor = False`
+            - `to_tensor=False`
             - `norm_mean` and `norm_std` are not provided
         '''     
         pipeline = []
@@ -228,16 +345,29 @@ class SegmentationDatasetBase(ABC, Dataset):
 
     def _format_mask(self, mask: torch.Tensor) -> torch.Tensor:
         '''
-        Formats a segmentation mask to an index mask.
+        Ensures that a segmentation mask is an index mask.
+        Specifically:
+            - If `mask` is 2D (height, width), it is assumed to be an index mask 
+              and returned with dtype `torch.long`.
+            - If `mask` is 3D (3, height, width), it is assumed to be a RGB mask (channel size of 3)
+              and is converted to an index mask with dtype `torch.long`.
 
-        If `mask` is already an index mask (2D tensor), return it unchanged.
-        If `mask` is a RGB mask (3D tensor), convert it to an index mask.
-        If `mask` is not a 2D or 3D tensor, raise an error.
+        During RGB to index mask conversion, if there are unmapped pixels and no ignore encoding,
+        a `ValueError` will be raised.
+
+        Args:
+            mask (torch.Tensor):
+                The segmentation mask. 
+                This must be a 2D (height, width) or 3D (3, height, width) tensor.
+
+        Returns:
+            torch.Tensor:
+                Index mask with shape (height, width) and dtype `torch.long`.
         '''
         mask_ndim = mask.ndim
         if mask_ndim == 2:
             # Mask is already an index mask
-            return mask # Shape: (height, width)
+            return mask.to(torch.long) # Shape: (height, width)
         
         elif mask_ndim == 3:
             # Mask is a RGB mask --> need to convert to index mask
@@ -246,7 +376,7 @@ class SegmentationDatasetBase(ABC, Dataset):
                 rgb_masks = mask,
                 rgb_to_idx = self.rgb_to_idx,
                 fill_idx = self._unmapped_idx
-            )
+            ) # This has dtype torch.long
 
             # Check for unmapped pixels
             if (self.ignore_idx is None) and ((idx_mask == self._unmapped_idx).any()):
@@ -266,16 +396,19 @@ class SegmentationDatasetBase(ABC, Dataset):
     def _extract_class_spec(self, spec: ClassSpec) -> Tuple[int, RGBTuple]:
         '''
         Extracts the index and RGB tuple from a class specification.
-        The extract values are validated as so:
+        The extracted values are validated as so:
             1. Checks if the index is an integer 
-            2. Checks if the RGB tuple is a tuple of 3 integers in [0. 255].
+            2. Checks if the RGB tuple is a tuple of 3 integers in [0, 255].
 
         Args:
-            spec (ClassSpec): The class specification to extract and validate
+            spec (ClassSpec): 
+                The class specification to extract and validate.
 
         Returns:
-            idx (int): Index from `spec`.
-            rgb (RGBTuple): RGB tuple from `spec`.
+            idx (int): 
+                Index from `spec`.
+            rgb (RGBTuple):
+                RGB tuple from `spec`.
         '''
         idx, rgb = spec['idx'], spec['rgb']
 
@@ -294,15 +427,25 @@ class SegmentationDatasetBase(ABC, Dataset):
     @abstractmethod
     def __len__(self) -> int:
         '''
-        Returns the number of samples in the dataset
+        Returns the number of samples in the dataset.
         '''
         pass
 
     @abstractmethod
-    def get_raw_item(self, idx: int) -> SegSample:
+    def get_base_item(self, idx: int) -> SegSample:
         '''
-        Returns a dictionary of raw, unprocessed sample information.
-        Must include 'image' and 'mask'.
+        Gets a base dictionary containing information for a single sample
+        prior to applying the dataset transform pipeline.
+
+        Args:
+            idx (int):
+                Index of the sample to retrieve.
+
+        Returns:
+            SegSample:
+                Single-sample dictionary containing (non-exhaustive):
+                    - image (ImageInput): Base image sample.
+                    - mask (ImageInput): Base segmentation mask for the image.
         '''
         pass
 
@@ -312,13 +455,64 @@ class SegmentationDatasetBase(ABC, Dataset):
 #####################################
 class SuperviselyPersonDataset(SegmentationDatasetBase):
     '''
-    Supervisely human segmentation dataset from:
-        https://www.kaggle.com/datasets/tapakah68/supervisely-filtered-segmentation-person-dataset
-    This is a binary segmentation dataset, where the two classes are 'human' (index 1) and 'background' (index 0).
+    Implements a dataset class for the Supervisely Person dataset from
+    https://www.kaggle.com/datasets/tapakah68/supervisely-filtered-segmentation-person-dataset
 
-    Note: `v2.Normalize` only acts on tensors.
+    Dataset Notes:
+        - This is a binary segmentation dataset with classes:
+            - background: index 0, RGB color (0, 0, 0)
+            - human: index 1, RGB color (255, 255, 255)
+
+        - The Supervisely Person dataset does not have a training/validation split,
+          so it is created using the Pandas and a split seed.
+
+    Tensor and Transform Notes:
+        - `v2.Normalize` only acts on tensors.
           If normalization is enabled (`norm_mean` and `norm_std` are provided),
           ensure that either `to_tensor = True` or the provided `transforms` output a tensor.
+
+    Args:
+        root (Union[str, Path]): 
+            Root directory to download the dataset in.
+            The dataset will be stored in `root/supervisely_person`.
+        split (Literal['train', 'val']):
+            Whether to construct the training dataset (`train`) or the validation dataset (`val`).
+        geo_transforms (optional, Callable):
+            Geometric transform pipeline applied to **both** the image and mask of each sample.
+            This must accept and return a sample dictionary (`SegSample`).
+        img_phot_transforms (optional, Callable):
+            Photometric transform pipeline applied to **only** the image of each sample.
+            This must accept and return a sample dictionary (`SegSample`).
+        to_tensor (bool): 
+            Whether to apply tensor conversions to all samples **after** 
+            any provided `geo_transforms` and `img_phot_transforms`.
+            Images are scaled to [0, 1] with dtype `torch.float32`.
+            Masks are converted to index masks with dtype `torch.long`.
+            Default is `True`.
+        norm_mean (optional, Sequence[float]): 
+            Sequence of means (one for each input channel)
+            used to normalize images **after** tensor conversion.
+            If provided, `norm_std` must also be provided.
+        norm_std (optional, Sequence[float]): 
+            Sequence of standard deviations (one for each input channel)
+            used to normalize images **after** tensor conversion.
+            If provided, `norm_mean` must also be provided.
+        ignore_encoding (optional, ClassSpec):
+            Encoding that defines the integer index and RGB color
+            used for ignored pixels in the segmentation masks.
+            The pair (index, RGB) must not conflict
+            with `(0, (0, 0, 0))` or `(1, (255, 255, 255))`
+            If provided, the ignore index and color can be a accessed
+            through the attributes `ignore_idx` and `ignore_rgb`;
+            otherwise, these attributes are set to `None`.
+        train_frac (float): 
+            The fraction of the dataset to use as the training dataset.
+            The remaining fraction (`1 - train_frac`) is used as the validation dataset.
+            Default is `0.9` (90% of data for training, 10% of data for validation).
+        split_seed (int): 
+            The random seed used to split the dataset into training/validation components.
+            Changing this will change what data is in the training/validation datasets.
+            Default is `0`.
     '''
     def __init__(
         self, 
@@ -340,10 +534,14 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
         self.split_seed = split_seed
 
         self._setup_dataset()
+        class_info = {
+            'human': {'idx': 1, 'rgb': (255, 255, 255)},
+            'background': {'idx': 0, 'rgb': (0, 0, 0)}
+        }
         
         # Initialize SegmentationDatasetBase  
         super().__init__(
-            class_info = self._make_class_info(),
+            class_info = class_info,
             geo_transforms = geo_transforms,
             img_phot_transforms = img_phot_transforms,
             to_tensor = to_tensor,
@@ -353,18 +551,47 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
         )
     
     def __len__(self) -> int:
+        '''
+        Returns the number of samples in the dataset.
+        '''
         return len(self.img_paths)
     
-    def get_raw_item(self, idx: int) -> SegSample:
+    def get_base_item(self, idx: int) -> SegSample:
+        '''
+        Gets a single-sample dictionary from the Supervisely Person dataset.
+        All images and masks are converted to RGB format.
+
+        Args:
+            idx (int):
+                Index of the sample to retrieve.
+
+        Returns:
+            SegSample:
+                Single-sample dictionary containing (non-exhaustive):
+                    - image (ImageInput): Image sample from the Supervisely Person dataset.
+                                          This is a RGB PIL image.
+                    - mask (ImageInput): Segmentation mask for the image.
+                                         This is a RGB PIL image.
+        '''
         return {
             'image': Image.open(self.img_paths[idx]).convert('RGB'),
             'mask': Image.open(self.mask_paths[idx]).convert('RGB')
         } 
     
     def _setup_dataset(self) -> None:
+        '''
+        Downloads and prepares the Supervisely Person dataset.
+
+        Note: The images and masks are downloaded as PNG files.
+
+        This involves:
+            1. Downloading the dataset from 
+               https://www.kaggle.com/datasets/tapakah68/supervisely-filtered-segmentation-person-dataset
+            2. Creating the `img_paths` and `mask_paths` attributes,
+               which store the file paths to all images and masks, respectively.
+        '''
         data_dir = self.data_dir
         anno_path = data_dir / 'annotations.csv' # Required annotation path
-        
         self.anno_path = anno_path
         
         if data_dir.is_dir():
@@ -414,6 +641,10 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
         self._make_img_mask_paths()
         
     def _make_img_mask_paths(self) -> None:
+        '''
+        Creates the `img_paths` and `mask_paths` attributes
+        to store the file paths to all images and masks, respectively.
+        '''
         data_dir = self.data_dir
         
         # Contains all paths to image and mask .png files
@@ -428,10 +659,3 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
         
         self.img_paths = [data_dir / img_path for img_path in split_anno_df['images']]
         self.mask_paths = [data_dir / mask_path for mask_path in split_anno_df['masks']]
-    
-    def _make_class_info(self) -> ClassInfo:
-        class_info = {
-            'human': {'idx': 1, 'rgb': (255, 255, 255)},
-            'background': {'idx': 0, 'rgb': (0, 0, 0)}
-        }
-        return class_info

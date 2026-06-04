@@ -10,10 +10,9 @@ import math
 import numpy as np
 from typing import List, Optional, Union, Tuple, Dict
 
-from src.ml_types import RGBTuple
+from src.ml_types import PythonNum, RGBTuple
 from src.utils import make_tuple
 from src.visualize.format_plot_inputs import NPImageList, IntLabelList
-
 
 #####################################
 # Image Classification Functions
@@ -25,16 +24,49 @@ def make_cls_figure(
     targ_labels: Optional[IntLabelList] = None,
     nrows: Optional[int] = None,
     ncols: Optional[int] = None,
-    figsize: Optional[Tuple[float, float]] = None,
-    title_fontsize: float = 18
+    figsize: Optional[Tuple[PythonNum, PythonNum]] = None,
+    title_fontsize: PythonNum = 18
 ) -> Figure: 
     '''
-    Makes a figure that titles input images using their predicted labels.
+    Makes a figure that titles input images using their prediction labels.
     If target labels are provided, the titles are 
     colored green for correct predictions and red for incorrect predictions.
 
     If multiple input images (and their labels) are provided,
     they are laid out in a grid of subplots.
+
+    Note: It is assumed that all labels are integers 
+          in the range `[0, len(class_names)-1]`.
+
+    Args:
+        imgs (NPImageList): 
+            Images to plot. This must be a list of ndarrays in HWC format.
+        pred_labels (IntLabelList): 
+            Prediction labels for `imgs`. This must be a list of integer indices.
+        class_names (List[str]): 
+            List of class names.
+        targ_labels (optional, IntLabelList): 
+            Target labels for `imgs`. This must be a list of integer indices.
+        nrows (optional, int):
+            Nunber of rows in the figure.
+            If not provided, it is set to `math.ceil(num_imgs / ncols)`.
+            This applies even when `ncols` is not provided, since `ncols` defaults to `math.ceil(math.sqrt(num_imgs))`.
+            Here, `num_imgs = len(imgs)`.
+        ncols (optional, int): 
+            Number of columns in the figure.
+            If not provided, but `nrows` is provided, it is set to `math.ceil(num_imgs / nrows)`.
+            If not provided and `nrows` is not provided, it is set to `math.ceil(math.sqrt(num_imgs))`.
+            Here, `num_imgs = len(imgs)`.
+        figsize (optional, Tuple[PythonNum, PythonNum]): 
+            Figure size in the form of a tuple (width, height).
+            If not provided, defaults to `5 * ncols, 5 * nrows`.
+        title_fontsize (PythonNum): 
+            Fontsize for the titles of each subplot/panel. Default is `18`.
+
+    Returns:
+        Figure: 
+            Matplotlib figure displaying the input images 
+            along with their prediction labels and optional target labels.
     '''
     # Validate lengths
     num_imgs = len(imgs)
@@ -86,15 +118,45 @@ def make_seg_figure_collage(
     targ_masks: Optional[NPImageList] = None,
     include_legend: bool = False,
     rgb_to_class: Optional[Dict[RGBTuple, str]] = None,
-    figsize: Optional[Tuple[float, float]] = None,
-    title_fontsize: float = 18
+    figsize: Optional[Tuple[PythonNum, PythonNum]] = None,
+    title_fontsize: PythonNum = 18
 ) -> Figure:  
     '''
-    Makes a figure that plots input images, optional target masks, and predicted masks
+    Makes a figure that plots input images, optional target masks, and prediction masks
     side-by-side (creating a collage).
 
     If multiple input images (and their masks) are provided,
     each input is shown on a separate row of the figure.
+
+    Args:
+        imgs (NPImageList): 
+            Images to plot. This must be a list of ndarrays in HWC format.
+        pred_masks (NPImageList): 
+            Prediction RGB masks to plot. This must be a list of ndarrays in HWC format.
+        targ_masks (optional, NPImageList): 
+            Target RGB masks to plot.
+            This must be a list of ndarrays in HWC format.
+            If provided, the figure will have 3 columns.
+            Otherwise, it will have 2 columns (only `imgs` and `pred_masks`).
+        include_legend (bool): 
+            Whether to include a legend that maps the unique colors 
+            in `pred_masks` and `targ_masks` to their class names.
+            Default is `False`.
+        rgb_to_class (optional, Dict[RGBTuple, str]): 
+            Dictionary mapping RGB tuples to class names.
+            This is used to create the legend and is required if `include_legend=True`.
+            Ideally, all unique colors in `pred_masks` and `targ_masks` should be in this mapping.
+            Missing entries are labeled as `Unknown`.
+        figsize (optional, Tuple[PythonNum, PythonNum]): 
+            Figure size in the form of a tuple (width, height).
+            If not provided, defaults to `5 * ncols, 5 * len(imgs)`, where `ncols` is `2` or `3`.
+        title_fontsize (PythonNum): 
+            Fontsize for the titles of each subplot.panel. Default is `18`.
+
+    Returns:
+        Figure: 
+            Matplotlib figure displaying collages of 
+            the input images, optional target masks, and prediction masks.
     '''
     # Validate lengths
     num_imgs = len(imgs)
@@ -188,16 +250,52 @@ def make_seg_figure_overlay(
     pred_masks: NPImageList,
     include_legend: bool = False,
     rgb_to_class: Optional[Dict[RGBTuple, str]] = None,
-    pred_alpha: float = 0.5,
+    pred_alpha: PythonNum = 0.5,
     nrows: Optional[int] = None,
     ncols: Optional[int] = None,
-    figsize: Optional[Tuple[float, float]] = None
+    figsize: Optional[Tuple[PythonNum, PythonNum]] = None
 ) -> Figure:
     '''
-    Makes a figure that overlays predicted segmentation masks on top of input images.
+    Makes a figure that overlays prediction segmentation masks on top of input images.
 
     If multiple input images (and their masks) are provided,
     they are laid out in a grid of subplots.
+
+    Args:
+        imgs (NPImageList): 
+            Images to plot. This must be a list of ndarrays in HWC format.
+        pred_masks (NPImageList): 
+            Prediction RGB masks to plot. This must be a list of ndarrays in HWC format.
+        include_legend (bool): 
+            Whether to include a legend that maps the unique colors 
+            in `pred_masks` and `targ_masks` to their class names.
+            Default is `False`.
+        rgb_to_class (optional, Dict[RGBTuple, str]): 
+            Dictionary mapping RGB tuples to class names.
+            This is used to create the legend and is required if `include_legend=True`.
+            Ideally, all unique colors in `pred_masks` should be in this mapping.
+            Missing entries are labeled as `Unknown`.
+        pred_alpha (PythonNum): 
+            The opacity of the prediction RGB masks when overlaid on top of the images.
+            Must be in the range [0, 1], where `0` is fully transparent and `1` is fully opaque.
+            Default is `0.5`.
+        nrows (optional, int): 
+            Nunber of rows in the figure.
+            If not provided, it is set to `math.ceil(num_imgs / ncols)`.
+            This applies even when `ncols` is not provided, since `ncols` defaults to `math.ceil(math.sqrt(num_imgs))`.
+            Here, `num_imgs = len(imgs)`.
+        ncols (optional, int): 
+            Number of columns in the figure.
+            If not provided, but `nrows` is provided, it is set to `math.ceil(num_imgs / nrows)`.
+            If not provided and `nrows` is not provided, it is set to `math.ceil(math.sqrt(num_imgs))`.
+            Here, `num_imgs = len(imgs)`.
+        figsize (optional, Tuple[PythonNum, PythonNum]): 
+            Figure size in the form of a tuple (width, height).
+            If not provided, defaults to `5 * ncols, 5 * nrows`.
+
+    Returns:
+        Figure: 
+            Matplotlib figure displaying the input images with overlaid prediction masks.
     '''
     # Validate lengths
     num_imgs = len(imgs)
@@ -273,8 +371,8 @@ def make_grid(
     min_panels: int,
     nrows: Optional[int] = None,
     ncols: Optional[int] = None,
-    figsize: Optional[Tuple[float, float]] = None,
-    panel_scale: Union[float, Tuple[float, float]] = 5.0
+    figsize: Optional[Tuple[PythonNum, PythonNum]] = None,
+    panel_scale: Union[PythonNum, Tuple[PythonNum, PythonNum]] = 5.0
 ) -> Tuple[Figure, Union[Axes, np.ndarray]]:
     '''
     Creates a figure with a grid of subplots containing at least `min_panels` panels.
@@ -282,26 +380,32 @@ def make_grid(
     Note: If `nrows` and `ncols` are both provided, must have `(nrows * ncols) < min_panels`.
 
     Args:
-        min_panels (int): Minimum number of panels on the grid.
-        nrows (optional, int): Nunber of rows in the grid.
-                               If not provided, it is set to `math.ceil(min_panels / ncols)`.
-                               This applies even when `ncols` is not provided,
-                               since `ncols` defaults to `math.ceil(math.sqrt(min_panels))`.
-        ncols (optional, int): Number of columns in the grid.
-                               If not provided, but `nrows` is provided, it is set to `math.ceil(min_panels / nrows)`.
-                               If not provided and `nrows` is not provided, it is set to `math.ceil(math.sqrt(min_panels))`.
-        figsize (optional, Tuple[float, float]): Figure size in the form of a tuple (width, height).
-                                                 If not provided, defaults to
-                                                 `panel_scale[0] * ncols, panel_scale[1] * nrows`.
-        panel_scale (Union[float, Tuple[float, float]]): The scale of each panel in the form of a tuple (width, height).
-                                                         If `int`, it is assumed square.
-                                                         This is used to determine the figure size if `figsize` is not provided.
+        min_panels (int): 
+            Minimum number of panels on the grid.
+        nrows (optional, int): 
+            Nunber of rows in the grid.
+            If not provided, it is set to `math.ceil(min_panels / ncols)`.
+            This applies even when `ncols` is not provided, since `ncols` defaults to `math.ceil(math.sqrt(min_panels))`.
+        ncols (optional, int): 
+            Number of columns in the grid.
+            If not provided, but `nrows` is provided, it is set to `math.ceil(min_panels / nrows)`.
+            If not provided and `nrows` is not provided, it is set to `math.ceil(math.sqrt(min_panels))`.
+        figsize (optional, Tuple[PythonNum, PythonNum]): 
+            Figure size in the form of a tuple (width, height).
+            If not provided, defaults to `panel_scale[0] * ncols, panel_scale[1] * nrows`.
+        panel_scale (Union[PythonNum, Tuple[PythonNum, PythonNum]]): 
+            The scale of each panel in the form of a tuple (width, height).
+            This is used to determine the figure size if `figsize` is not provided.
+            If provided as a single number, it is assumed square.
+            Default is `5.0`.
 
     Returns:
-        fig (Figure): The matplotlib figure with the grid of subplots.
-        axes (Union[Axes, np.ndarray]): The matplotlib Axes objects for `fig`.
-                                        If `nrows=1` and `ncols=1`, this is a single Axes object.
-                                        Otherwise, this is a ndarray of Axes objects aranged in a grid.
+        fig (Figure): 
+            The matplotlib figure with the grid of subplots.
+        axes (Union[Axes, np.ndarray]):
+            The matplotlib Axes objects for `fig`.
+            If `nrows=1` and `ncols=1`, this is a single Axes object.
+            Otherwise, this is a ndarray of Axes objects aranged in a grid.
     '''
     panel_scale = make_tuple(panel_scale)
     

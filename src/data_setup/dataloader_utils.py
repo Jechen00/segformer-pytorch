@@ -32,25 +32,61 @@ def build_dataloader(
 ) -> DataLoader:
     '''
     Create a training, validation, or testing dataloader for a dataset.
+    This supports optional multiscale training, 
+    which changes the spatial size of batches every few intervals.
+
+    Note: To enable multiscale training, 
+          `multiscale_interval`, `multiscale_sizes`, and `resize_fn` must all be provided.
+          Otherwise, all three arguments must be `None` (not provided).
     
     Args:
-        dataset (Dataset): The dataset to create the dataloader for.
-        split (Literal['train', 'val', 'test']): The dataset split. 
-                                                 Controls the shuffling behavior:
-                                                     - train: `shuffle = True`
-                                                     - val or test: `shuffle = False`
-        batch_size (int): Number of samples per batch.
-        num_workers (int): Number of workers for multiprocessing. Default is `0` (no multiprocessing).
-        prefetch_factor (optional, int): Number of batches pre-loaded in advance per worker.
-                                         If `num_workers = 0`, this is forced to `None`.
-        collate_fn (optional, Callable): Collate function to merge samples into batches.
-        drop_last (bool): Whether to drop the last remaining samples in dataset if 
-                          they cannot create a full batch of size batch_size.
-                          Default is `False`.
-        device (Union[torch.device, str]): Device to send batched tensors to. Default is `cpu`.
+        dataset (Dataset): 
+            The dataset to create the dataloader for.
+        split (Literal['train', 'val', 'test']): 
+            The dataset split. 
+            This Controls the shuffling behavior:
+                - train: `shuffle = True`
+                - val or test: `shuffle = False`
+        batch_size (int): 
+            Number of samples per batch.
+        num_workers (int): 
+            Number of workers for multiprocessing. 
+            Default is `0` (no multiprocessing).
+        prefetch_factor (optional, int): 
+            Number of batches pre-loaded in advance per worker.
+            If `num_workers = 0`, this is forced to `None`.
+        collate_fn (optional, Callable): 
+            Collate function to merge samples into batches.
+        drop_last (bool): 
+            Whether to drop the last remaining samples in dataset if 
+            they cannot create a full batch of size batch_size.
+            Default is `False`.
+        multiscale_interval (optional, int):
+            Batch interval to change input size for multiscale training.
+        multiscale_sizes (optional, List[SpatialSize]):
+            List of input sizes to use during multiscale training.
+            Each elements can be `int` (assumed square) or `(height, width)` tuples.
+        resize_fn (optional, Callable):
+            The resize function to use when resizing images for multiscale training.
+            This function must accept:
+            - item (SampleDict): 
+                    Dictionary containing the item information.
+                    This always includes:
+                        - image (ImageInput): image sample.
+                    It may also contain other keys depending on the task.
+                    For example:
+                        - label (Union[int, torch.Tensor]): class index for image classification tasks.
+                        - mask (ImageInput): segmentation mask for image segmentation tasks.
+            - size (SpatialSize): Size (height, width) used to resize `item['image']`.
+                                  If `int`, size is assumed to be square.
+        device (Union[torch.device, str]): 
+            Device to send batched tensors to. Default is `cpu`.
+        **resize_kwargs:
+            Keyword arguments apart from `item` and `size` to use when calling `resize_fn`.
 
     Returns:
-        DataLoader: The dataloader for the dataset.
+        DataLoader: 
+            The dataloader for the dataset.
     '''
     if not all_or_none(multiscale_interval, multiscale_sizes, resize_fn):
         raise ValueError(

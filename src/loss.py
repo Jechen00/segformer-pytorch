@@ -24,28 +24,32 @@ class FocalLoss(nn.Module):
     so the expected inputs are model logits (not predictions) and target labels.
 
     Args:
-        alpha (float): Alpha parameter of the focal loss.
-                       This determines how much the loss will weigh positive elements (`y = 1`) 
-                       compared to negative  (`y = 0`).
-                       Specifically, loss terms for positive elements are weighed by `alpha`, 
-                       while loss terms for negative elements are weighted by `1 - alpha`.
-                       If `alpha > 0.5`, positive elements contribute more to the loss.
-                       If `alpha < 0.5`, negative elements contribute more to the loss.
-                       Default is `0.5`, which weights positive and negative elements equally.
-        gamma (float): Gamma parameter of the focal loss.
-                       This determines how much the loss downweights elements
-                       that are predicted correctly with high probability by the model.
-                       Increasing `gamma` more strongly reduces the loss contribution of 
-                       these correctly-predicted elements.
-                       If `gamma = 0`, this will default back to the behavior of 
-                       a standard binary cross entropy loss. 
-                       Default is `2`, following the original paper.
-        ignore_idx (int): Target index/label for elements to ignore during loss computation.
-                          Default is `-100`, following PyTorch conventions.
-        reduction (Literal['mean', 'sum', 'none']): The reduction to apply to the loss.
-            - 'mean': Computes the mean loss across all valid (non-ignored) elements.
-            - 'sum': Computes the summed loss across all valid (non-ignored) elements.
-            - 'none': Computes the loss without reducing across elements.
+        alpha (float): 
+            Alpha parameter of the focal loss.
+            This determines how much the loss will weigh positive elements (`y = 1`) 
+            compared to negative  (`y = 0`).
+            Specifically, loss terms for positive elements are weighed by `alpha`, 
+            while loss terms for negative elements are weighted by `1 - alpha`.
+            If `alpha > 0.5`, positive elements contribute more to the loss.
+            If `alpha < 0.5`, negative elements contribute more to the loss.
+            Default is `0.5`, which weights positive and negative elements equally.
+        gamma (float): 
+            Gamma parameter of the focal loss.
+            This determines how much the loss downweights elements
+            that are predicted correctly with high probability by the model.
+            Increasing `gamma` more strongly reduces the loss contribution of 
+            these correctly-predicted elements.
+            If `gamma = 0`, this will default back to the behavior of 
+            a standard binary cross entropy loss. 
+            Default is `2`, following the original paper.
+        ignore_idx (int): 
+            Target index/label for elements to ignore during loss computation.
+            Default is `-100`, following PyTorch conventions.
+        reduction (Literal['mean', 'sum', 'none']): 
+            The reduction to apply to the loss.
+                - 'mean': Computes the mean loss across all valid (non-ignored) elements.
+                - 'sum': Computes the summed loss across all valid (non-ignored) elements.
+                - 'none': Computes the loss without reducing across elements.
             Default is 'mean'.
     '''
     def __init__(
@@ -73,18 +77,19 @@ class FocalLoss(nn.Module):
             https://docs.pytorch.org/docs/2.12/generated/torch.nn.CrossEntropyLoss.html
 
         Args:
-            logits (torch.Tensor): Model logits.
-                                   These will be converted to predictions using softmax.
-                                   Supported shapes:
-                                        - 1D tensor: `(num_classes,)`
-                                        - 2D tensor: `(batch_size, num_classes)`
-                                        - nD tensor: `(batch_size, num_classes, d_1, ..., d_k)`,
-                                                     where `k = n-2`
-            targs (torch.Tensor): Target tensor with the same batch and spatial dimensions as `logits`.
-                                  Supported shapes:
-                                        - scalar tensor
-                                        - 1D tensor: `(batch_size,)`
-                                        - (n-1)D tensor: `(batch_size, d_1, ..., d_k)`
+            logits (torch.Tensor): 
+                Model logits.
+                These will be converted to predictions using softmax.
+                Supported shapes:
+                    - 1D tensor: `(num_classes,)`
+                    - 2D tensor: `(batch_size, num_classes)`
+                    - nD tensor: `(batch_size, num_classes, d_1, ..., d_k)`, where `k = n-2`
+            targs (torch.Tensor): 
+                Target tensor with the same batch and spatial dimensions as `logits`.
+                Supported shapes:
+                    - scalar tensor
+                    - 1D tensor: `(batch_size,)`
+                    - (n-1)D tensor: `(batch_size, d_1, ..., d_k)`
         Returns:
             torch.Tensor: 
               The computed focal loss.
@@ -126,23 +131,28 @@ class DiceLoss(nn.Module):
           with the only exception being the `ignore_idx` (if specified).
     
     Args:
-        num_classes (int): Number of classes.
-        ignore_idx (int): Target index/label for elements to ignore during loss computation.
-                          Default is `-100`, following PyTorch conventions.
-        exclude_bg_idx (optional, int): Index of the background class.
+        num_classes (int): 
+            Number of classes.
+        ignore_idx (int): 
+            Target index/label for elements to ignore during loss computation.
+            Default is `-100`, following PyTorch conventions.
+        exclude_bg_idx (optional, int): 
+            Index of the background class.
     `       If provided, a Dice loss is not computed for the background class.
             When `reduction` is 'mean' or 'sum', this excludes the background class from the aggregation.
             When`reduction` is `none`, this replaces the background class with `torch.nan` for all batch samples.
             Default is `None`, meaning that the background class is included.`
-        reduction (Literal['mean', 'sum', 'none']): The reduction to apply to the loss.
-            - 'mean': Computes the mean loss across all included classes 
-                     and valid batch samples (samples with at least one non-ignored element).
-            - 'sum': Computes the summed loss across all included classes 
-                     and valid batch samples (samples with at least one non-ignored element).
-            - 'none': Computes the loss without any reducing across classes and batch samples.
+        reduction (Literal['mean', 'sum', 'none']): 
+            The reduction to apply to the loss.
+                - 'mean': Computes the mean loss across all included classes 
+                        and valid batch samples (samples with at least one non-ignored element).
+                - 'sum': Computes the summed loss across all included classes 
+                        and valid batch samples (samples with at least one non-ignored element).
+                - 'none': Computes the loss without any reducing across classes and batch samples.
             Default is `mean`.
-        eps (float): A small constant used to prevent numerical errors (e.g. divide by zero).
-                     Default is `1e-6`.
+        eps (float): 
+            A small constant used to prevent numerical errors (e.g. divide by zero).
+            Default is `1e-6`.
     '''
     def __init__(
         self, 
@@ -173,16 +183,20 @@ class DiceLoss(nn.Module):
         Computes multi-class Dice loss between predictions and targets.
         
         Args:
-            logits (torch.Tensor): Model logits of shape `(batch_size, num_classes, d_1, ..., d_k)`.
-            targs (torch.Tensor): Target tensor with the same batch and spatial dimensions as `logits`.
-                                  This must contain integer class indices rather than one-hot labels.
-                                  Shape must be `(batch_size, d_1, ..., d_k)`.
+            logits (torch.Tensor): 
+                Model logits of shape `(batch_size, num_classes, d_1, ..., d_k)`.
+            targs (torch.Tensor): 
+                Target tensor with the same batch and spatial dimensions as `logits`.
+                This must contain integer class indices rather than one-hot labels.
+                Shape must be `(batch_size, d_1, ..., d_k)`.
                                   
         Returns:
-            torch.Tensor: The computed multi-class Dice loss. The shape depends on the reduction.
-                  - If `reduction='mean'`: Returns a scalar tensor.
-                  - If `reduction='sum'`: Returns a scalar tensor.
-                  - If `reduction='none'`: Returns a tensor of shape `(batch_size, num_classes)`.
+            torch.Tensor: 
+                The computed multi-class Dice loss. 
+                The shape depends on the reduction:
+                    - If `reduction='mean'`: Returns a scalar tensor.
+                    - If `reduction='sum'`: Returns a scalar tensor.
+                    - If `reduction='none'`: Returns a tensor of shape `(batch_size, num_classes)`.
         '''
         targs = targs.flatten(1).clone() # Shape: (batch_size, num_pixels)
         preds = F.softmax(logits, dim = 1).flatten(2) # Shape: (batch_size, num_classes, num_pixels)
@@ -257,18 +271,25 @@ class CEDiceLoss(nn.Module):
               with the only exception being the `ignore_idx` (if specified).
         
         Args:
-            num_classes (int): Number of classes.
-            lambda_dice (float): Weight of the Dice loss. Default is `1.0`.
-            lambda_ce (float): Weight of the CE loss. Default is `1.0`.
-            ignore_idx (int): Target index/label for elements to ignore during loss computation.
-                              Default is `-100`, following PyTorch conventions.
-            exclude_bg_idx (optional, int): Index of the background class.
-                                            If provided, a Dice loss is not computed for the background class
-                                            and the class is not included when computing the mean Dice loss.
-                                            This does not affect the CE loss.
-                                            Default is `None`, meaning that the background class is included.
-            eps (float): A small constant used to prevent numerical errors  in the Dice loss (e.g. divide by zero).
-                         Default is `1e-6`.
+            num_classes (int): 
+                Number of classes.
+            lambda_dice (float): 
+                Weight of the Dice loss. Default is `1.0`.
+            lambda_ce (float): 
+                Weight of the CE loss. Default is `1.0`.
+            ignore_idx (int): 
+                Target index/label for elements to ignore during loss computation.
+                Default is `-100`, following PyTorch conventions.
+            exclude_bg_idx (optional, int): 
+                Index of the background class.
+                If provided, a Dice loss is not computed for the background class
+                and the class is not included when computing the mean Dice loss.
+                This does not affect the CE loss.
+                Default is `None`, meaning that the background class is included.
+            eps (float): 
+                A small constant used to prevent numerical errors 
+                in the Dice loss (e.g. divide by zero).
+                Default is `1e-6`.
         '''
         if exclude_bg_idx is not None:
             if not (0 <= exclude_bg_idx < num_classes):
@@ -305,13 +326,16 @@ class CEDiceLoss(nn.Module):
         '''
         Computes the CE-Dice loss between predictions and targets.
         Args:
-            logits (torch.Tensor): Model logits of shape `(batch_size, num_classes, d_1, ..., d_k)`.
-            targs (torch.Tensor): Target tensor with the same batch and spatial dimensions as `logits`.
-                                  This must contain integer class indices rather than one-hot labels.
-                                  Shape must be `(batch_size, d_1, ..., d_k)`.
+            logits (torch.Tensor): 
+                Model logits of shape `(batch_size, num_classes, d_1, ..., d_k)`.
+            targs (torch.Tensor): 
+                Target tensor with the same batch and spatial dimensions as `logits`.
+                This must contain integer class indices rather than one-hot labels.
+                Shape must be `(batch_size, d_1, ..., d_k)`.
                                   
         Returns:
-            torch.Tensor: The CE-Dice loss as a scalar tensor.
+            torch.Tensor: 
+                The CE-Dice loss as a scalar tensor.
         '''
         ce_loss = self.ce(logits, targs)
         dice_loss = self.dice(logits, targs)
@@ -327,10 +351,11 @@ class CEDiceLoss(nn.Module):
         each loss component and the total loss.
 
         Returns:
-            Dict[str, torch.Tensor]: Dictionary containing:
-                - 'ce' (torch.Tensor): The mean CE loss component (unweighted).
-                - 'dice' (torch.Tensor): The mean Dice loss component (unweighted).
-                - 'total' (torch.Tensor): Weighted sum of mean CE and mean Dice losses.
+            Dict[str, torch.Tensor]: 
+                Dictionary containing:
+                    - 'ce' (torch.Tensor): The mean CE loss component (unweighted).
+                    - 'dice' (torch.Tensor): The mean Dice loss component (unweighted).
+                    - 'total' (torch.Tensor): Weighted sum of mean CE and mean Dice losses.
         '''
         ce_loss = self.ce(logits, targs)
         dice_loss = self.dice(logits, targs)
@@ -365,21 +390,29 @@ class FocalDiceLoss(nn.Module):
               with the only exception being the `ignore_idx` (if specified).
         
         Args:
-            lambda_dice (float): Weight of the Dice loss. Default is `1.0`.
-            lambda_focal (float): Weight of the Focal loss. Default is `1.0`.
-            alpha_focal (float): Alpha parameter of the Focal loss. See `FocalLoss` for details.
-                                 Default is `0.5`.
-            gamma_focal (float): Gamma parameter of the Focal loss. See `FocalLoss` for details.
-                                 Default is `2.0`.
-            ignore_idx (int): Target index/label for elements to ignore during loss computation.
-                              Default is `-100`, following PyTorch conventions.
-            exclude_bg_idx (optional, int): Index of the background class.
-                                            If provided, a Dice loss is not computed for the background class
-                                            and the class is not included when computing the mean Dice loss.
-                                            This does not affect the CE loss.
-                                            Default is `None`, meaning that the background class is included.
-            eps (float): A small constant used to prevent numerical errors  in the Dice loss (e.g. divide by zero).
-                         Default is `1e-6`.
+            lambda_dice (float): 
+                Weight of the Dice loss. Default is `1.0`.
+            lambda_focal (float): 
+                Weight of the Focal loss. Default is `1.0`.
+            alpha_focal (float): 
+                Alpha parameter of the Focal loss. See `FocalLoss` for details.
+                Default is `0.5`.
+            gamma_focal (float): 
+                Gamma parameter of the Focal loss. See `FocalLoss` for details.
+                Default is `2.0`.
+            ignore_idx (int): 
+                Target index/label for elements to ignore during loss computation.
+                Default is `-100`, following PyTorch conventions.
+            exclude_bg_idx (optional, int): 
+                Index of the background class.
+                If provided, a Dice loss is not computed for the background class
+                and the class is not included when computing the mean Dice loss.
+                This does not affect the CE loss.
+                Default is `None`, meaning that the background class is included.
+            eps (float): 
+                A small constant used to prevent numerical errors 
+                in the Dice loss (e.g. divide by zero).
+                Default is `1e-6`.
         '''
         if exclude_bg_idx is not None:
             if not (0 <= exclude_bg_idx < 2):
@@ -419,13 +452,16 @@ class FocalDiceLoss(nn.Module):
         '''
         Computes the Focal-Dice loss between predictions and targets.
         Args:
-            logits (torch.Tensor): Model logits of shape `(batch_size, num_classes, d_1, ..., d_k)`.
-            targs (torch.Tensor): Target tensor with the same batch and spatial dimensions as `logits`.
-                                  This must contain integer class indices rather than one-hot labels.
-                                  Shape must be `(batch_size, d_1, ..., d_k)`.
+            logits (torch.Tensor): 
+                Model logits of shape `(batch_size, num_classes, d_1, ..., d_k)`.
+            targs (torch.Tensor): 
+                Target tensor with the same batch and spatial dimensions as `logits`.
+                This must contain integer class indices rather than one-hot labels.
+                Shape must be `(batch_size, d_1, ..., d_k)`.
                                   
         Returns:
-            torch.Tensor: The Focal-Dice loss as a scalar tensor.
+            torch.Tensor: 
+                The Focal-Dice loss as a scalar tensor.
         '''
         focal_loss = self.focal(logits, targs)
         dice_loss = self.dice(logits, targs)
@@ -441,10 +477,11 @@ class FocalDiceLoss(nn.Module):
         each loss component and the total loss.
 
         Returns:
-            Dict[str, torch.Tensor]: Dictionary containing:
-                - 'focal' (torch.Tensor): The mean Focal loss component (unweighted).
-                - 'dice' (torch.Tensor): The mean Dice loss component (unweighted).
-                - 'total' (torch.Tensor): Weighted sum of mean Focal and mean Dice losses.
+            Dict[str, torch.Tensor]: 
+                Dictionary containing:
+                    - 'focal' (torch.Tensor): The mean Focal loss component (unweighted).
+                    - 'dice' (torch.Tensor): The mean Dice loss component (unweighted).
+                    - 'total' (torch.Tensor): Weighted sum of mean Focal and mean Dice losses.
         '''
         focal_loss = self.focal(logits, targs)
         dice_loss = self.dice(logits, targs)

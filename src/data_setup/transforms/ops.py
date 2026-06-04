@@ -26,7 +26,8 @@ class ImageTransform():
     of a single-sample or multi-sample dictionary.
 
     Args:
-        transform (Union[Callable, List[Callable]]): A transform or list of transforms to apply only to images.
+        transform (Union[Callable, List[Callable]]): 
+            A transform or list of transforms to apply only to images.
     '''
     def __init__(self, transforms: TransformLike):
         self.transforms = transforms
@@ -54,8 +55,9 @@ class ImageTransform():
                                                 If an image is `torch.Tensor`, shape is `(..., height, width)`.
 
         Returns:i
-            Union[SampleDict, SampleListDict]: Output dictionary with the same structure as `input_dict`.
-                                               The `image` key contains the output after applying `self.transform`.
+            Union[SampleDict, SampleListDict]: 
+                Output dictionary with the same structure as `input_dict`.
+                The `image` key contains the output after applying `self.transform`.
         '''
         output_dict = input_dict.copy()
 
@@ -107,10 +109,9 @@ class SegTransformBase(ABC):
     which returns a keyword dictionary containing the arguments needed for `seg_transform`.
 
     Args:
-        seg_transform (Callable): Functional segmentation transform, 
-                                  designed to apply to a **single** image and optional mask.
-                                  It must accept the arguments `img` and `mask` 
-                                  and return a tuple `(img_t, mask_t)`.                
+        seg_transform (Callable): 
+            Functional segmentation transform, designed to apply to a **single** image and optional mask.
+            It must accept the arguments `img` and `mask` and return a tuple `(img_t, mask_t)`.                
     '''
     def __init__(self, seg_transform: Callable):
         self.seg_transform = seg_transform
@@ -143,10 +144,11 @@ class SegTransformBase(ABC):
                                                          with the same spatial dimensions.
 
         Returns:
-            Union[SampleDict, SampleListDict]: Output dictionary with the same structure as `input_dict`.
-                                               The `image` and optional `mask` entries contain
-                                               the outputs after applying `self.seg_transform`
-                                               with arguments from `self.transfrom_kwargs`.
+            Union[SampleDict, SampleListDict]: 
+                Output dictionary with the same structure as `input_dict`.
+                The `image` and optional `mask` entries contain
+                the outputs after applying `self.seg_transform`
+                with arguments from `self.transfrom_kwargs`.
         '''
         output_dict = input_dict.copy()
         imgs = input_dict['image']
@@ -219,40 +221,47 @@ class SegRandomAffine(SegTransformBase):
           while the method for the mask is always `InterpolationMode.NEAREST`.
 
     Args:
-        degrees (Union[float, Sequence[float]]): Range of degrees for rotational transform.
-                                                 If `Sequence[float]`, should represent `(min, max)`.
-                                                 If `float`, will assume `(-degrees, +degrees`).
-                                                 Default is 0.0 for no rotation.
-        translate (optional, Sequence[float]): Sequence of the form `(hori_frac, vert_frac)` for translational transforms,
-                                               where `hori_frac` and `ver_frac` are the maximum absolute fraction
-                                               for horizonal and vertical shifts, respectively.
-                                               If `None,` no translations are applied.
-        scale (optional, Sequence[float]): Range of factors `(min, max)` for scale transform.
-                                           If `None`, no scaling is applied.
-        shear (optional, Union[int, float, Sequence[float]]): Range of degrees for shear transform.
-                                                              If `Sequence[float]`, should represent `(min_x, max_x)`
-                                                              for only x-axis shearing
-                                                              or `(min_x, max_x, min_y, max_y)` for x-axis and y-axis shearing.
-                                                              If `float`, will assume `(-shear, + shear)`.
-                                                              If `None`, no shearing is applied.
-        img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
-                                                           Default is `InterpolationMode.BILINEAR`.
-        img_fill (FillValue): Pixel fill value used for areas outside the transformed image, to maintain original shape.
-                              This can be a float, integer, sequence of floats, or sequence of integers.
-                              If scalar (float or integer), the value is used for all channels.
-                              If sequence, its length must match the number of channels in the input image.
-                              The fill value should be in the same value space as the expected input images.
-                              For example, if the input images are scaled to [0, 1], 
-                              `img_fill` should also be scaled to [0, 1].
-                              Default is `0`.
-        mask_fill (FillValue): Pixel fill value used for areas outside the transformed mask, to maintain original shape.
-                               This can be a float, integer, sequence of floats, or sequence of integers.
-                               If scalar (float or integer), the value is used for all channels.
-                               If sequence, its length must match the number of channels in the input mask.
-                               The fill value should be in the same value space as the expected input masks.
-                               For example, if the input masks are scaled to [0, 1], 
-                               `mask_fill` should also be scaled to [0, 1].
-                               Default is `255`.
+        degrees (Union[float, Sequence[float]]): 
+            Range of degrees for rotational transform.
+            If `Sequence[float]`, should represent `(min, max)`.
+            If `float`, will assume `(-degrees, +degrees`).
+            Default is 0.0 for no rotation.
+        translate (optional, Sequence[float]): 
+            Sequence of the form `(hori_frac, vert_frac)` for translational transforms,
+            where `hori_frac` and `ver_frac` are the maximum absolute fraction
+            for horizonal and vertical shifts, respectively.
+            If `None,` no translations are applied.
+        scale (optional, Sequence[float]): 
+            Range of factors `(min, max)` for scale transform.
+            If `None`, no scaling is applied.
+        shear (optional, Union[int, float, Sequence[float]]): 
+            Range of degrees for shear transform.
+            If `Sequence[float]`, should represent `(min_x, max_x)`
+            for only x-axis shearing
+            or `(min_x, max_x, min_y, max_y)` for x-axis and y-axis shearing.
+            If `float`, will assume `(-shear, + shear)`.
+            If `None`, no shearing is applied.
+        img_interpolation (Union[InterpolationMode, int]): 
+            Interpolation mode used for the image transform.
+            Default is `InterpolationMode.BILINEAR`.
+        img_fill (FillValue): 
+            Pixel fill value used for areas outside the transformed image, to maintain original shape.
+            This can be a float, integer, sequence of floats, or sequence of integers.
+            If scalar (float or integer), the value is used for all channels.
+            If sequence, its length must match the number of channels in the input image.
+            The fill value should be in the same value space as the expected input images.
+            For example, if the input images are scaled to [0, 1], 
+            `img_fill` should also be scaled to [0, 1].
+            Default is `0`.
+        mask_fill (FillValue): 
+            Pixel fill value used for areas outside the transformed mask, to maintain original shape.
+            This can be a float, integer, sequence of floats, or sequence of integers.
+            If scalar (float or integer), the value is used for all channels.
+            If sequence, its length must match the number of channels in the input mask.
+            The fill value should be in the same value space as the expected input masks.
+            For example, if the input masks are scaled to [0, 1], 
+            `mask_fill` should also be scaled to [0, 1].
+            Default is `255`.
     '''
     def __init__(
         self,
@@ -312,29 +321,33 @@ class SegRandomPerspective(SegTransformBase):
           while the method for the mask is always `InterpolationMode.NEAREST`.
 
     Args:
-        distortion_scale (float): Value to control the degree of distortion from the random perspective transform.
-                                  Must be in the range `[0, 1]`.
-                                  Default is `0.5`.
-        p (float): Probability of applying the random perspective transform to `img` and `mask`.
-                   Default is `0.5`.
-        img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
-                                                           Default is `InterpolationMode.BILINEAR`.
-        img_fill (FillValue): Pixel fill value used for areas outside the transformed image, to maintain original shape.
-                              This can be a float, integer, sequence of floats, or sequence of integers.
-                              If scalar (float or integer), the value is used for all channels.
-                              If sequence, its length must match the number of channels in the input image.
-                              The fill value should be in the same value space as the expected input images.
-                              For example, if the input images are scaled to [0, 1], 
-                              `img_fill` should also be scaled to [0, 1].
-                              Default is `0`.
-        mask_fill (FillValue): Pixel fill value used for areas outside the transformed mask, to maintain original shape.
-                               This can be a float, integer, sequence of floats, or sequence of integers.
-                               If scalar (float or integer), the value is used for all channels.
-                               If sequence, its length must match the number of channels in the input mask.
-                               The fill value should be in the same value space as the expected input masks.
-                               For example, if the input masks are scaled to [0, 1], 
-                               `mask_fill` should also be scaled to [0, 1].
-                               Default is `255`.
+        distortion_scale (float): 
+            Value to control the degree of distortion from the random perspective transform.
+            Must be in the range `[0, 1]`. Default is `0.5`.
+        p (float): 
+            Probability of applying the random perspective transform to `img` and `mask`.
+            Default is `0.5`.
+        img_interpolation (Union[InterpolationMode, int]): 
+            Interpolation mode used for the image transform.
+            Default is `InterpolationMode.BILINEAR`.
+        img_fill (FillValue): 
+            Pixel fill value used for areas outside the transformed image, to maintain original shape.
+            This can be a float, integer, sequence of floats, or sequence of integers.
+            If scalar (float or integer), the value is used for all channels.
+            If sequence, its length must match the number of channels in the input image.
+            The fill value should be in the same value space as the expected input images.
+            For example, if the input images are scaled to [0, 1], 
+            `img_fill` should also be scaled to [0, 1].
+            Default is `0`.
+        mask_fill (FillValue): 
+            Pixel fill value used for areas outside the transformed mask, to maintain original shape.
+            This can be a float, integer, sequence of floats, or sequence of integers.
+            If scalar (float or integer), the value is used for all channels.
+            If sequence, its length must match the number of channels in the input mask.
+            The fill value should be in the same value space as the expected input masks.
+            For example, if the input masks are scaled to [0, 1], 
+            `mask_fill` should also be scaled to [0, 1].
+            Default is `255`.
     '''
     def __init__(
         self,
@@ -390,27 +403,31 @@ class SegLetterbox(SegTransformBase):
           while the method for the mask is always `InterpolationMode.NEAREST`.
 
     Args:
-        size (SpatialSize): Size `(height, width)` to transform the image and optional mask into,
-                            while preserving their aspect ratios and using padding.
-                            If `int`, assumed square.
-        img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
-                                                           Default is `InterpolationMode.BILINEAR`.
-        img_fill (FillValue): Pixel fill value used to pad the transformed image. 
-                              This can be a float, integer, sequence of floats, or sequence of integers.
-                              If scalar (float or integer), the value is used for all channels.
-                              If sequence, its length must match the number of channels in the input image.
-                              The fill value should be in the same value space as the expected input images.
-                              For example, if the input images are scaled to [0, 1], 
-                              `img_fill` should also be scaled to [0, 1].
-                              Default is `0`.
-        mask_fill (FillValue): Pixel fill value used to pad the transformed mask. 
-                               This can be a float, integer, sequence of floats, or sequence of integers.
-                               If scalar (float or integer), the value is used for all channels.
-                               If sequence, its length must match the number of channels in the input mask.
-                               The fill value should be in the same value space as the expected input masks.
-                               For example, if the input masks are scaled to [0, 1], 
-                               `mask_fill` should also be scaled to [0, 1].
-                               Default is `255`.
+        size (SpatialSize): 
+            Size `(height, width)` to transform the image and optional mask into,
+            while preserving their aspect ratios and using padding.
+            If `int`, assumed square.
+        img_interpolation (Union[InterpolationMode, int]): 
+            Interpolation mode used for the image transform.
+            Default is `InterpolationMode.BILINEAR`.
+        img_fill (FillValue): 
+            Pixel fill value used to pad the transformed image. 
+            This can be a float, integer, sequence of floats, or sequence of integers.
+            If scalar (float or integer), the value is used for all channels.
+            If sequence, its length must match the number of channels in the input image.
+            The fill value should be in the same value space as the expected input images.
+            For example, if the input images are scaled to [0, 1], 
+            `img_fill` should also be scaled to [0, 1].
+            Default is `0`.
+        mask_fill (FillValue): 
+            Pixel fill value used to pad the transformed mask. 
+            This can be a float, integer, sequence of floats, or sequence of integers.
+            If scalar (float or integer), the value is used for all channels.
+            If sequence, its length must match the number of channels in the input mask.
+            The fill value should be in the same value space as the expected input masks.
+            For example, if the input masks are scaled to [0, 1], 
+            `mask_fill` should also be scaled to [0, 1].
+            Default is `255`.
     '''
     def __init__(
         self,
@@ -458,10 +475,12 @@ class SegResize(SegTransformBase):
           while the method for the mask is always `InterpolationMode.NEAREST`.
 
     Args:
-        size (SpatialSize): Size `(height, width)` to transform `img` and (optionally) `mask`.
-                            If `int`, assumed square.
-        img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
-                                                           Default is `InterpolationMode.BILINEAR`.
+        size (SpatialSize): 
+            Size `(height, width)` to transform `img` and (optionally) `mask`.
+            If `int`, assumed square.
+        img_interpolation (Union[InterpolationMode, int]): 
+            Interpolation mode used for the image transform.
+            Default is `InterpolationMode.BILINEAR`.
     '''
     def __init__(
         self, 

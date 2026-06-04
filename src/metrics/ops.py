@@ -28,10 +28,12 @@ class ConfusionMatrix():
     The only exception is the `ignore_idx` (if specified).
 
     Args:
-        num_classes (int): Number of classes in the dataset.
-        ignore_idx (optional, int): Index to ignore during computation.
-                                    Targets with this index (and their predictions) are ignored
-                                    when computing the confusion matrix and related metrics.
+        num_classes (int): 
+            Number of classes in the dataset.
+        ignore_idx (optional, int): 
+            Index to ignore during computation.
+            Targets with this index (and their predictions) are ignored
+            when computing the confusion matrix and related metrics.
     '''
     def __init__(self, num_classes: int, ignore_idx: Optional[int] = None):
         self.num_classes = num_classes
@@ -43,11 +45,13 @@ class ConfusionMatrix():
         Updates confusion matrix between predictions and targets.
 
         Args:
-            preds (torch.Tensor): Prediction tensor for class indices.
-                                  Must consist of integer class indices.
-            targs (torch.Tensor): Target (ground truth) tensor for class indices.
-                                  Must be the same shape as `preds` 
-                                  and consist of integer class indices.
+            preds (torch.Tensor): 
+                Prediction tensor for class indices.
+                Must consist of integer class indices.
+            targs (torch.Tensor): 
+                Target (ground truth) tensor for class indices.
+                Must be the same shape as `preds` 
+                and consist of integer class indices.
         '''
         if preds.shape != targs.shape:
             raise ValueError(
@@ -108,10 +112,12 @@ class ClassificationMetrics(ConfusionMatrix):
     The only exception is the `ignore_idx` (if specified).
 
     Args:
-        num_classes (int): Number of classes in the dataset.
-        ignore_idx (optional, int): Index to ignore during computation.
-                                    Targets with this index (and their predictions) are ignored
-                                    when computing the confusion matrix and related metrics.
+        num_classes (int): 
+            Number of classes in the dataset.
+        ignore_idx (optional, int): 
+            Index to ignore during computation.
+            Targets with this index (and their predictions) are ignored
+            when computing the confusion matrix and related metrics.
     '''     
     def compute(self) -> MetricGroup:
         '''
@@ -189,10 +195,12 @@ class SegmentationMetrics(ConfusionMatrix):
     The only exception is the `ignore_idx` (if specified).
 
     Args:
-        num_classes (int): Number of classes in the dataset.
-        ignore_idx (optional, int): Index to ignore during computation.
-                                    Targets with this index (and their predictions) are ignored
-                                    when computing the confusion matrix and related metrics.
+        num_classes (int): 
+            Number of classes in the dataset.
+        ignore_idx (optional, int): 
+            Index to ignore during computation.
+            Targets with this index (and their predictions) are ignored
+            when computing the confusion matrix and related metrics.
     '''
     def compute(self) -> MetricGroup:
         '''

@@ -11,6 +11,8 @@ from typing import Union, List, Tuple, Literal, Sequence, TypeAlias
 #####################################
 # Types
 #####################################
+PythonNum: TypeAlias = Union[int, float]
+
 ImageInput: TypeAlias = Union[Image.Image, torch.Tensor]
 ImageLabel: TypeAlias = Union[int, torch.Tensor]
 

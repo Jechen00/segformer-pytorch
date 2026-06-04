@@ -10,6 +10,7 @@ from typing import Dict, List, Literal, Optional, Union, Tuple, TypeAlias
 
 from src.masks import idx_to_rgb_mask, rgb_to_visibility_mask
 from src.tensor_shapes import ensure_batched, _validate_channel_size, _validate_ndim
+from src.utils import all_or_none
 from src.ml_types import ImageInput, ImageLabel, RGBTuple
 
 NPImageList: TypeAlias = List[np.ndarray]
@@ -25,11 +26,41 @@ def format_cls(
     targ_labels: Optional[Union[ImageLabel, List[ImageLabel]]] = None,
 ) -> Tuple[NPImageList, IntLabelList, Optional[IntLabelList]]:
     '''
-    Formats the images, prediction labels, and optional target labels 
+    Formats images, prediction labels, and optional target labels 
     for image classification plotting.
 
     The formatted outputs are used by the image classification figure function:
         - `visualize.figures.make_cls_figure`
+
+    Note: Labels must be integer class indices (not one-hot).
+
+    Args:
+        imgs (Union[ImageInput, List[ImageInput]]):
+            Images to format.
+            This supports:
+                - A single PIL image
+                - A single 3D tensor of shape (channels, height, width)
+                - A list of images (each element is a PIL image or 3D tensor)
+                - A batched 4D tensor of shape (batch_size, channels, height, width)
+        pred_labels (torch.Tensor): 
+            Prediction labels to format.
+            This is a 1D tensor of shape (batch_size,).
+        targ_labels (optional, Union[ImageLabel, List[ImageLabel]]):
+            Target labels to format.
+            This supports:
+                - A single integer
+                - A single-element tensor
+                - A list of labels (each element is an integer or single-element tensor)
+                - A batched 1D tensor of shape (batch_size,)
+
+    Returns:
+        imgs (NPImageList): 
+            Images formatted to a list of ndarrays in HWC format.
+        pred_labels (IntLabelList): 
+            Prediction labels formatted to a list of integers.
+        targ_labels (optional, IntLabelList): 
+            Target labels formatted to a list of integers.
+            This is `None` if `targ_labels` was not provided as input.
     '''
     # Format images
     imgs = format_images(imgs)
@@ -60,13 +91,72 @@ def format_seg(
     visible_rgbs: Optional[List[RGBTuple]] = None
 ) -> Tuple[NPImageList, NPImageList, Optional[NPImageList]]:
     '''
-    Formats the images, predicted masks (index), and optional target masks (index or RGB)
+    Formats images, prediction masks (index), and optional target masks (index or RGB)
     for segmentation plotting.
 
     The formatted outputs are used by the segmentation figure functions:
         - `visualize.figures.make_seg_figure_collage`
         - `visualize.figures.make_seg_figure_overlay`
+        
+    Args:
+        imgs (Union[ImageInput, List[ImageInput]]):
+            Images to format.
+            This supports:
+                - A single PIL image
+                - A single 3D tensor of shape (channels, height, width)
+                - A list of images (each element is a PIL image or 3D tensor)
+                - A batched 4D tensor of shape (batch_size, channels, height, width)
+        pred_masks (torch.Tensor): 
+            Prediction index masks to format.
+            This is a 3D tensor of shape (batch_size, height, width)
+        idx_to_rgb (optional, Dict[int, RGBTuple]): 
+            Dictionary mapping integer indices to RGB tuples.
+            This mapping should be one-to-one (injective)
+            and the RGB values should be in [0, 255].
+        targ_masks (optional, Union[ImageInput, List[ImageInput]]):
+            Target masks to format. These may be index or RGB masks.
+            This supports:
+                - A single PIL image
+                - A tensor of a single mask:
+                    - RGB mode: shape must be (3, height, width)
+                    - Index mode: shape must be (height, width)
+                - A list of masks: Each element is a single mask (PIL image or tensor), 
+                                   following the rules above.
+                - A batched tensor of multiple masks:
+                    - RGB mode: shape must be (batch_size, 3, height, width)
+                    - Index mode: shape must be (batch_size, height, width)
+            This argument is required if `targ_mode` is provided.
+        targ_mode (optional, Literal[rgb', 'index']): 
+            The mode of the target masks.
+                - 'rgb': Target masks are expected to be RGB masks.
+                - 'index': Target masks are expected to be index masks.
+            This argument is required if `targ_masks` is provided.
+        fill_rgb (RGBTuple): 
+            RGB tuple used to fill in pixels whose index is not present in `idx_to_rgb`.
+            The RGB values should be in [0, 255]. This is only used when `mode='index'`.
+            Default is `(114, 114, 114)`.
+        visible_rgbs (optional, List[RGBTuple]): 
+            List of RGB tuples to set as visible 
+            in `pred_masks` and `targ_masks`, after they are represented in RGB.
+            The values of each RGB tuple must be in [0, 255].
+            If provided, an alpha channel is added, yielding RGBA masks before converting to ndarrays.
+            If not provided, RGB masks are directly converted to a ndarray.
+    Returns:
+        imgs (NPImageList): 
+            Images formatted to a list of ndarrays in HWC format.
+        pred_masks (NPImageList): 
+            Prediction masks formatted to a list of ndarrays in HWC format.
+            These are RGB masks (`visible_rgbs` not provided) or RGBA masks (`visible_rgbs` provided).
+        targ_masks (NPImageList): 
+            Target masks formatted to a list of ndarrays in HWC format.
+            These are RGB masks (`visible_rgbs` not provided) or RGBA masks (`visible_rgbs` provided).
     '''
+    if not all_or_none(targ_masks, targ_mode):
+        raise ValueError(
+            'targ_masks and targ_mode must either both be provided '
+            'or both be None.'
+        )
+    
     # Format images
     imgs = format_images(imgs)
     
@@ -103,22 +193,23 @@ def format_seg(
 #####################################
 def format_images(imgs: Union[ImageInput, List[ImageInput]]) -> NPImageList:
     '''
-    Formats image samples into a list of ndarrays in HWC format.
+    Formats images into a list of ndarrays in HWC format.
 
     Note: If a PIL image input converts to a 2D ndarray (height, width), 
     a channel dimension to make it 3D (height, width, 1)
 
     Args:
         imgs (Union[ImageInput, List[ImageInput]]): 
-            The image samples to format.
+            Images to format.
             This supports:
                 - A single PIL image
                 - A single 3D tensor of shape (channels, height, width)
-                - A list of images (PIL image or 3D tensor)
+                - A list of images (each element is a PIL image or 3D tensor)
                 - A batched 4D tensor of shape (batch_size, channels, height, width)
 
     Returns:
-        NPImageList: List of ndarrays converted from `imgs`, all in HWC format.
+        NPImageList: 
+            List of ndarrays converted from `imgs`, all in HWC format.
     '''
     # Single PIL image input
     if isinstance(imgs, Image.Image):
@@ -147,11 +238,13 @@ def _format_single_image(img: ImageInput) -> np.ndarray:
     a channel dimension is added to make it 3D (height, width, 1).
 
     Args:
-        img (ImageInput): A single image sample represented as a PIL image or tensor.
-                          If tensor, must be 3D (channels, height, width).
+        img (ImageInput): 
+            A single image sample represented as a PIL image or tensor.
+            If tensor, must be 3D (channels, height, width).
                       
     Returns:
-        np.ndarray: The ndarray converted from `img` in HWC format.
+        np.ndarray: 
+            The ndarray converted from `img` in HWC format.
     '''
     if isinstance(img, Image.Image):
         return to_numpy_image(img)
@@ -174,13 +267,20 @@ def format_labels(labels: Union[ImageLabel, List[ImageLabel]]) -> IntLabelList:
     '''
     Formats index labels into a list of integer indices.
 
-    labels (Union[ImageLabel, List[ImageLabel]]):
-        The labels to format.
-        This supports:
-            - A single integer
-            - A single-element tensor
-            - A list of labels (integer or single-element tensor)
-            - A batched 1D tensor of shape (batch_size,)
+    Note: Labels must be integer class indices (not one-hot).
+    
+    Args:
+        labels (Union[ImageLabel, List[ImageLabel]]):
+            The labels to format.
+            This supports:
+                - A single integer
+                - A single-element tensor
+                - A list of labels (each element is an integer or single-element tensor)
+                - A batched 1D tensor of shape (batch_size,)
+            
+    Returns:
+        IntLabelList: 
+            List of integer indices from `labels`.
     '''
     # Single integer input
     if type(labels) is int:
@@ -213,10 +313,12 @@ def _format_single_label(label: ImageLabel) -> int:
     Formats a single index label into an integer index.
 
     Args:
-        label (ImageLabel): Index label represented by an integer or single-element tensor.
+        label (ImageLabel): 
+            Index label represented by an integer or single-element tensor.
 
     Returns:
-        int: The integer index converted from `label`.
+        int: 
+            The integer index converted from `label`.
     '''
     if type(label) is int:
         return label
@@ -269,27 +371,30 @@ def format_masks(
                 - A batched tensor of multiple masks:
                     - RGB mode: shape must be (batch_size, 3, height, width)
                     - Index mode: shape must be (batch_size, height, width)
-        mode (Literal[rgb', 'index']): The mode of the input masks.
-                                       If `mode='rgb'`, masks are expected to be RGB masks.
-                                       If `mode='index'`, masks are expected to be index masks.
-        idx_to_rgb (optional, Dict[int, RGBTuple]): Dictionary mapping integer indices to RGB tuples.
-                                                    This mapping should be one-to-one (injective)
-                                                    and the RGB values should be in [0, 255].
-                                                    This argument is required if `mode='index'`.
-        fill_rgb (RGBTuple): RGB tuple used to fill in pixels whose index is not present in `idx_to_rgb`.
-                             The RGB values should be in [0, 255]. This is only used when `mode='index'`.
-                             Default is (114, 114, 114).
-        visible_rgbs (optional, List[RGBTuple]): List of RGB tuples to set as visible in `mask`, 
-                                                 after they are represented in RGB.
-                                                 The values of each RGB tuple must be in [0, 255].
-                                                 If provided, an alpha channel is added, 
-                                                 yielding RGBA masks before converting to ndarrays.
-                                                 If not provided, the RGB masks are directly converted to a ndarray.
+        mode (Literal[rgb', 'index']): 
+            The mode of the input masks.
+                - 'rgb': Masks are expected to be RGB masks.
+                - 'index': Masks are expected to be index masks.
+        idx_to_rgb (optional, Dict[int, RGBTuple]): 
+            Dictionary mapping integer indices to RGB tuples.
+            This mapping should be one-to-one (injective) and the RGB values should be in [0, 255].
+            This argument is required if `mode='index'`.
+        fill_rgb (RGBTuple): 
+            RGB tuple used to fill in pixels whose index is not present in `idx_to_rgb`.
+            The RGB values should be in [0, 255]. 
+            This is only used when `mode='index'`.
+            Default is (114, 114, 114).
+        visible_rgbs (optional, List[RGBTuple]): 
+            List of RGB tuples to set as visible in `mask`, after they are represented in RGB.
+            The values of each RGB tuple must be in [0, 255].
+            If provided, an alpha channel is added, yielding RGBA masks before converting to ndarrays.
+            If not provided, the RGB masks are directly converted to a ndarray.
     Returns:
-        NPImageList: List of ndarrays, converted from `masks`.
-                     Each ndarray has shape (height, width, channels).
-                     If `visible_rgbs` is not provided, channels is 3 (RGB).
-                     If `visible_rgbs` is provided, channels is 4 (RGBA).
+        NPImageList: 
+            List of ndarrays, converted from `masks`.
+            Each ndarray has shape (height, width, channels).
+            If `visible_rgbs` is not provided, channels is 3 (RGB).
+            If `visible_rgbs` is provided, channels is 4 (RGBA).
     '''
     if mode == 'rgb':
         return format_rgb_masks(masks, visible_rgbs)
@@ -324,18 +429,18 @@ def format_rgb_masks(
                 - A list of masks: Each element is a single mask (PIL image or tensor), 
                                    following the rules above.
                 - A 4D batched tensor of shape (batch_size, 3, height, width)
-        visible_rgbs (optional, List[RGBTuple]): List of RGB tuples to set as visible in `masks`.
-                                                 The values of each RGB tuple must be in [0, 255].
-                                                 If provided, an alpha channel is added, 
-                                                 yielding RGBA masks before converting to ndarrays.
-                                                 If not provided, `masks` are kept as RGB 
-                                                 and are directly converted to ndarrays.
+        visible_rgbs (optional, List[RGBTuple]): 
+            List of RGB tuples to set as visible in `masks`.
+            The values of each RGB tuple must be in [0, 255].
+            If provided, an alpha channel is added, yielding RGBA masks before converting to ndarrays.
+            If not provided, `masks` are kept as RGB and are directly converted to ndarrays.
 
     Returns:
-        NPImageList: List of ndarrays, converted from `masks`.
-                     Each ndarray has shape (height, width, channels).
-                     If `visible_rgbs` is not provided, channels is 3 (RGB).
-                     If `visible_rgbs` is provided, channels is 4 (RGBA).
+        NPImageList: 
+            List of ndarrays, converted from `masks`.
+            Each ndarray has shape (height, width, channels).
+            If `visible_rgbs` is not provided, channels is 3 (RGB).
+            If `visible_rgbs` is provided, channels is 4 (RGBA).
     '''
     # PIL image input
     if isinstance(masks, Image.Image):
@@ -379,20 +484,20 @@ def _format_single_rgb_mask(
           Regardless of the original mode, they will always be forced to RGB.
                              
     Args:
-        mask (ImageInput): The RGB mask to format, 
-                           represented by a PIL image or 3D tensor (3, height, width).
-        visible_rgbs (optional, List[RGBTuple]): List of RGB tuples to set as visible in `mask`.
-                                                 The values of each RGB tuple must be in [0, 255].
-                                                 If provided, an alpha channel is added, 
-                                                 yielding a RGBA mask before converting to a ndarray.
-                                                 If not provided, `mask` is kept as RGB 
-                                                 and is directly converted to a ndarray.
+        mask (ImageInput): 
+            The RGB mask to format, represented by a PIL image or 3D tensor (3, height, width).
+        visible_rgbs (optional, List[RGBTuple]): 
+            List of RGB tuples to set as visible in `mask`.
+            The values of each RGB tuple must be in [0, 255].
+            If provided, an alpha channel is added, yielding a RGBA mask before converting to a ndarray.
+            If not provided, `mask` is kept as RGB and is directly converted to a ndarray.
 
     Returns:
-        np.ndarray: The ndarray converted from `masks`. 
-                    Shape is (height, width, channels).
-                    If `visible_rgbs` is not provided, channels is 3 (RGB).
-                    If `visible_rgbs` is provided, channels is 4 (RGBA).
+        np.ndarray: 
+            The ndarray converted from `masks`. 
+            Shape is (height, width, channels).
+            If `visible_rgbs` is not provided, channels is 3 (RGB).
+            If `visible_rgbs` is provided, channels is 4 (RGBA).
     '''
     # PIL image input
     if isinstance(mask, Image.Image):
@@ -444,24 +549,26 @@ def format_idx_masks(
                 - A list of masks: Each element is a single mask (PIL image or tensor), 
                                    following the rules above.
                 - A 3D batched tensor of shape (batch_size, height, width)
-        idx_to_rgb (optional, Dict[int, RGBTuple]): Dictionary mapping integer indices to RGB tuples.
-                                                    This mapping should be one-to-one (injective)
-                                                    and the RGB values should be in [0, 255].
-        fill_rgb (RGBTuple): RGB tuple used to fill in pixels whose index is not present in `idx_to_rgb`.
-                             The RGB values should be in [0, 255].
-                             Default is (114, 114, 114).
-        visible_rgbs (optional, List[RGBTuple]): List of RGB tuples to set as visible 
-                                                 after converting `masks` to RGB masks.
-                                                 The values of each RGB tuple must be in [0, 255].
-                                                 If provided, an alpha channel is added, 
-                                                 yielding RGBA masks before converting to ndarrays.
-                                                 If not provided, the RGB masks are directly converted to ndarrays.
+        idx_to_rgb (optional, Dict[int, RGBTuple]): 
+            Dictionary mapping integer indices to RGB tuples.
+            This mapping should be one-to-one (injective) 
+            and the RGB values should be in [0, 255].
+        fill_rgb (RGBTuple): 
+            RGB tuple used to fill in pixels whose index is not present in `idx_to_rgb`.
+            The RGB values should be in [0, 255].
+            Default is (114, 114, 114).
+        visible_rgbs (optional, List[RGBTuple]): 
+            List of RGB tuples to set as visible after converting `masks` to RGB masks.
+            The values of each RGB tuple must be in [0, 255].
+            If provided, an alpha channel is added, yielding RGBA masks before converting to ndarrays.
+            If not provided, the RGB masks are directly converted to ndarrays.
                       
     Returns:
-        NPImageList: List of ndarrays, converted from `masks`.
-                     Each ndarray has shape (height, width, channels).
-                     If `visible_rgbs` is not provided, channels is 3 (RGB).
-                     If `visible_rgbs` is provided, channels is 4 (RGBA).
+        NPImageList: 
+            List of ndarrays, converted from `masks`.
+            Each ndarray has shape (height, width, channels).
+            If `visible_rgbs` is not provided, channels is 3 (RGB).
+            If `visible_rgbs` is provided, channels is 4 (RGBA).
     '''
     # PIL image input: Convert to RGB
     if isinstance(masks, Image.Image):
@@ -505,26 +612,28 @@ def _format_single_idx_mask(
           using the provided index-to-color mapping.
     
     Args:
-        mask (ImageInput): The index mask to format,
-                           represented by a PIL image or 2D tensor (height, width).
-        idx_to_rgb (optional, Dict[int, RGBTuple]): Dictionary mapping integer indices to RGB tuples.
-                                                    This mapping should be one-to-one (injective)
-                                                    and the RGB values should be in [0, 255].
-        fill_rgb (RGBTuple): RGB tuple used to fill in pixels whose index is not present in `idx_to_rgb`.
-                             The RGB values should be in [0, 255].
-                             Default is (114, 114, 114).
-        visible_rgbs (optional, List[RGBTuple]): List of RGB tuples to set as visible,
-                                                 after converting `mask` to a RGB mask.
-                                                 The values of each RGB tuple must be in [0, 255].
-                                                 If provided, an alpha channel is added, 
-                                                 yielding a RGBA mask before converting to a ndarray.
-                                                 If not provided, the RGB mask is directly converted to a ndarray.
+        mask (ImageInput): 
+            The index mask to format, represented by a PIL image or 2D tensor (height, width).
+        idx_to_rgb (optional, Dict[int, RGBTuple]): 
+            Dictionary mapping integer indices to RGB tuples.
+            This mapping should be one-to-one (injective)
+            and the RGB values should be in [0, 255].
+        fill_rgb (RGBTuple): 
+            RGB tuple used to fill in pixels whose index is not present in `idx_to_rgb`.
+            The RGB values should be in [0, 255].
+            Default is (114, 114, 114).
+        visible_rgbs (optional, List[RGBTuple]): 
+            List of RGB tuples to set as visible, after converting `mask` to a RGB mask.
+            The values of each RGB tuple must be in [0, 255].
+            If provided, an alpha channel is added, yielding a RGBA mask before converting to a ndarray.
+            If not provided, the RGB mask is directly converted to a ndarray.
                       
     Returns:
-        np.ndarray: The ndarray converted from `masks`. 
-                    Shape is (height, width, channels).
-                    If `visible_rgbs` is not provided, channels is 3 (RGB).
-                    If `visible_rgbs` is provided, channels is 4 (RGBA).
+        np.ndarray: 
+            The ndarray converted from `masks`. 
+            Shape is (height, width, channels).
+            If `visible_rgbs` is not provided, channels is 3 (RGB).
+            If `visible_rgbs` is provided, channels is 4 (RGBA).
     '''
     # PIL image input
     if isinstance(mask, Image.Image):
@@ -558,18 +667,21 @@ def to_numpy_image(img: ImageInput) -> np.ndarray:
     Converts a PIL image or tensor into a ndarray in HWC format.
 
     Args:
-        img (ImageInput): The image to convert, represented as a PIL image or tensor.
-            - PIL image: Input is directly converted to a ndarray.
-                         If the ndarray is 2D (height, width), a channel dimension to make it 3D (height, width, 1).
+        img (ImageInput): 
+            The image to convert, represented as a PIL image or tensor.
+                - PIL image: Input is directly converted to a ndarray.
+                             If the ndarray is 2D (height, width), 
+                             a channel dimension to make it 3D (height, width, 1).
 
-            - Tensor input: If 3D (channels, height, width), it is converted to a 3D ndarray (height, width, channels).
-                            If 2D (height, width), it is converted to a 3D ndarray (height, width, 1).
-                            If dtype is a sub-dtype of integer, it is converted to `np.uint8`.
-                            If dtype is a sub-dtype of float, it is assumed to have values in [0, 1]
-                            and is scaled to [0, 255] before converting to `np.uint8`.
+                - Tensor input: If 3D (channels, height, width), it is converted to a 3D ndarray (height, width, channels).
+                                If 2D (height, width), it is converted to a 3D ndarray (height, width, 1).
+                                If dtype is a sub-dtype of integer, it is converted to `np.uint8`.
+                                If dtype is a sub-dtype of float, it is assumed to have values in [0, 1]
+                                and is scaled to [0, 255] before converting to `np.uint8`.
     
     Returns:
-        np.ndarray: The converted ndarray with shape (height, width, channels).
+        np.ndarray: 
+            The converted ndarray with shape (height, width, channels).
     '''
     # PIL image input
     if isinstance(img, Image.Image):

@@ -30,11 +30,15 @@ class MetricSpec():
     Note: See `src.metrics.types` for example structures of results dictionaries.
 
     Attributes:
-        key_path (str): Dot-separated key path to extract a metric from a results dictionary.
-        class_idxs (optional, IndexLike): Optional class indices used to subset tensors in the extracted metric.
-        agg (optional, Aggregation): Optional aggregation method applied to tensors after extracting and subsetting.
-                                     If provided, must be one of: 'mean', 'median', 'min', 'max'.
-        unit (optional, str): Unit associated with the metric. If not provided, it is assumed to be unitless.
+        key_path (str): 
+            Dot-separated key path to extract a metric from a results dictionary.
+        class_idxs (optional, IndexLike): 
+            Class indices used to subset tensors in the extracted metric.
+        agg (optional, Aggregation): 
+            Aggregation method applied to tensors after extracting and subsetting.
+            If provided, must be one of: 'mean', 'median', 'min', 'max'.
+        unit (optional, str): 
+            Unit associated with the metric. If not provided, it is assumed to be unitless.
     '''
     key_path: str
     class_idxs: Optional[IndexLike] = None
@@ -75,10 +79,12 @@ def format_measure(value: MeasureValue) -> MeasureValue:
         - Converts single-element tensors to Python floats.
 
     Args:
-        value (MeasureValue): Computed measure value (a float or tensor).
+        value (MeasureValue): 
+            Computed measure value (a float or tensor).
 
     Returns:
-        MeasureValue: Formatted measure value (a float or tensor).
+        MeasureValue: 
+            Formatted measure value (a float or tensor).
     '''
     if isinstance(value, torch.Tensor):
         value = value.detach()
@@ -97,11 +103,12 @@ def format_metric_spec(spec: MetricSpecLike) -> MetricSpec:
     If input is already a `MetricSpec` instance, it is returned unchanged.
 
     Args:
-        spec (List[MetricSpecLike]): A metric specification. 
-                                     This is either a `MetricSpec` instance
-                                     or a `MetricSpecDict` dictionary.
+        spec (List[MetricSpecLike]): 
+            A metric specification. 
+            This is either a `MetricSpec` instance or a `MetricSpecDict` dictionary.
     Returns:
-        MetricSpec: `MetricSpec` instance constructed from `spec`.
+        MetricSpec: 
+            `MetricSpec` instance constructed from `spec`.
     '''
     if isinstance(spec, dict):
         return MetricSpec(**spec)
@@ -131,14 +138,18 @@ def select_and_agg_metric(
     Note: See `src.metrics.types` for example structures of results dictionaries.
 
     Args:
-        metric_data (Union[MetricResults, MetricSeriesResults]): Result dictionary to extract from.
-        key_path (str): Dot-separated key path consisting of only keys from `metric_data`.
-        class_idxs (optional, IndexLike): Class indices used to subset tensors in the extracted metric.
-                                          If not provided, no subsetting is applied.
-        agg (optional, Aggregation): Aggregation method applied to tensors in the 
-                                     extracted metric after optional class subsetting.
-                                     If provided, must be one of: 'mean', 'median', 'min', 'max'.
-                                     If not provided, no aggregation is applied.
+        metric_data (Union[MetricResults, MetricSeriesResults]): 
+            Result dictionary to extract from.
+        key_path (str): 
+            Dot-separated key path consisting of only keys from `metric_data`.
+        class_idxs (optional, IndexLike): 
+            Class indices used to subset tensors in the extracted metric.
+            If not provided, no subsetting is applied.
+        agg (optional, Aggregation): 
+            Aggregation method applied to tensors in the 
+            extracted metric after optional class subsetting.
+            If provided, must be one of: 'mean', 'median', 'min', 'max'.
+            If not provided, no aggregation is applied.
 
     Returns:
         Union[MeasureValue, MeasureSeries]: 
@@ -195,14 +206,18 @@ def select_and_agg_scalar_metric(
     Note: See `src.metrics.types` for example structures of results dictionaries.
 
     Args:
-        metric_data (Union[MetricResults, MetricSeriesResults]): Result dictionary to extract from.
-        key_path (str): Dot-separated key path consisting of only keys from `metric_data`.
-        class_idxs (optional, IndexLike): Class indices used to subset tensors in the extracted metric.
-                                          If not provided, no subsetting is applied.
-        agg (optional, Aggregation): Aggregation method applied to tensors in the 
-                                     extracted metric after optional class subsetting.
-                                     If provided, must be one of: 'mean', 'median', 'min', 'max'.
-                                     If not provided, no aggregation is applied.
+        metric_data (Union[MetricResults, MetricSeriesResults]): 
+            Result dictionary to extract from.
+        key_path (str): 
+            Dot-separated key path consisting of only keys from `metric_data`.
+        class_idxs (optional, IndexLike): 
+            Class indices used to subset tensors in the extracted metric.
+            If not provided, no subsetting is applied.
+        agg (optional, Aggregation): 
+            Aggregation method applied to tensors in the 
+            extracted metric after optional class subsetting.
+            If provided, must be one of: 'mean', 'median', 'min', 'max'.
+            If not provided, no aggregation is applied.
 
     Returns:
         Union[float, List[float]]:

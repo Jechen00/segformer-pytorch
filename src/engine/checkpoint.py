@@ -45,19 +45,28 @@ def save_checkpoint(
     Additionally saves the epoch index of the checkpoint.
 
     Args:
-        model (nn.Module): Model to save.
-        optimizer (Optimizer): Optimizer for the `model`.
-        scaler (GradScaler): Gradient scaler for automatic mixed precision (AMP).
-                             Required because the training system always has a scaler instance,
-                             even if AMP is disabled (e.g. CPU/MPS).
-        train_history (TrainHistory): Training dataset history containing loss avevalues across epochs.
-        val_histories (ValHistory): Validation dataset history containing loss and metric values across epochs.
-        checkpoint_epoch (int): Index of the completed epoch this checkpoint refers to.
-                                Note that this may differ from the scheduler's internal step counter called `last_epoch`.
-        save_path (Union[str, Path]): Full path to save the checkpoint to. 
-                                      This should end with a file extension (e.g. '.pt' or '.pth').
-        scheduler (optional, lr_scheduler._LRScheduler): Learning rate scheduler for the `optimizer`.
-        measure_policy (optional, MeasurePolicy): Measure policy for early stopping and best score tracking.
+        model (nn.Module): 
+            Model to save.
+        optimizer (Optimizer): 
+            Optimizer for the `model`.
+        scaler (GradScaler): 
+            Gradient scaler for automatic mixed precision (AMP).
+            Required because the training system always has a scaler instance,
+            even if AMP is disabled (e.g. CPU/MPS).
+        train_history (TrainHistory): 
+            Training dataset history containing loss avevalues across epochs.
+        val_histories (ValHistory): 
+            Validation dataset history containing loss and metric values across epochs.
+        checkpoint_epoch (int): 
+            Index of the completed epoch this checkpoint refers to.
+            Note that this may differ from the scheduler's internal step counter called `last_epoch`.
+        save_path (Union[str, Path]): 
+            Full path to save the checkpoint to. 
+            This should end with a file extension (e.g. '.pt' or '.pth').
+        scheduler (optional, lr_scheduler._LRScheduler): 
+            Learning rate scheduler for the `optimizer`.
+        measure_policy (optional, MeasurePolicy): 
+            Measure policy for early stopping and best score tracking.
     '''
 
     # Validate save_path and create directory if it doesn't exist
@@ -98,22 +107,32 @@ def load_checkpoint(
           under a key of the same name (e.g. `optimizer` state dict must be stored under the `optimizer` key).
 
     Args:
-        checkpoint_path (Union[str, Path]): Full path to a checkpoint file to load a checkpoint.
-        model (nn.Module): Model to load the state_dict from `checkpoint['model']`.
-                           This should already be on `device`.
-        optimizer (optional, Optimizer): Optimizer for `model`.
-        scaler (optional, GradScaler): Gradient scaler for automatic mixed precision (AMP).
-        train_history (optional, TrainHistory): Training dataset history containing loss values across epochs.
-                                                If provided, the checkpoint state_dict is always moved to CPU before loading.
-        val_history (optional, ValHistory): Validation dataset history containing loss and metric values across epochs.
-                                            If provided, the checkpoint state_dict is always moved to CPU before loading.
-        scheduler (optional, lr_scheduler._LRScheduler): Learning rate scheduler for `optimizer`.
-        measure_policy (optional, MeasurePolicy): Measure policy for early stopping and best score tracking.
-        device (Union[str, torch.device]): The device to load the checkpoint tensors on to. Default is 'cpu'.
+        checkpoint_path (Union[str, Path]): 
+            Full path to a checkpoint file to load a checkpoint.
+        model (nn.Module): 
+            Model to load the state_dict from `checkpoint['model']`.
+            This should already be on `device`.
+        optimizer (optional, Optimizer): 
+            Optimizer for `model`.
+        scaler (optional, GradScaler): 
+            Gradient scaler for automatic mixed precision (AMP).
+        train_history (optional, TrainHistory): 
+            Training dataset history containing loss values across epochs.
+            If provided, the checkpoint state_dict is always moved to CPU before loading.
+        val_history (optional, ValHistory): 
+            Validation dataset history containing loss and metric values across epochs.
+            If provided, the checkpoint state_dict is always moved to CPU before loading.
+        scheduler (optional, lr_scheduler._LRScheduler): 
+            Learning rate scheduler for `optimizer`.
+        measure_policy (optional, MeasurePolicy): 
+            Measure policy for early stopping and best score tracking.
+        device (Union[str, torch.device]): 
+            The device to load the checkpoint tensors on to. Default is 'cpu'.
 
     Returns:
-        int:  Index of the completed epoch the checkpoint was saved at.
-              This may differ from the internal step counter in `scheduler`, called `last_epoch`.
+        int:  
+            Index of the completed epoch the checkpoint was saved at.
+            This may differ from the internal step counter in `scheduler`, called `last_epoch`.
     '''
     checkpoint = torch.load(checkpoint_path, map_location = device)
 
@@ -167,16 +186,20 @@ def separate_checkpoint(
         - The checkpoint must always have the key `checkpoint_epoch`.
 
     Args:
-        checkpoint (optional, Dict[str, Any]): Checkpoint dictionary to separate.
-        checkpoint_path (optional, Union[str, Path]): Path to a checkpoint file to load and then separate.              
-        components (optional, ComponentInput): The component(s) to extract and save from the checkpoint.  
-                                               This can be a single string or an iterable of strings.
-                                               If not provided, defaults to all valid components:
-                                                    {'model', 'optimizer', 'scaler', 
-                                                     'scheduler', 'measure_policy', 'histories'}
-        base_dir (optional, Union[str, Path]): The base directory where the save directory will be created.
-                                               The save directory is `base_dir/checkpoint_epoch_{num}`,
-                                               where `num = checkpoint['checkpoint_epoch']`.
+        checkpoint (optional, Dict[str, Any]): 
+            Checkpoint dictionary to separate.
+        checkpoint_path (optional, Union[str, Path]): 
+            Path to a checkpoint file to load and then separate.              
+        components (optional, ComponentInput): 
+            The component(s) to extract and save from the checkpoint.  
+            This can be a single string or an iterable of strings.
+            If not provided, defaults to all valid components:
+                {'model', 'optimizer', 'scaler', 
+                    'scheduler', 'measure_policy', 'histories'}
+        base_dir (optional, Union[str, Path]): 
+            The base directory where the save directory will be created.
+            The save directory is `base_dir/checkpoint_epoch_{num}`,
+            where `num = checkpoint['checkpoint_epoch']`.
     '''
     # Check provided checkpoint and load it in if needed
     if all_or_none(checkpoint, checkpoint_path):

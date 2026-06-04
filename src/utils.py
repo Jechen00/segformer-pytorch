@@ -7,12 +7,11 @@ import os
 from pathlib import Path
 import random
 import numpy as np 
-from numbers import Real
 from PIL import Image
 
 from typing import Union, Any, Literal, Optional, List, Dict, Tuple
 
-from src.ml_types import ImageInput, Aggregation, IndexLike
+from src.ml_types import PythonNum, ImageInput, Aggregation, IndexLike
 
 
 #####################################
@@ -28,7 +27,8 @@ def set_seed(seed: int = 0) -> None:
         - CUDA
     
     Args:
-        seed (int): The seed value to set.
+        seed (int): 
+            The seed value to set.
     '''
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -58,13 +58,15 @@ def recursive_to_cpu(x: Any) -> Any:
     Other objects (e.g. floats, ints, ndarrays) remain unchanged.
     
     Args:
-        x (Any): Any Python object. Tensors are moved to CPU.
-                 Dictionaries and lists are traversed recursively.
+        x (Any): 
+            Any Python object. Tensors are moved to CPU.
+            Dictionaries and lists are traversed recursively.
         
     Returns:
-        Any: A version of `x`, but with tensors
-             and tensors contained in nested dictionaries/lists 
-             recursively moved to CPU.
+        Any: 
+            A version of `x`, but with tensors
+            and tensors contained in nested dictionaries/lists 
+            recursively moved to CPU.
     '''
     if isinstance(x, torch.Tensor):
         return x.cpu()
@@ -82,13 +84,15 @@ def make_tuple(x: Union[Any, tuple], num_rep: int = 2) -> tuple:
     If input is a tuple, it is unchanged.
 
     Args:
-        x (Union[Any, tuple]): Input value. If not a tuple, it will be repeated.
-        num_rep (int): Number of repetitions for the output tuple,
-                       when `x` is a not a tuple.
+        x (Union[Any, tuple]): 
+            Input value. If not a tuple, it will be repeated.
+        num_rep (int): 
+            Number of repetitions for the output tuple, when `x` is a not a tuple.
 
     Returns:
-        tuple: If `x` is not a tuple, returns `(x, x, ..., x)` of length `num_rep`
-               If `x` is a tuple, returns `x` unchanged.
+        tuple: 
+            If `x` is not a tuple, returns `(x, x, ..., x)` of length `num_rep`
+            If `x` is a tuple, returns `x` unchanged.
     '''
     if not isinstance(x, tuple):
         return (x,) * num_rep
@@ -96,12 +100,12 @@ def make_tuple(x: Union[Any, tuple], num_rep: int = 2) -> tuple:
         return x
 
 
-def make_range(x: Any) -> Union[Tuple[Real, Real], Any]:
+def make_range(x: Any) -> Union[Tuple[PythonNum, PythonNum], Any]:
     '''
     Converts a numeric value `x` into `(-x, x)`, representing a range of values.
     If the input is not an integer or float, then the input is returned unchanged.
     '''
-    if isinstance(x, Real):
+    if isinstance(x, PythonNum):
         return (-x, x)
     else:
         return x
@@ -119,11 +123,13 @@ def get_img_size(img: ImageInput) -> Tuple[int, int]:
     Gets the spatial size `(height, width)` of and image.
 
     Args:
-        img (ImageInput): A PIL image or tensor.
-                          If tensor, shape should be `(..., height, width)`.
+        img (ImageInput): 
+            A PIL image or tensor.
+            If tensor, shape should be `(..., height, width)`.
 
     Returns:
-        Tuple[int, int]: Tuple representing `(height, width)` of `img`.
+        Tuple[int, int]: 
+            Tuple representing `(height, width)` of `img`.
     '''
     if isinstance(img, torch.Tensor):
         h, w = img.shape[-2:] # height, width
@@ -143,11 +149,14 @@ def format_file_path(file_path: Union[str, Path], path_name: Optional[str] = Non
     and does not end with a path separator ('/' or '\\').
 
     Args:
-        file_path (Union[str, Path]): The path to format and validate.
-        path_name (optional, str): Name of `file_path` to use for error messages.
+        file_path (Union[str, Path]): 
+            The path to format and validate.
+        path_name (optional, str): 
+            Name of `file_path` to use for error messages.
 
     Returns:
-        Path: The validated `pathlib.Path` object.
+        Path: 
+            The validated `pathlib.Path` object.
     '''
     path_name = 'path' if path_name is None else path_name
 
@@ -171,18 +180,19 @@ def format_idxs(idxs: IndexLike) -> Union[int, List[int]]:
     Specifically, it converts to a single integer or a list of integers.
     
     Args:
-        idxs (IndexLike): idxs to format.
-                          This must be one of:
-                            - A single integer
-                            - A list of integers
-                            - A ndarray of integers (single-element or 1D)
-                            - A tensor of integers (single-element or 1D)
+        idxs (IndexLike): 
+            Indices to format.
+            This must be one of:
+                - A single integer
+                - A list of integers
+                - A ndarray of integers (single-element or 1D)
+                - A tensor of integers (single-element or 1D)
 
     Returns:
-        Union[int, List[int]]: Formatted idxs.
-                               This is an integer if `idxs` was an integer
-                               or a single-element ndarray/tensor.
-                               Otherwise, this is a list of integers.
+        Union[int, List[int]]: 
+            Formatted indices.
+            This is an integer if `idxs` was an integer or a single-element ndarray/tensor.
+            Otherwise, this is a list of integers.
     '''
     # Integer input
     if type(idxs) is int:
@@ -236,9 +246,10 @@ def transpose_list_dict(
                 - `mode='to_rows'`: Dictionary of lists.
                                     All lists are expected to have the same length.
 
-        mode (Literal['to_cols', 'to_rows']): The mode of transpose.
-            - `to_cols`: Transposes a list of dictionaries into a dictionary of lists.
-            - `to_rows`: Transposes a dictionary of lists into a list of dictionaries.
+        mode (Literal['to_cols', 'to_rows']): 
+            The mode of transpose.
+                - `to_cols`: Transposes a list of dictionaries into a dictionary of lists.
+                - `to_rows`: Transposes a dictionary of lists into a list of dictionaries.
         
     Returns:
         Union[List[Dict[str, Any]], Dict[str, List[Any]]]:
@@ -300,14 +311,19 @@ def nested_extract(nested_dict: dict, key_path: str, strict: bool = True, defaul
         The key path `key1.key2.key3` returns `nested_dict['key1']['key2']['key3']`.
 
     Args:
-        nested_dict (dict): Nested dictionary to extract from.
-        key_path (str): Dot-separated key path consisting of only keys in `nested_dict`.
-        strict (bool): If `True`, raises a `KeyError` on missing keys or when an intermediate value is not a dictionary.
-                       If `False`, does not raise any errors and instead returns a `default` value.
-        default (Any): A default value to return when encountering missing keys and `strict=False`.
-                       Default is `None`.
+        nested_dict (dict): 
+            Nested dictionary to extract from.
+        key_path (str): 
+            Dot-separated key path consisting of only keys in `nested_dict`.
+        strict (bool): 
+            If `True`, raises a `KeyError` on missing keys or when an intermediate value is not a dictionary.
+            If `False`, does not raise any errors and instead returns a `default` value.
+        default (Any): 
+            A default value to return when encountering missing keys and `strict=False`.
+            Default is `None`.
     Returns:
-        Any: The extracted value from `nested_dict` after traversing through `key_path`.
+        Any: 
+            The extracted value from `nested_dict` after traversing through `key_path`.
     '''
     value = nested_dict
     for key in key_path.split('.'):
@@ -331,12 +347,15 @@ def apply_agg(x: torch.Tensor, agg: Aggregation) -> torch.Tensor:
     Applies an aggregation function `(mean, median, min, max)` to a tensor.
 
     Args:
-        x (torch.Tensor): The tensor to aggregate.
-        agg (Aggregation): The aggregation function to apply.
-                           Supports: `mean`, `median`, `min`, `max`.
+        x (torch.Tensor): 
+            The tensor to aggregate.
+        agg (Aggregation): 
+            The aggregation function to apply.
+            Supports: `mean`, `median`, `min`, `max`.
 
     Returns:
-        torch.Tensor: The aggregated value from applying `agg` to `x`.
+        torch.Tensor: 
+            The aggregated value from applying `agg` to `x`.
     '''
     x = x.float() # Ensure float
 

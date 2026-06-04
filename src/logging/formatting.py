@@ -28,14 +28,18 @@ def make_epoch_header(epoch: int, logbox_len: int = 100, epoch_width: int = 3) -
     Creates a formatted epoch header to indicate the epoch index during logging.
 
     Args:
-        epoch (int): Epoch index in the header.
-        logbox_len (int): Total character width of the epoch header.
-                          Default is `100`.
-        epoch_width (int): Minimum character width occupied by the epoch index in the header.
-                           Default is `3`.
+        epoch (int): 
+            Epoch index in the header.
+        logbox_len (int): 
+            Total character width of the epoch header.
+            Default is `100`.
+        epoch_width (int): 
+            Minimum character width occupied by the epoch index in the header.
+            Default is `3`.
 
     Returns:
-        str: The formatted epoch header.
+        str: 
+            The formatted epoch header.
 
     Example:
         ```
@@ -57,12 +61,15 @@ def make_sec_header(sec_name: str, logbox_len: int = 100) -> str:
     (e.g. LOSS, EVAL, TIME) during logging.
 
     Args:
-        sec_name (str): The section name. This is displayed in all uppercases.
-        logbox_len (int): Total character width of the section header.
-                          Default is `100`.
+        sec_name (str): 
+            The section name. This is displayed in all uppercases.
+        logbox_len (int): 
+            Total character width of the section header.
+            Default is `100`.
 
     Returns:
-        str: The formatted section header.
+        str: 
+            The formatted section header.
 
     Example:
         ```
@@ -88,17 +95,23 @@ def make_log_entry(
     (e.g. loss, metric, or time values).
 
     Args:
-        name (str): Name of the value being logged.
-        value (float): Value associated with `name`.
-        unit (optional, str): Unit assocated with `value`.
-                              If `None`, the value is assumed to be unitless.
-        num_decimals (int): Maximum number of decimals to display for `value`.
-                            Default is `4`.
-        entry_len (int): Minimum character length of the log entry.
-                         Default is `20`.
+        name (str): 
+            Name of the value being logged.
+        value (float): 
+            Value associated with `name`.
+        unit (optional, str): 
+            Unit assocated with `value`.
+            If `None`, the value is assumed to be unitless.
+        num_decimals (int): 
+            Maximum number of decimals to display for `value`.
+            Default is `4`.
+        entry_len (int):
+            Minimum character length of the log entry.
+            Default is `20`.
 
     Returns:
-        str: The formatted log entry.
+        str: 
+            The formatted log entry.
 
     Example:
         ```
@@ -130,23 +143,30 @@ def make_log_sec(
     Note: All sequence inputs must be the same length.
 
     Args:
-        sec_name (str): The section name. This is displayed in all uppercases.
-        entry_names (Sequence[str]): Sequence of names for values being displayed in the logging section.
-        entry_values (Sequence[str]): Sequence of values associated with `entry_names`.
-        entry_units (optional, EntryLogUnits): Sequence of units associated with `entry_values`.
-                                               If an element is `None`, the associated value is assumed to be unitless.
-                                               If `None`, all values are assumed to be unitless.
-        logbox_len (int): Total character width of the section.
-                          Default is `100`.
-        max_row_entries (int): Maximum number of entries in a row of the section.
-                               The length of each section entry will be roughly 
-                               `logbox_len//max_row_entries`.
-                               Default is `3`.
-        num_decimals (int): Maximum number of decimals to display for each entry value.
-                            Default is `4`.
+        sec_name (str): 
+            The section name. This is displayed in all uppercases.
+        entry_names (Sequence[str]): 
+            Sequence of names for values being displayed in the logging section.
+        entry_values (Sequence[str]): 
+            Sequence of values associated with `entry_names`.
+        entry_units (optional, EntryLogUnits): 
+            Sequence of units associated with `entry_values`.
+            If an element is `None`, the associated value is assumed to be unitless.
+            If `None`, all values are assumed to be unitless.
+        logbox_len (int): 
+            Total character width of the section.
+            Default is `100`.
+        max_row_entries (int): 
+            Maximum number of entries in a row of the section.
+            The length of each section entry will be roughly `logbox_len//max_row_entries`.
+            Default is `3`.
+        num_decimals (int): 
+            Maximum number of decimals to display for each entry value.
+            Default is `4`.
     
     Returns:
-        str: The formatted log section.
+        str: 
+            The formatted log section.
 
     Example:
         ```
@@ -224,21 +244,25 @@ def make_metric_log_sec(
           the metric from the provided `MetricResults`.
 
     Args:
-        metric_results (MetricResults): Metric result dictionary containing the metrics to display.
+        metric_results (MetricResults): 
+            Metric result dictionary containing the metrics to display.
         metric_specs (Dict[str, MetricSpec]): 
-                Dictionary mapping display names to metric specifications (`MetricSpec`)
-                indicating what metrics to display.
-        logbox_len (int): Total character width of the section.
-                          Default is `100`.
-        max_row_entries (int): Maximum number of entries in a row of the section.
-                               The length of each section entry will be roughly 
-                               `logbox_len//max_row_entries`.
-                               Default is `3`.
-        num_decimals (int): Maximum number of decimals to display for each metric value.
-                            Default is `4`.
+            Dictionary mapping display names to metric specifications (`MetricSpec`)
+            indicating what metrics to display.
+        logbox_len (int):
+            Total character width of the section.
+            Default is `100`.
+        max_row_entries (int): 
+            Maximum number of entries in a row of the section.
+            The length of each section entry will be roughly `logbox_len//max_row_entries`.
+            Default is `3`.
+        num_decimals (int): 
+            Maximum number of decimals to display for each metric value.
+            Default is `4`.
     
     Returns:
-        str: The formatted log section for metric information.
+        str: 
+            The formatted log section for metric information.
 
     Example:
         ```

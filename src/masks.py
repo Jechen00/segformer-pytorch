@@ -55,20 +55,23 @@ def rgb_to_idx_mask(
     Note: The values of all RGB tuples should be in [0, 255].
 
     Args:
-        rgb_masks (torch.Tensor): RGB segmentation masks.
-                                  This is either a 3D tensor `(3, height, width)`,
-                                  or a 4D tensor `(batch_size, 3, height, width)`.
-                                  Each pixel is a RGB tuple with values in [0, 255].
-        rgb_to_idx (Dict[RGBTuple, int]): Dictionary mapping RGB tuples to integer indices.
-                                          This mapping should be one-to-one (injective).
-        fill_idx (int): Integer index used to fill in pixels whose RGB tuple 
-                        is not present in `rgb_to_idx`.
-                        Default is `-100`.
+        rgb_masks (torch.Tensor): 
+            RGB segmentation masks.
+            This is either a 3D tensor `(3, height, width)` 
+            or a 4D tensor `(batch_size, 3, height, width)`.
+            Each pixel is a RGB tuple with values in [0, 255].
+        rgb_to_idx (Dict[RGBTuple, int]): 
+            Dictionary mapping RGB tuples to integer indices.
+            This mapping should be one-to-one (injective).
+        fill_idx (int): 
+            Integer index used to fill in pixels whose RGB tuple is not present in `rgb_to_idx`.
+            Default is `-100`.
     Returns:
-        torch.Tensor: Index segmentation masks.
-                      If `rgb_masks` is a 3D tensor, this is a 2D tensor of shape `(height, width)`.
-                      If `rgb_masks` is a 4D tensor, this is a 3D tensor of shape `(batch_size, height, width)`.
-                      Each pixel is an integer index.
+        torch.Tensor: 
+            Index segmentation masks.
+            If `rgb_masks` is a 3D tensor, this is a 2D tensor of shape `(height, width)`.
+            If `rgb_masks` is a 4D tensor, this is a 3D tensor of shape `(batch_size, height, width)`.
+            Each pixel is an integer index.
     '''
     # Separate R, G, B channels
     r, g, b = torch.unbind(rgb_masks.long(), dim = -3)
@@ -100,20 +103,23 @@ def idx_to_rgb_mask(
     Note: The values of all RGB tuples should be in [0, 255].
 
     Args:
-        idx_masks (torch.Tensor): Index segmentation masks.
-                                  This is either a 2D tensor `(height, width)`
-                                  or a 3D tensor `(batch_size, height, width)`.
-                                  Each pixel should be an integer.
-        idx_to_rgb (Dict[int, RGBTuple]): Dictionary mapping integer indices to RGB tuples.
-                                          This mapping should be one-to-one (injective).
-        fill_rgb (RGBTuple): RGB tuple used to fill in pixels whose index 
-                             is not present in `idx_to_rgb`.
-                             Default is `(114, 114, 114)`.
+        idx_masks (torch.Tensor): 
+            Index segmentation masks.
+            This is either a 2D tensor `(height, width)` 
+            or a 3D tensor `(batch_size, height, width)`.
+            Each pixel should be an integer.
+        idx_to_rgb (Dict[int, RGBTuple]): 
+            Dictionary mapping integer indices to RGB tuples.
+            This mapping should be one-to-one (injective).
+        fill_rgb (RGBTuple): 
+            RGB tuple used to fill in pixels whose index is not present in `idx_to_rgb`.
+            Default is `(114, 114, 114)`.
     Returns:
-        torch.Tensor: RGB segmentation masks.
-                      If `idx_masks` was a 2D tensor, this is a 3D tensor of shape `(3, height, width)`.
-                      If `idx_masks` was a 3D tensor, this is a 4D tensor of shape `(batch_size, 3, height, width)`.
-                      Each pixel is a RGB tuple with values in [0, 255].
+        torch.Tensor: 
+            RGB segmentation masks.
+            If `idx_masks` was a 2D tensor, this is a 3D tensor of shape `(3, height, width)`.
+            If `idx_masks` was a 3D tensor, this is a 4D tensor of shape `(batch_size, 3, height, width)`.
+            Each pixel is a RGB tuple with values in [0, 255].
     '''
     # Treat RGB-tuples as base-256 and convert to base-10
         # This gives an integer key for each RGB-tuple
@@ -146,18 +152,21 @@ def rgb_to_visibility_mask(
     and 0 (invisible) elsewhere.
 
     Args:
-        rgb_masks (torch.Tensor): RGB segmentation masks.
-                                  This is either a 3D tensor `(3, height, width)`,
-                                  or a 4D tensor `(batch_size, 3, height, width)`.
-                                  Each pixel is a RGB tuple with values in [0, 255].
+        rgb_masks (torch.Tensor): 
+            RGB segmentation masks.
+            This is either a 3D tensor `(3, height, width)`,
+            or a 4D tensor `(batch_size, 3, height, width)`.
+            Each pixel is a RGB tuple with values in [0, 255].
 
-        visible_rgbs (List[RGBTuple]): List of RGB tuples to set as visible in the alpha channel.
-                                       The values of each tuple must be in [0, 255].
+        visible_rgbs (List[RGBTuple]): 
+            List of RGB tuples to set as visible in the alpha channel.
+            The values of each tuple must be in [0, 255].
                                     
     Returns:
-        torch.Tensor: RGBA segmentation masks.
-                      If `rgb_masks` is a 3D tensor, this returns a 3D tensor `(4, height, width)`.
-                      If `rgb_masks` is a 4D tensor, this returns a 4D tensor `(batch_size, 4, height, width)`.
+        torch.Tensor: 
+            RGBA segmentation masks.
+            If `rgb_masks` is a 3D tensor, this returns a 3D tensor `(4, height, width)`.
+            If `rgb_masks` is a 4D tensor, this returns a 4D tensor `(batch_size, 4, height, width)`.
     '''
     # Separate R, G, B channels
     r, g, b = torch.unbind(rgb_masks.long(), dim = -3)

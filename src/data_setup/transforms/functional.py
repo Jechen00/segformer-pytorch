@@ -32,13 +32,17 @@ def to_image_and_mask(
         - tensor of shape (..., height, width)
 
     Args:
-        img (ImageInput):  Input image to transform. 
-        mask (optional, ImageInput): Segmentation mask for the image, with the same spatial dimensions.
+        img (ImageInput):  
+            Input image to transform. 
+        mask (optional, ImageInput): 
+            Segmentation mask for the image, with the same spatial dimensions.
 
     Returns:
-        img (tv_tensors.Image): The converted image as a `tv_tensors.Image` tensor.
-        mask (optional, tv_tensors.Mask): The converted mask as a `tv_tensors.Mask` tensor.
-                                          This is `None` if an input mask was not provided.
+        img (tv_tensors.Image): 
+            The converted image as a `tv_tensors.Image` tensor.
+        mask (optional, tv_tensors.Mask): 
+            The converted mask as a `tv_tensors.Mask` tensor.
+            This is `None` if an input mask was not provided.
     '''
     img = tv_tensors.Image(img)
     mask = tv_tensors.Mask(mask) if mask is not None else None
@@ -72,49 +76,59 @@ def seg_random_affine(
         https://docs.pytorch.org/vision/main/generated/torchvision.transforms.v2.RandomAffine.html
 
     Args:
-        img (ImageInput):  Input image to transform. 
-        mask (optional, ImageInput): Segmentation mask for the image, with the same spatial dimensions.
-        degrees (Union[float, Sequence[float]]): Range of degrees for rotational transform.
-                                                 If `Sequence[float]`, should represent `(min, max)`.
-                                                 If `float`, will assume `(-degrees, +degrees`).
-                                                 Default is `0.0` for no rotations.
-        translate (optional, Sequence[float]): Sequence of the form `(hori_frac, vert_frac)` for translational transforms,
-                                               where `hori_frac` and `ver_frac` are the maximum absolute fraction
-                                               for horizonal and vertical shifts, respectively.
-                                               If `None,` no translations are applied.
-        scale (optional, Sequence[float]): Range of factors `(min, max)` for scale transform.
-                                           If `None`, no scaling is applied.
-        shear (optional, Union[int, float, Sequence[float]]): Range of degrees for shear transform.
-                                                              If `Sequence[float]`, should represent `(min_x, max_x)`
-                                                              for only x-axis shearing
-                                                              or `(min_x, max_x, min_y, max_y)` for x-axis and y-axis shearing.
-                                                              If `float`, will assume `(-shear, + shear)`.
-                                                              If `None`, no shearing is applied.
-        img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
-                                                           Default is `InterpolationMode.BILINEAR`.
-        img_fill (FillValue): Pixel fill value used for areas outside the transformed image, to maintain original shape.
-                              This can be a float, integer, sequence of floats, or sequence of integers.
-                              If scalar (float or integer), the value is used for all channels.
-                              If sequence, its length must match the number of channels in the input image.
-                              The fill value should be in the same value space as the expected input images.
-                              For example, if the input images are scaled to [0, 1], 
-                              `img_fill` should also be scaled to [0, 1].
-                              Default is `0`.
-        mask_fill (FillValue): Pixel fill value used for areas outside the transformed mask, to maintain original shape.
-                               This can be a float, integer, sequence of floats, or sequence of integers.
-                               If scalar (float or integer), the value is used for all channels.
-                               If sequence, its length must match the number of channels in the input mask.
-                               The fill value should be in the same value space as the expected input masks.
-                               For example, if the input masks are scaled to [0, 1], 
-                               `mask_fill` should also be scaled to [0, 1].
-                               Default is `255`.
+        img (ImageInput):  
+            Input image to transform. 
+        mask (optional, ImageInput):    
+            Segmentation mask for the image, with the same spatial dimensions.
+        degrees (Union[float, Sequence[float]]): 
+            Range of degrees for rotational transform.
+            If `Sequence[float]`, should represent `(min, max)`.
+            If `float`, will assume `(-degrees, +degrees`).
+            Default is `0.0` for no rotations.
+        translate (optional, Sequence[float]): 
+            Sequence of the form `(hori_frac, vert_frac)` for translational transforms,
+            where `hori_frac` and `ver_frac` are the maximum absolute fraction
+            for horizonal and vertical shifts, respectively.
+            If `None,` no translations are applied.
+        scale (optional, Sequence[float]): 
+            Range of factors `(min, max)` for scale transform.
+            If `None`, no scaling is applied.
+        shear (optional, Union[int, float, Sequence[float]]): 
+            Range of degrees for shear transform.
+            If `Sequence[float]`, should represent `(min_x, max_x)` for only x-axis shearing
+            or `(min_x, max_x, min_y, max_y)` for x-axis and y-axis shearing.
+            If `float`, will assume `(-shear, + shear)`.
+            If `None`, no shearing is applied.
+        img_interpolation (Union[InterpolationMode, int]): 
+            Interpolation mode used for the image transform.
+            Default is `InterpolationMode.BILINEAR`.
+        img_fill (FillValue): 
+            Pixel fill value used for areas outside the transformed image, to maintain original shape.
+            This can be a float, integer, sequence of floats, or sequence of integers.
+            If scalar (float or integer), the value is used for all channels.
+            If sequence, its length must match the number of channels in the input image.
+            The fill value should be in the same value space as the expected input images.
+            For example, if the input images are scaled to [0, 1], 
+            `img_fill` should also be scaled to [0, 1].
+            Default is `0`.
+        mask_fill (FillValue): 
+            Pixel fill value used for areas outside the transformed mask, to maintain original shape.
+            This can be a float, integer, sequence of floats, or sequence of integers.
+            If scalar (float or integer), the value is used for all channels.
+            If sequence, its length must match the number of channels in the input mask.
+            The fill value should be in the same value space as the expected input masks.
+            For example, if the input masks are scaled to [0, 1], 
+            `mask_fill` should also be scaled to [0, 1].
+            Default is `255`.
 
     Returns:
-        img (ImageInput): Image after applying random affine transform.
-                          Spatial size and datatype matches the input image.
-        mask (optional, ImageInput): Segmentation mask for the transformed image. 
-                                     Spatial size and datatype matches the input mask.
-                                     This is `None` if an input mask was not provided.
+        img (ImageInput): 
+            Image after applying random affine transform.
+            Spatial size and datatype matches the input image.
+        mask (optional, ImageInput): 
+            Segmentation mask for the transformed image. 
+            Spatial size and datatype matches the input mask.
+            This is `None` if an input mask was not provided.
     '''
     img_size = get_img_size(img)
     
@@ -163,40 +177,48 @@ def seg_random_perspective(
         https://docs.pytorch.org/vision/main/generated/torchvision.transforms.RandomPerspective.html
 
     Args:
-        img (ImageInput):  Input image to transform. 
-        mask (optional, ImageInput): Segmentation mask for the image, with the same spatial dimensions.
-        distortion_scale (float): Value to control the degree of distortion from the random perspective transform.
-                                  Must be in the range `[0, 1]`.
-                                  Default is `0.5`.
-        p (float): Probability of applying the random perspective transform to `img` and `mask`.
-                   Default is `0.5`.
-        img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
-                                                           Default is `InterpolationMode.BILINEAR`.
-        img_fill (FillValue): Pixel fill value used for areas outside the transformed image, to maintain original shape.
-                              This can be a float, integer, sequence of floats, or sequence of integers.
-                              If scalar (float or integer), the value is used for all channels.
-                              If sequence, its length must match the number of channels in the input image.
-                              The fill value should be in the same value space as the expected input images.
-                              For example, if the input images are scaled to [0, 1], 
-                              `img_fill` should also be scaled to [0, 1].
-                              Default is `0`.
-        mask_fill (FillValue): Pixel fill value used for areas outside the transformed mask, to maintain original shape.
-                               This can be a float, integer, sequence of floats, or sequence of integers.
-                               If scalar (float or integer), the value is used for all channels.
-                               If sequence, its length must match the number of channels in the input mask.
-                               The fill value should be in the same value space as the expected input masks.
-                               For example, if the input masks are scaled to [0, 1], 
-                               `mask_fill` should also be scaled to [0, 1].
-                               Default is `255`.
+        img (ImageInput):  
+            Input image to transform. 
+        mask (optional, ImageInput): 
+            Segmentation mask for the image, with the same spatial dimensions.
+        distortion_scale (float): 
+            Value to control the degree of distortion from the random perspective transform.
+            Must be in the range `[0, 1]`. Default is `0.5`.
+        p (float): 
+            Probability of applying the random perspective transform to `img` and `mask`.
+            Default is `0.5`.
+        img_interpolation (Union[InterpolationMode, int]): 
+            Interpolation mode used for the image transform.
+            Default is `InterpolationMode.BILINEAR`.
+        img_fill (FillValue): 
+            Pixel fill value used for areas outside the transformed image, to maintain original shape.
+            This can be a float, integer, sequence of floats, or sequence of integers.
+            If scalar (float or integer), the value is used for all channels.
+            If sequence, its length must match the number of channels in the input image.
+            The fill value should be in the same value space as the expected input images.
+            For example, if the input images are scaled to [0, 1], 
+            `img_fill` should also be scaled to [0, 1].
+            Default is `0`.
+        mask_fill (FillValue): 
+            Pixel fill value used for areas outside the transformed mask, to maintain original shape.
+            This can be a float, integer, sequence of floats, or sequence of integers.
+            If scalar (float or integer), the value is used for all channels.
+            If sequence, its length must match the number of channels in the input mask.
+            The fill value should be in the same value space as the expected input masks.
+            For example, if the input masks are scaled to [0, 1], 
+            `mask_fill` should also be scaled to [0, 1].
+            Default is `255`.
 
     Returns:
-        img (ImageInput): Output image.
-                          With probability `p`, the random perspective transform is applied.
-                          With probability `1-p`, the original input image is returned.
-                          The spatial size and datatype always matches the input image.
-        mask (optional, ImageInput): Segmentation mask for the output image. 
-                                     Spatial size and datatype matches the input mask.
-                                     This is `None` if an input mask was not provided.
+        img (ImageInput): 
+            Output image.
+            With probability `p`, the random perspective transform is applied.
+            With probability `1-p`, the original input image is returned.
+            The spatial size and datatype always matches the input image.
+        mask (optional, ImageInput): 
+            Segmentation mask for the output image. 
+            Spatial size and datatype matches the input mask.
+            This is `None` if an input mask was not provided.
     '''
     if torch.rand(1) < p:
         # Get a single set of random perspective parameters to apply to both image and mask
@@ -237,38 +259,46 @@ def seg_letterbox(
         - tensor of shape (..., height, width)
 
     Args:
-        img (ImageInput):  Input image to transform. 
-        mask (optional, ImageInput): Segmentation mask for the image, with the same spatial dimensions.
-        size (SpatialSize): Size `(height, width)` to transform `img` and (optionally) `mask` into,
-                            while preserving their aspect ratios and using padding.
-                            If `int`, assumed square.
-        img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
-                                                           Default is `InterpolationMode.BILINEAR`.
-        img_fill (FillValue): Pixel fill value used to pad the transformed image. 
-                              This can be a float, integer, sequence of floats, or sequence of integers.
-                              If scalar (float or integer), the value is used for all channels.
-                              If sequence, its length must match the number of channels in the input image.
-                              The fill value should be in the same value space as the expected input images.
-                              For example, if the input images are scaled to [0, 1], 
-                              `img_fill` should also be scaled to [0, 1].
-                              Default is `0`.
-        mask_fill (FillValue): Pixel fill value used to pad the transformed mask. 
-                               This can be a float, integer, sequence of floats, or sequence of integers.
-                               If scalar (float or integer), the value is used for all channels.
-                               If sequence, its length must match the number of channels in the input mask.
-                               The fill value should be in the same value space as the expected input masks.
-                               For example, if the input masks are scaled to [0, 1], 
-                               `mask_fill` should also be scaled to [0, 1].
-                               Default is `255`.
+        img (ImageInput):  
+            Input image to transform. 
+        mask (optional, ImageInput): 
+            Segmentation mask for the image, with the same spatial dimensions.
+        size (SpatialSize): 
+            Size `(height, width)` to transform `img` and (optionally) `mask` into,
+            while preserving their aspect ratios and using padding.
+            If `int`, assumed square.
+        img_interpolation (Union[InterpolationMode, int]): 
+            Interpolation mode used for the image transform.
+            Default is `InterpolationMode.BILINEAR`.
+        img_fill (FillValue): 
+            Pixel fill value used to pad the transformed image. 
+            This can be a float, integer, sequence of floats, or sequence of integers.
+            If scalar (float or integer), the value is used for all channels.
+            If sequence, its length must match the number of channels in the input image.
+            The fill value should be in the same value space as the expected input images.
+            For example, if the input images are scaled to [0, 1], 
+            `img_fill` should also be scaled to [0, 1].
+            Default is `0`.
+        mask_fill (FillValue): 
+            Pixel fill value used to pad the transformed mask. 
+            This can be a float, integer, sequence of floats, or sequence of integers.
+            If scalar (float or integer), the value is used for all channels.
+            If sequence, its length must match the number of channels in the input mask.
+            The fill value should be in the same value space as the expected input masks.
+            For example, if the input masks are scaled to [0, 1], 
+            `mask_fill` should also be scaled to [0, 1].
+            Default is `255`.
                                
     Returns:
-        img (ImageInput): Image after applying letterbox transform. 
-                          Spatial size is `(height, width) = (size[0], size[1])`.
-                          Datatype matches the input image.
+        img (ImageInput): 
+            Image after applying letterbox transform. 
+            Spatial size is `(height, width) = (size[0], size[1])`.
+            Datatype matches the input image.
         
-        mask (optional, ImageInput): Segmentation mask for the transformed image. 
-                                     Datatype matches the input mask.
-                                     This is `None` if an input mask was not provided.
+        mask (optional, ImageInput): 
+            Segmentation mask for the transformed image. 
+            Datatype matches the input mask.
+            This is `None` if an input mask was not provided.
     '''
     size = make_tuple(size) # (height, width)
     orig_h, orig_w = get_img_size(img)
@@ -315,21 +345,27 @@ def seg_resize(
         - tensor of shape (..., height, width)
 
     Args:
-        img (ImageInput):  Input image to transform. 
-        mask (optional, ImageInput): Segmentation mask for the image, with the same spatial dimensions.
-        size (SpatialSize): Size `(height, width)` to transform `img` and (optionally) `mask` into.
-                            If `int`, assumed square.
-        img_interpolation (Union[InterpolationMode, int]): Interpolation mode used for the image transform.
-                                                           Default is `InterpolationMode.BILINEAR`.
+        img (ImageInput):  
+            Input image to transform. 
+        mask (optional, ImageInput): 
+            Segmentation mask for the image, with the same spatial dimensions.
+        size (SpatialSize): 
+            Size `(height, width)` to transform `img` and (optionally) `mask` into.
+            If `int`, assumed square.
+        img_interpolation (Union[InterpolationMode, int]): 
+            Interpolation mode used for the image transform.
+            Default is `InterpolationMode.BILINEAR`.
 
     Returns:
-        img (ImageInput): Image after applying resize transform. 
-                          Spatial size is `(height, width) = (size[0], size[1])`.
-                          Datatype matches the input image.
+        img (ImageInput): 
+            Image after applying resize transform. 
+            Spatial size is `(height, width) = (size[0], size[1])`.
+            Datatype matches the input image.
         
-        mask (optional, ImageInput): Segmentation mask for the resized image. 
-                                     Datatype matches the input mask.
-                                     This is `None` if an input mask was not provided.
+        mask (optional, ImageInput): 
+            Segmentation mask for the resized image. 
+            Datatype matches the input mask.
+            This is `None` if an input mask was not provided.
     '''
     img = F.resize(img, size = size, interpolation = img_interpolation)
     if mask is not None:
@@ -353,11 +389,14 @@ def reverse_letterbox(
         - tensor of shape (..., height, width)
 
     Args:
-        img (ImageInput): The input image that previously passed through the `seg_letterbox` transform.
-        orig_size (Tuple[int, int]): The original size (height, width) of `img` before the letterbox transform was applied.
-        resize_to_orig (bool): Whether to resize `img` back to `orig_size` after removing letterbox padding.
-                               If False, only the padding is removed, and the returned image stays at the letterboxed scale.
-                               Default is `True`.
+        img (ImageInput): 
+            The input image that previously passed through the `seg_letterbox` transform.
+        orig_size (Tuple[int, int]): 
+            The original size (height, width) of `img` before the letterbox transform was applied.
+        resize_to_orig (bool): 
+            Whether to resize `img` back to `orig_size` after removing letterbox padding.
+            If False, only the padding is removed, and the returned image stays at the letterboxed scale.
+            Default is `True`.
         interpolation (Union[InterpolationMode, int]): 
             The interpolation mode to use when resizing `img` back to `orig_size` (after padding is removed).
             This is only used when `resize_to_orig = True`.
@@ -365,9 +404,10 @@ def reverse_letterbox(
             Default is `InterpolationMode.BILINEAR`.
 
     Returns:
-        ImageInput: The input image with letterbox padding removed 
-                    and, optionally, resized back to its original size.
-                    Datatype matches `img`.
+        ImageInput: 
+            The input image with letterbox padding removed 
+            and, optionally, resized back to its original size.
+            Datatype matches `img`.
     '''
     orig_h, orig_w = orig_size
     lb_h, lb_w = get_img_size(img)
@@ -398,12 +438,15 @@ def reverse_letterbox_numpy(
     This is done by removing the padding and, optionally, resizing back to the original image size.
 
     Args:
-        img (np.ndarray): The input image represented as a ndarray.
-                          This image should have previously passed through a `seg_letterbox` transform.                 
-        orig_size (Tuple[int, int]): The original size (height, width) of `img` before the letterbox transform was applied.
-        resize_to_orig (bool): Whether to resize `img` back to `orig_size` after removing letterbox padding.
-                               If False, only the padding is removed, and the returned image stays at the letterboxed scale.
-                               Default is `True`.
+        img (np.ndarray): 
+            The input image represented as a ndarray.
+            This image should have previously passed through a `seg_letterbox` transform.                 
+        orig_size (Tuple[int, int]): 
+            The original size (height, width) of `img` before the letterbox transform was applied.
+        resize_to_orig (bool): 
+            Whether to resize `img` back to `orig_size` after removing letterbox padding.
+            If False, only the padding is removed, and the returned image stays at the letterboxed scale.
+            Default is `True`.
         interpolation (int): 
             The interpolation mode to use when resizing `img` back to `orig_size` (after padding is removed).
             This should be an OpenCV interpolation flag (e.g. `cv2.INTER_LINEAR`).
@@ -413,8 +456,9 @@ def reverse_letterbox_numpy(
             Default is `cv2.INTER_LINEAR` for bilinear interpolation.
 
     Returns:
-        np.ndarray: The input image with letterbox padding removed 
-                    and, optionally, resized back to its original size.
+        np.ndarray: 
+            The input image with letterbox padding removed 
+            and, optionally, resized back to its original size.
     '''
     # Format to HWC
     if input_format == 'CHW':

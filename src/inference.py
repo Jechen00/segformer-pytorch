@@ -47,18 +47,21 @@ def predict(
     Assumes model outputs logits with class dimension at `dim = 1`.
 
     Args:
-        model (nn.Module): The image classification/segmentation model,
-        imgs (torch.Tensor): The images to predict on.
-                             This should be a tensor of shape `(batch_size, channels, height, width)`.
-        memory_format (optional, torch.memory_format): The memory format to convert `imgs` to before predicting.
-                                                       This should ideally be the same memory format as `model`,
-                                                       but it is not required.
-                                                       If not provided, no memory format conversion is applied.
+        model (nn.Module): 
+            The image classification/segmentation model,
+        imgs (torch.Tensor): 
+            The images to predict on.
+            This should be a tensor of shape `(batch_size, channels, height, width)`.
+        memory_format (optional, torch.memory_format): 
+            The memory format to convert `imgs` to before predicting.
+            This should ideally be the same memory format as `model`, but it is not required.
+            If not provided, no memory format conversion is applied.
     Returns:
-        torch.Tensor: Model predictions for `imgs`, with shape depending on the type of model.
-                      Generally:
-                        - Image Classification: `(batch_size,)`
-                        - Segmentation: `(batch_size, height, width)`
+        torch.Tensor: 
+            Model predictions for `imgs`, with shape depending on the type of model.
+            Generally:
+                - Image Classification: `(batch_size,)`
+                - Segmentation: `(batch_size, height, width)`
 
     '''
     was_training = model.training
@@ -103,7 +106,8 @@ def preprocess_imgs(
           already contain image tensors with the expected shape and number of dimensions.
 
     Args:
-        samps (Union[Sample, MultiSamples]): Sample or multiple samples containing image information.
+        samps (Union[Sample, MultiSamples]): 
+            Sample or multiple samples containing image information.
             Supports:
                 - A single image. This is a PIL image or 3D tensor of shape `(channels, height, width)`
                 - A single-sample dictionary, where the 'image' key contains a single image
@@ -112,13 +116,15 @@ def preprocess_imgs(
                 - A list of single-sample dictionaries
                 - A batched 4D tensor of shape `(batch_size, channels, height, width)`
 
-        transforms (optional, v2.Compose): Transforms applied to `samps` before extracting images.
-                                           These transforms should be compatible with a sample dictionary,
-                                           where images are stored under the `image` key.
+        transforms (optional, v2.Compose): 
+            Transforms applied to `samps` before extracting images.
+            These transforms should be compatible with a sample dictionary,
+            where images are stored under the `image` key.
 
     Returns:
-        torch.Tensor: A batched tensor of shape `(batch_size, channels, height, width)`.
-                      If the input is a single sample, `batch_size` is 1.
+        torch.Tensor: 
+            A batched tensor of shape `(batch_size, channels, height, width)`.
+            If the input is a single sample, `batch_size` is 1.
     '''
     samps = _format_samps(samps)
     is_list = isinstance(samps, list)
@@ -164,7 +170,8 @@ def _format_samps(
     and tensors keep their original shape (including any batch dimension).
 
     Args:
-        samps (Union[Sample, MultiSamples]): Sample or multiple samples containing image information.
+        samps (Union[Sample, MultiSamples]): 
+            Sample or multiple samples containing image information.
             Supports:
                 - A single image. This is a PIL image or 3D tensor of shape `(channels, height, width)`
                 - A single-sample dictionary, where the 'image' key contains a single image
@@ -174,7 +181,8 @@ def _format_samps(
                 - A batched 4D tensor of shape `(batch_size, channels, height, width)`
 
     Returns:
-        Union[SampleDict, List[SampleDict]]: Formatted samples.
+        Union[SampleDict, List[SampleDict]]: 
+            Formatted samples.
             If `samps` is a sample dictionary, it is returned unchanged.
             If `samps` is a PIL image or tensor, it is wrapped in a sample dictionary.
             Otherwise, `samps` is converted into a list of sample dictionaries.

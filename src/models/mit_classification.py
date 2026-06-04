@@ -23,9 +23,12 @@ class MiTClassification(nn.Module):
     Only the final stage output (feature map) of the MiT backbone is used for classification.
 
     Args:
-        mit (MixTransformer): The MiT backbone.
-        mit_channels (int): Number of channels in the final stage output of `mit`.
-        num_classes (int): Number of classes.
+        mit (MixTransformer): 
+            The MiT backbone.
+        mit_channels (int): 
+            Number of channels in the final stage output of `mit`.
+        num_classes (int): 
+            Number of classes.
     '''
     def __init__(self, mit: MixTransformer, mit_channels: int, num_classes: int):
         super().__init__()
@@ -40,11 +43,13 @@ class MiTClassification(nn.Module):
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         '''
         Args:
-            X (torch.Tensor): Input tensor of shape `(batch_size, channels, height, width)`.
-                              This should be compatible with the expected input for `mit`.
+            X (torch.Tensor): 
+                Input tensor of shape `(batch_size, channels, height, width)`.
+                This should be compatible with the expected input for `mit`.
 
         Returns:
-            torch.Tensor: Classification logits of shape `(batch_size, num_classes)`.
+            torch.Tensor: 
+                Classification logits of shape `(batch_size, num_classes)`.
         '''
         mit_features = self.mit(X)[-1] # Only uses final stage
         return self.classifier(mit_features)
@@ -54,9 +59,9 @@ class MiTClassification(nn.Module):
         Saves the weights of the MiT backbone.
 
         Args:
-            save_path (Union[str, Path]): Path to save the weights to.
-                                          This should end with a file extension 
-                                          (e.g. `.pt` or `.pth`).
+            save_path (Union[str, Path]): 
+                Path to save the weights to.
+                This should end with a file extension (e.g. `.pt` or `.pth`).
         '''
         save_path = format_file_path(save_path, 'save_path')
         save_path.parent.mkdir(parents = True, exist_ok = True)
@@ -69,13 +74,16 @@ class MiTClassification(nn.Module):
         Instantiate a `MiTClassification` model from a configuration dictionary.
 
         Args:
-            mit_kwargs (Dict[str, Any]): Dictionary of keyword arguments for the `MixTransformer` backbone. 
-                                         The required arguments for the `MixTransformer` can be found in
-                                         `src.models.encoder.MixTransformer`.
-            num_classes (int): Number of classes
+            mit_kwargs (Dict[str, Any]):  
+                Dictionary of keyword arguments for the `MixTransformer` backbone. 
+                The required arguments for the `MixTransformer` can be found in
+                `src.models.encoder.MixTransformer`.
+            num_classes (int): 
+                Number of classes
         
         Returns:
-            MiTClassification: An instance of `MiTClassification`.
+            MiTClassification: 
+                An instance of `MiTClassification`.
         '''
         mit = MixTransformer(**mit_kwargs)
         return MiTClassification(mit, mit_kwargs['feature_dims'][-1], num_classes)

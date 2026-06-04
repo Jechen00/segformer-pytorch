@@ -19,15 +19,19 @@ def ensure_batched(
     If it is already batched, it is returned unchanged.
 
     Args:
-        tensor (torch.Tensor): The tensor to check and format to batched.
-        unbatched_ndim (int): The number of dimensions for an unbatched tensor.
-                              A batched tensor is assumed to have `(unbatched_ndim+1)` dimensions.
-        context_name (str): Name for `tensor` to provide context on what it represents.
-                            This is for more specific error messages.
-                            Default is `inputs`.
+        tensor (torch.Tensor): 
+            The tensor to check and format to batched.
+        unbatched_ndim (int): 
+            The number of dimensions for an unbatched tensor.
+            A batched tensor is assumed to have `(unbatched_ndim+1)` dimensions.
+        context_name (str): 
+            Name for `tensor` to provide context on what it represents.
+            This is for more specific error messages.
+            Default is `inputs`.
 
     Returns:
-        torch.Tensor: The tensor with a batch dimension.
+        torch.Tensor: 
+            The tensor with a batch dimension.
     '''
     batched_ndim = unbatched_ndim + 1
 
@@ -52,11 +56,14 @@ def _validate_ndim(tensor: torch.Tensor, ndim: int, context_name: str = 'inputs'
     Validates a tensor has a specified number of dimensions (ndim).
 
     Args:
-        tensor (torch.Tensor): The tensor to validate.
-        ndim (int): The expected number of dimensions for `tensor`.
-        context_name (str): Name for `tensor` to provide context on what it represents.
-                            This is for more specific error messages.
-                            Default is `inputs`.
+        tensor (torch.Tensor): 
+            The tensor to validate.
+        ndim (int): 
+            The expected number of dimensions for `tensor`.
+        context_name (str): 
+            Name for `tensor` to provide context on what it represents.
+            This is for more specific error messages.
+            Default is `inputs`.
     '''
     if tensor.ndim != ndim:
         raise ValueError(
@@ -75,11 +82,14 @@ def _validate_channel_size(
     Assumes the tensor is in CHW format.
 
     Args:
-        tensor (torch.Tensor): The tensor to validate.
-        channel_size (int): The expected channel dimension size for `tensor`
-        context_name (str): Name for `tensor` to provide context on what it represents.
-                            This is for more specific error messages.
-                            Default is `inputs`.
+        tensor (torch.Tensor): 
+            The tensor to validate.
+        channel_size (int): 
+            The expected channel dimension size for `tensor`
+        context_name (str): 
+            Name for `tensor` to provide context on what it represents.
+            This is for more specific error messages.
+            Default is `inputs`.
     '''
     if tensor.shape[-3] != channel_size:
         raise ValueError(
@@ -94,11 +104,14 @@ def _validate_shape(tensor: torch.Tensor, shape: Tuple[int, ...], context_name: 
     Validates a tensor has a specified shape.
 
     Args:
-        tensor (torch.Tensor): The tensor to validate.
-        shape (Tuple[int, ...]): The expected shape for `tensor`.
-        context_name (str): Name for `tensor` to provide context on what it represents.
-                            This is for more specific error messages.
-                            Default is `inputs`.
+        tensor (torch.Tensor): 
+            The tensor to validate.
+        shape (Tuple[int, ...]): 
+            The expected shape for `tensor`.
+        context_name (str): 
+            Name for `tensor` to provide context on what it represents.
+            This is for more specific error messages.
+            Default is `inputs`.
     '''
     if tensor.shape != shape:
         raise ValueError(
@@ -117,13 +130,16 @@ def _validate_same_shape(
     Optionally checks that they have a specified shape.
 
     Args:
-        tensors (List[torch.Tensor]): A list of tensors to validate.
-        shape (optional, Tuple[int, ...]): Expected shape of each tensor.
-                                           If not provided, the expected shape will be set 
-                                           to the first tensor in `tensors`.
-        context_name (str): Name for the elements in `tensors` to provide context on what they represents.
-                            This is for more specific error messages.
-                            Default is `inputs`.
+        tensors (List[torch.Tensor]): 
+            A list of tensors to validate.
+        shape (optional, Tuple[int, ...]): 
+            Expected shape of each tensor.
+            If not provided, the expected shape will be 
+            set to the first tensor in `tensors`.
+        context_name (str): 
+            Name for the elements in `tensors` to provide context on what they represents.
+            This is for more specific error messages.
+            Default is `inputs`.
     '''
     if shape is not None:
         err_prefix = f'Expected {context_name} to be tensors of shape {tuple(shape)}. '

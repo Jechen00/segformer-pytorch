@@ -8,10 +8,9 @@ from torchvision.ops import StochasticDepth
 import numpy as np
 import copy
 from itertools import islice
-from numbers import Real
 from typing import Sequence, Union, List, Optional
 
-from src.ml_types import SpatialSize 
+from src.ml_types import PythonNum, SpatialSize 
 from src.utils import make_tuple
 from src.models.modules import ChannelwiseLayerNorm, EfficientSelfAttention, MixFFN
 
@@ -27,18 +26,26 @@ class EncoderBlock(nn.Module):
         2) Layer norm -> mix-FFN -> residual (with stochastic depth)
         
     Args:
-        feature_dim (int): Dimension of input and output features (channels for feature maps or embeddings for tokens).
-        num_heads (int): Number of attention heads for efficient self-attention.
-        reduce_ratio (int): Ratio used to reduce the spatial resolution (sequence length) of keys/values
-                            before computing efficient self-attention.
-                            The sequence length is specifically reduced by a factor of roughly `reduce_ratio**2`.
-                            If `reduce_ratio = 1`, no reduction is applied.      
-        hid_dim (int): Number of hidden channels in intermediate layers of the mix-FFN.
-        activation (optional, nn.Module): Activation function applied within the mix-FFN.
-                                          If `None`, defaults to GELU.
-        ffn_dropout_prob (Real): Dropout probability for the mix-FFN. Default is `0.0`.
-        attn_dropout_prob (Real): Dropout probability for the attention weights. Default is `0.0`.
-        sdepth_prob (Real): Stochastic depth probability to drop residuals in residual connections. Default is `0.0`.
+        feature_dim (int): 
+            Dimension of input and output features (channels for feature maps or embeddings for tokens).
+        num_heads (int): 
+            Number of attention heads for efficient self-attention.
+        reduce_ratio (int): 
+            Ratio used to reduce the spatial resolution (sequence length) of keys/values
+            before computing efficient self-attention.
+            The sequence length is specifically reduced by a factor of roughly `reduce_ratio**2`.
+            If `reduce_ratio = 1`, no reduction is applied.      
+        hid_dim (int): 
+            Number of hidden channels in intermediate layers of the mix-FFN.
+        activation (optional, nn.Module): 
+            Activation function applied within the mix-FFN.
+            If `None`, defaults to GELU.
+        ffn_dropout_prob (PythonNum): 
+            Dropout probability for the mix-FFN. Default is `0.0`.
+        attn_dropout_prob (PythonNum): 
+            Dropout probability for the attention weights. Default is `0.0`.
+        sdepth_prob (PythonNum): 
+            Stochastic depth probability to drop residuals in residual connections. Default is `0.0`.
     '''
     def __init__(
         self, 
@@ -47,9 +54,9 @@ class EncoderBlock(nn.Module):
         reduce_ratio: int,
         hid_dim: int,
         activation: Optional[nn.Module] = None,
-        ffn_dropout_prob: Real = 0.0,
-        attn_dropout_prob: Real = 0.0,
-        sdepth_prob: Real = 0.0
+        ffn_dropout_prob: PythonNum = 0.0,
+        attn_dropout_prob: PythonNum = 0.0,
+        sdepth_prob: PythonNum = 0.0
     ):
         super().__init__()
         self.seq_attn = nn.Sequential(
@@ -65,10 +72,12 @@ class EncoderBlock(nn.Module):
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         '''
         Args:
-            X (torch.Tensor): Input tensor of shape `(batch_size, feature_dim, height, width)`.
+            X (torch.Tensor): 
+                Input tensor of shape `(batch_size, feature_dim, height, width)`.
             
         Returns:
-            torch.Tensor: Output tensor of shape `(batch_size, feature_dim, height, width)`.
+            torch.Tensor: 
+                Output tensor of shape `(batch_size, feature_dim, height, width)`.
         '''
         X = X + self.sdepth(self.seq_attn(X))
         X = X + self.sdepth(self.seq_mix_ffn(X))
@@ -85,31 +94,42 @@ class EncoderStage(nn.Module):
         2) Sequence of encoder blocks (self-attention -> mix-FFN)
         
     Args:
-        in_channels (int): Number of input channels.
-        feature_dim (int): Dimension of output features (channels for feature maps or embeddings for tokens).
-        patch_size (int or tuple(int, int)): Spatial size of each patch region used to compute a embedding.
-                                             This is the kernel size of a convolutional layer.
-                                             If `int`, assumed square.
-        stride (int or tuple(int, int)): Step size between patch regions.
-                                         If `int`, assumed square.
-        num_blks (int): Number of encoder blocks.
-        num_heads (int): Number of attention heads for efficient self-attention.
-        reduce_ratio (int): Ratio used to reduce the spatial resolution (sequence length) of keys/values
-                            before computing efficient self-attention.
-                            Sequence length is reduced by roughly `reduce_ratio**2`.
-                            If `reduce_ratio = 1`, no reduction is applied.
-        hid_dim (int): Number of hidden channels in intermediate layers of the mix-FFN.
-        activation (optional, nn.Module): Activation function applied within the mix-FFN.
-                                          If `None`, defaults to GELU.
-        ffn_dropout_prob (Real): Dropout probability for the mix-FFN. Default is `0.0`.
-        attn_dropout_prob (Real): Dropout probability for the attention weights. Default is `0.0`.
-        sdepth_probs (Union[Real, Sequence[Real]]): 
-                Stochastic depth probability for each encoder block.
-                Supports:
-                    - `Sequence[Real]`: Sequence containing one probability per encoder block.
-                                        Length must equal `num_blks`.
-                    - `Real`: A single probability applied to all encoder blocks.
-                Default is `0.0` for all encoder blocks.
+        in_channels (int): 
+            Number of input channels.
+        feature_dim (int): 
+            Dimension of output features (channels for feature maps or embeddings for tokens).
+        patch_size (int or tuple(int, int)): 
+            Spatial size of each patch region used to compute a embedding.
+            This is the kernel size of a convolutional layer.
+            If `int`, assumed square.
+        stride (int or tuple(int, int)): 
+            Step size between patch regions.
+            If `int`, assumed square.
+        num_blks (int): 
+            Number of encoder blocks.
+        num_heads (int): 
+            Number of attention heads for efficient self-attention.
+        reduce_ratio (int): 
+            Ratio used to reduce the spatial resolution (sequence length) of keys/values
+            before computing efficient self-attention.
+            Sequence length is reduced by roughly `reduce_ratio**2`.
+            If `reduce_ratio = 1`, no reduction is applied.
+        hid_dim (int):  
+            Number of hidden channels in intermediate layers of the mix-FFN.
+        activation (optional, nn.Module): 
+            Activation function applied within the mix-FFN.
+            If `None`, defaults to GELU.
+        ffn_dropout_prob (PythonNum): 
+            Dropout probability for the mix-FFN. Default is `0.0`.
+        attn_dropout_prob (PythonNum): 
+            Dropout probability for the attention weights. Default is `0.0`.
+        sdepth_probs (Union[PythonNum, Sequence[PythonNum]]): 
+            Stochastic depth probability for each encoder block.
+            Supports:
+                - `Sequence[PythonNum]`: Sequence containing one probability per encoder block.
+                                    Length must equal `num_blks`.
+                - `PythonNum`: A single probability applied to all encoder blocks.
+            Default is `0.0` for all encoder blocks.
     '''
     def __init__(
         self,
@@ -122,12 +142,12 @@ class EncoderStage(nn.Module):
         reduce_ratio: int,
         hid_dim: int,
         activation: Optional[nn.Module] = None,
-        ffn_dropout_prob: Real = 0.0,
-        attn_dropout_prob: Real = 0.0,
-        sdepth_probs: Union[Real, Sequence[Real]] = 0.0 
+        ffn_dropout_prob: PythonNum = 0.0,
+        attn_dropout_prob: PythonNum = 0.0,
+        sdepth_probs: Union[PythonNum, Sequence[PythonNum]] = 0.0 
     ):
         super().__init__()
-        if isinstance(sdepth_probs, Real):
+        if isinstance(sdepth_probs, PythonNum):
             sdepth_probs = [sdepth_probs] * num_blks
         elif len(sdepth_probs) != num_blks:
             raise ValueError('Length of sdepth_probs must equal num_blks.')
@@ -147,10 +167,12 @@ class EncoderStage(nn.Module):
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         '''
         Args:
-            X (torch.Tensor): Input tensor of shape `(batch_size, in_channels, height, width)`.
+            X (torch.Tensor): 
+                Input tensor of shape `(batch_size, in_channels, height, width)`.
             
         Returns:
-            torch.Tensor: Output tensor of shape `(batch_size, feature_dim, fmap_height, fmap_width)`.
+            torch.Tensor: 
+                Output tensor of shape `(batch_size, feature_dim, fmap_height, fmap_width)`.
         '''
         X = self.layer_norm1(self.patch_embed(X))
         for block in self.blocks:
@@ -166,36 +188,47 @@ class MixTransformer(nn.Module):
     Note: All sequence inputs must have the same length, equal to the number of encoder stages.
 
     Args:
-        in_channels (int): Number of input channels.
-        feature_dims (Sequence[int]): Dimension of output features (channels or embeddings) in each encoder stage.
-        patch_sizes (Sequence[SpatialSize]): Patch size for the patch embedding in each encoder stage.
-        strides (Sequence[SpatialSize]): Stride for the patch embedding in each encoder stage.
-        num_blks (Sequence[int]): Number of encoder blocks for each encoder stage.
-        num_heads (Sequence[int]): Number of attention heads for the efficient self-attention in each encoder stage.
-        reduce_ratios (Sequence[int]): Reduction ratio for the efficient self-attention in each encoder stage.
-        hid_dims (Sequence[int]): Hidden dimension of the mix-FFN in each encoder stage.
+        in_channels (int): 
+            Number of input channels.
+        feature_dims (Sequence[int]): 
+            Dimension of output features (channels or embeddings) in each encoder stage.
+        patch_sizes (Sequence[SpatialSize]): 
+            Patch size for the patch embedding in each encoder stage.
+        strides (Sequence[SpatialSize]): 
+            Stride for the patch embedding in each encoder stage.
+        num_blks (Sequence[int]): 
+            Number of encoder blocks for each encoder stage.
+        num_heads (Sequence[int]): 
+            Number of attention heads for the efficient self-attention in each encoder stage.
+        reduce_ratios (Sequence[int]): 
+            Reduction ratio for the efficient self-attention in each encoder stage.
+        hid_dims (Sequence[int]): 
+            Hidden dimension of the mix-FFN in each encoder stage.
+            In the original SegFormer paper, 
+            this is equal to `feature_dims` multiplied by some expansion ratio.
         activations (optional, Union[nn.Module, Sequence[nn.Module]]): 
-                Activation functions for the mix-FFN in each encoder stage.
-                Supports:
-                    - `Sequence[nn.Module]`: Sequence containing one activation per encoder stage.
-                    - `nn.Module`: A single activation that will be deep-copied to each encoder stage.
-                    - `None`: Defaults to using GELU for each encoder stage.
-        ffn_dropout_probs (Union[Real, Sequence[Real]]): 
-                Dropout probabilities for the mix-FFN in each encoder stage.
-                Supports:
-                    - `Sequence[Real]`: Sequence containing one dropout probability per encoder stage.
-                    - `Real`: A single dropout probability applied to all encoder stage.
-                Default is `0.0` for all encoder stages.
-        attn_dropout_probs (Union[Real, Sequence[Real]]): 
-                Dropout probabilities for the attention weights in each encoder stage.
-                Supports:
-                    - `Sequence[Real]`: Sequence containing one dropout probability per encoder stage.
-                    - `Real`: A single dropout probability applied to all encoder stage.
-                Default is `0.0` for all encoder stages.
-        max_sdepth_prob (Real): Maximum stochastic depth probability.
-                                The probability starts at `0.0` and linearly increases across all encoder blocks,
-                                reaching `max_sdepth_prob` at the final block of the final stage.
-                                Default is `0.0`.
+            Activation functions for the mix-FFN in each encoder stage.
+            Supports:
+                - `Sequence[nn.Module]`: Sequence containing one activation per encoder stage.
+                - `nn.Module`: A single activation that will be deep-copied to each encoder stage.
+                - `None`: Defaults to using GELU for each encoder stage.
+        ffn_dropout_probs (Union[PythonNum, Sequence[PythonNum]]): 
+            Dropout probabilities for the mix-FFN in each encoder stage.
+            Supports:
+                - `Sequence[PythonNum]`: Sequence containing one dropout probability per encoder stage.
+                - `PythonNum`: A single dropout probability applied to all encoder stage.
+            Default is `0.0` for all encoder stages.
+        attn_dropout_probs (Union[PythonNum, Sequence[PythonNum]]): 
+            Dropout probabilities for the attention weights in each encoder stage.
+            Supports:
+                - `Sequence[PythonNum]`: Sequence containing one dropout probability per encoder stage.
+                - `PythonNum`: A single dropout probability applied to all encoder stage.
+            Default is `0.0` for all encoder stages.
+        max_sdepth_prob (PythonNum): 
+            Maximum stochastic depth probability.
+            The probability starts at `0.0` and linearly increases across all encoder blocks,
+            reaching `max_sdepth_prob` at the final block of the final stage.
+            Default is `0.0`.
     '''
     def __init__(
         self,
@@ -208,9 +241,9 @@ class MixTransformer(nn.Module):
         reduce_ratios: Sequence[int],
         hid_dims: Sequence[int],
         activations: Optional[Union[nn.Module, Sequence[nn.Module]]] = None,
-        ffn_dropout_probs: Union[Real, Sequence[Real]] = 0.0,
-        attn_dropout_probs: Union[Real, Sequence[Real]] = 0.0,
-        max_sdepth_prob: Real = 0.0
+        ffn_dropout_probs: Union[PythonNum, Sequence[PythonNum]] = 0.0,
+        attn_dropout_probs: Union[PythonNum, Sequence[PythonNum]] = 0.0,
+        max_sdepth_prob: PythonNum = 0.0
     ):
         super().__init__()
         num_stages = len(feature_dims)
@@ -219,10 +252,10 @@ class MixTransformer(nn.Module):
         elif isinstance(activations, nn.Module):
             activations = [copy.deepcopy(activations) for _ in range(num_stages)]
             
-        if isinstance(ffn_dropout_probs, Real):
+        if isinstance(ffn_dropout_probs, PythonNum):
             ffn_dropout_probs = [ffn_dropout_probs] * num_stages
 
-        if isinstance(attn_dropout_probs, Real):
+        if isinstance(attn_dropout_probs, PythonNum):
             attn_dropout_probs = [attn_dropout_probs] * num_stages
             
         stage_fields = [
@@ -260,11 +293,13 @@ class MixTransformer(nn.Module):
     def forward(self, X: torch.Tensor) -> List[torch.Tensor]:
         '''
         Args:
-            X (torch.Tensor): Input tensor of shape `(batch_size, in_channels, height, width)`.
+            X (torch.Tensor): 
+                Input tensor of shape `(batch_size, in_channels, height, width)`.
             
         Returns:
-            List[torch.Tensor]: List of output tensors from each encoder stage.
-                                The i-th tensor has shape `(batch_size, feature_dim[i], fmap_height, fmap_width)`.
+            List[torch.Tensor]: 
+                List of output tensors from each encoder stage.
+                The i-th tensor has shape `(batch_size, feature_dim[i], fmap_height, fmap_width)`.
         '''
         outs = []
         for stage in self.stages:

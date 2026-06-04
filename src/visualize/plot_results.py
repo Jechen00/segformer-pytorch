@@ -14,6 +14,7 @@ from src.utils import nested_extract
 from src.metrics.postprocess import (
     MetricSpecLike, format_metric_spec, select_and_agg_scalar_metric
 )
+from src.ml_types import PythonNum
 
 
 #####################################
@@ -27,6 +28,29 @@ def plot_loss(
 ) -> Figure:
     '''
     Plots the training and validation loss curves.
+
+    Note: At least one of `train_history` and `val_history` must be provided.
+
+    Args:
+        train_history (optional, TrainHistory):
+            `TrainHistory` instance containing the training loss curve.
+            If not provided, no training loss curve is plotted.
+        val_history (optional, ValHistory):
+            `ValHistory` instance containing the validation loss curve.
+            If not provided, no validation loss curve is plotted.
+        agg_label (optional, str):
+            Label indicating the aggregation applied to the losses.
+            If provided, the labels for the loss curves will appear as
+            `Train Loss (agg_label)` and `Val Loss (agg_label)`.
+            If `None`, labels are displayed without the `agg_label` prefix.
+            Default is `Avg` for average.
+        figsize (optional, Tuple[float, float]):
+            Figure size in the form of a tuple (width, height).
+            If not provided, defaults to `6 * num_hist, 4`,
+            where `num_hist` is the number of provided history objects.
+    Returns:
+        Figure:
+            Matplotlib figure displaying the loss curves for training and/or validation.
     '''
     # Setup curve information
     agg_label = '' if agg_label is None else f' ({agg_label})'
@@ -79,13 +103,40 @@ def plot_summary_metrics(
     figsize: Optional[Tuple[float, float]] = None
 ) -> Figure:
     '''
-    Plots summarized versions of evaluation metric curves.
-    At each evaluation epoch, each metric must be reduced to a single numerical value.
-    For class-wise metrics, this requires applying one of the supported aggregations:
-        - mean
-        - median
-        - min
-        - max
+    Plots summarized versions of validation metric curves.
+    Each validation metric is displayed on a separate subplot/panel.
+
+    Note: Each metric specification in `metric_specs`,
+          extracts a series of metric values from `val_history.metrics.values`.
+          Each value corresponds to a single epoch and is optionally subsetted and/or aggregated.
+          The resulting series/curve is expected to only contain scalar values.
+    
+    Args:
+        val_history (ValHistory): 
+            `ValHistory` instance containing the validation metrics series to plot.
+            These should be contained in the attribute `val_history.metrics.values`.
+        metric_specs (Dict[str, MetricSpecLike]):
+            Dictionary mapping label names to metric specifications (`MetricSpecLike`)
+            indicating what metrics curves to produce and plot.
+            Supported types:
+                - `MetricSpec` instance.
+                - `MetricSpecDict` dictionary.
+        nrows (optional, int): 
+            Nunber of rows in the figure.
+            If not provided, it is set to `math.ceil(num_specs / ncols)`.
+            This applies even when `ncols` is not provided, since `ncols` defaults to `math.ceil(math.sqrt(num_specs))`.
+            Here, `num_specs = len(metric_spects)`.
+        ncols (optional, int): 
+            Number of columns in the figure.
+            If not provided, but `nrows` is provided, it is set to `math.ceil(num_specs / nrows)`.
+            If not provided and `nrows` is not provided, it is set to `math.ceil(math.sqrt(num_specs))`.
+            Here, `num_specs=len(metric_specs)`.
+        figsize (optional, Tuple[float, float]):
+            Figure size in the form of a tuple (width, height).
+            If not provided, defaults to `5 * ncols, 5 * nrows`.
+    Returns:
+        Figure:
+            Matplotlib figure displaying the validation metric curves produced from `val_history`.
     '''
     # Setup figure and colors
     num_specs = len(metric_specs)
@@ -128,18 +179,50 @@ def plot_class_metrics(
     metric_labels: Optional[List[str]] = None,
     nrows: Optional[int] = None,
     ncols: Optional[int] = None,
-    figsize: Optional[Tuple[float, float]] = None
+    figsize: Optional[Tuple[float, float]] = None,
+    title_fontsize: PythonNum = 25
 ) -> Figure:
     '''
-    Plots class-wise evaluation metric curves.
-    Each evaluation metric is displayed on a separate subplot/panel 
+    Plots class-wise validation metric curves.
+    Each validation metric is displayed on a separate subplot/panel 
     and each class recieves their own curve within that panel.
+
+    Note: Each key path from `key_paths` is used to extract
+          a series of class-wise metric tensors from `val_history.metrics.values`.
+          Each tensor corresponds to a single epoch and is expected 
+          to have a length equal to the number of classes (i.e. `len(class_names)`).
     
-    key_paths (List[str]): List of dot-separated key paths to extract class-wise metrics 
-                           from `val_history.metrics.values`.
-    metric_labels (optional, List[str]): List of plot labels corresponding to each element in `key_paths`.
-                                         If provided, the length must be the same as `key_paths`.
-                                         If not provided, labels default to `key_paths`.
+    Args:
+        val_history (ValHistory):
+            `ValHistory` instance containing the class-wise validation metrics series to plot.
+            These should be contained in the attribute `val_history.metrics.values`.
+        key_paths (List[str]):
+            List of dot-separated key paths within `val_history.metrics.values`.
+        class_names (List[str]): 
+            List of class names. 
+        metric_labels (optional, List[str]):
+            Labels for the title of each class-wise metric subplot/panel.
+            If provided, must be the same length as `key_paths`.
+            If not provided, the key paths in `key_paths` are used as titles.
+        nrows (optional, int): 
+            Nunber of rows in the figure.
+            If not provided, it is set to `math.ceil(num_paths / ncols)`.
+            This applies even when `ncols` is not provided, since `ncols` defaults to `math.ceil(math.sqrt(num_paths))`.
+            Here, `num_paths = len(key_paths)`.
+        ncols (optional, int): 
+            Number of columns in the figure.
+            If not provided, but `nrows` is provided, it is set to `math.ceil(num_paths / nrows)`.
+            If not provided and `nrows` is not provided, it is set to `math.ceil(math.sqrt(num_paths))`.
+            Here, `num_paths=len(metric_paths)`.
+        figsize (optional, Tuple[float, float]):
+            Figure size in the form of a tuple (width, height).
+            If not provided, defaults to `5 * ncols, 5 * nrows`.
+        title_fontsize (PythonNum): 
+            Fontsize for the titles of each subplot/panel. Default is `25`.
+
+    Returns:
+        Figure:
+            Matplotlib figure displaying the class-wise evaluation metric curves extracted from `val_history`.
     '''
     num_paths = len(key_paths)
     num_classes = len(class_names)
@@ -188,7 +271,7 @@ def plot_class_metrics(
             class_values = metric_values[:, i].tolist()
             ax.plot(epochs, class_values, c = clr, label = class_name)
         
-        ax.set_title(metric_label, fontsize = 25)
+        ax.set_title(metric_label, fontsize = title_fontsize)
         ax.set_ylabel('Metric')
         ax.set_xlabel('Epoch')
         ax.legend()
