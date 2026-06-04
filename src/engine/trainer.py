@@ -44,10 +44,6 @@ class ModelTrainer():
     (e.g. image classification or semantic segmentation).
 
     This trains a model on a training dataset and evaluates it on a validation dataset.
-    The series of computed measures are stored:
-        -  `train_history`: Average batch loss from training.
-        - `val_history`: Average batch loss and optional metrics from validation.
-
     It also optionally saves a training checkpoint and best-model state dictionary.
 
     Task Notes:
@@ -64,6 +60,14 @@ class ModelTrainer():
                 - image (torch.Tensor): The images for the batch.
                 - targ_key (torch.Tensor): The corresponding targets for the batch.
           Here, `targ_key` is a key defined by the user when initializing `ModelTrainer`.
+
+    Training Result Notes:
+        - Epoch loss is computed as the mean of batch losses across the epoch.
+          Consequently, this may not equal the mean loss across samples.
+
+        - Computed measures are stored in:
+            -  `train_history`: Epoch losses from training dataset.
+            - `val_history`: Epoch losses and optional metric values from validation dataset.
 
     Args:
         model (nn.Module): 
@@ -86,7 +90,7 @@ class ModelTrainer():
         eval_cfg (optional, EvalConfig):
             Configuration for validation metric evaluations.
             If not provided, validation metrics will not be computed during training
-            and `val_history` will only track the average batch loss.
+            and `val_history` will only track the epoch loss.
         measure_policy (optional, MeasurePolicy):
             Measure policy that defines a best score (a loss or metric)
             used to determine model improvement during training.
@@ -145,8 +149,8 @@ class ModelTrainer():
         if self.measure_policy is not None:
             self.measure_policy.reset() # Ensure a fresh state
 
-        self.train_history = TrainHistory() # Tracks average batch losses
-        self.val_history = ValHistory() # Tracks average batch losses and metrics
+        self.train_history = TrainHistory() # Tracks epoch loss
+        self.val_history = ValHistory() # Tracks epoch loss and metrics
         self.start_epoch = 0
 
         # GradScaler is used for CUDA mixed-precision training (AMP).
@@ -205,11 +209,11 @@ class ModelTrainer():
 
         Returns:
             train_history (TrainHistory):
-                Training-phase history containing the average batch losses (per epoch).
+                Training-phase history containing the epoch losses.
                 Can also be accessed from the `train_history` attribute.
             val_history (ValHistory):
-                Validation-phase history containing the average batch losses (per epoch)
-                and optional metric values (per evaluation epoch).
+                Validation-phase history containing the epoch losses
+                and optional metric values (computed per evaluation interval).
                 Can also be accessed from the `val_history` attribute.
         '''    
         for epoch in range(self.start_epoch, num_epochs):
@@ -302,9 +306,12 @@ class ModelTrainer():
         This loops through the training dataset once, computing the loss 
         for each batch and updating the model weights.
 
+        Note: The epoch loss is computed as the mean of batch losses across the epoch.
+              Consequently, it may not equal the mean loss across all samples.
+
         Returns:
             torch.Tensor:
-                The average batch loss, computed across all batches in the epoch.
+                Epoch loss (mean of batch losses across the epoch).
         '''
         num_batches = len(self.train_loader)
         loss_sum = 0
@@ -327,11 +334,11 @@ class ModelTrainer():
                 dtype = pcfg.amp_dtype, 
                 enabled = pcfg.use_amp
             ):
-                # Compute loss (sum and average) for batch
+                # Compute batch loss
                 logits = self.model(imgs)
                 loss = self.loss_fn(logits, targs)
 
-            scaler.scale(loss).backward() # Backpropagate on average batch loss
+            scaler.scale(loss).backward() # Backpropagate on batch loss
             scaler.step(self.optimizer) # Update parameters
             scaler.update() # Update grad scalar
 
@@ -341,7 +348,7 @@ class ModelTrainer():
                 
             loss_sum += loss.detach() # Update running sum loss
 
-        return loss_sum / num_batches # Average batch loss
+        return loss_sum / num_batches # Epoch loss (mean of batch losses)
 
     def _val_step(self, metrics: Optional[Dict[str, Metric]]) -> ValResults:
         '''
@@ -352,6 +359,9 @@ class ModelTrainer():
 
         Note: See `src.metrics.types` for an example structure of `MetricResults`.
 
+        Note: The epoch loss is computed as the mean of batch losses across the epoch.
+              Consequently, it may not equal the mean loss across all samples.
+
         Args:
             metrics (optional, Dict[str, Metric]):
                 Dictionary mapping task names to metric objects (must implement the `Metric` protocol).
@@ -361,9 +371,9 @@ class ModelTrainer():
                 Dictionary containing validation results for the epoch.
                 This includes:
                     - loss (torch.Tensor): 
-                        Average batch loss, computed across all batches in the epoch.
+                        Epoch loss (mean of batch losses across the epoch).
                     - metrics (optional, MetricResults):
-                        Metric result dictionary containing the computed metrics.
+                        Dictionary of computed metric values.
                         This is `None` if `metrics` was not provided as input.
         '''
         num_batches = len(self.val_loader)
@@ -391,7 +401,7 @@ class ModelTrainer():
                     dtype = pcfg.amp_dtype, 
                     enabled = pcfg.use_amp
                 ):
-                    # Compute loss (sum and average) for batch
+                    # Compute batch loss
                     logits = self.model(imgs)
                     loss = self.loss_fn(logits, targs)
                 
@@ -410,7 +420,7 @@ class ModelTrainer():
             metric_results = None
 
         return {
-            'loss': loss_sum / num_batches, # Average batch loss
+            'loss': loss_sum / num_batches, # Epoch loss (mean of batch losses)
             'metrics': metric_results
         }
 
@@ -430,15 +440,12 @@ class ModelTrainer():
             epoch (int):
                 The epoch index being logged.
             train_loss (torch.Tensor):
-                Average training loss, computed across all batches in the epoch.
+                Epoch loss from the training phase (`_training_step`).
             val_results (ValResults):
-                Results from the validation phase of the epoch.
+                Results dictionary from the validation phase (`_val_step`).
                 This contains:
-                    - loss (torch.Tensor): 
-                        Average validation loss, computed across all batches in the epoch.
-                    - metrics (optional, MetricResults):
-                        Optional metric result dictionary containing 
-                        the computed validation metrics.
+                    - loss (torch.Tensor): Epoch loss.
+                    - metrics (optional, MetricResults): Dictionary of computed metric values.
             train_time (float):
                 Computation time for the training phase of the epoch.
             val_time (float):
