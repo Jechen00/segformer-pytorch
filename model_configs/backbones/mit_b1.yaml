@@ -1,0 +1,36 @@
+# -----------------------------------
+# Notes
+# -----------------------------------
+# This config assumes:
+#   - RGB input images (`in_channels = 3`)
+# If training on a dataset with a different structure, change this accordingly.
+#
+# List-valued arguments are per encoder stage (4 stages in total).
+#
+# The SegFormer paper does not specify: 
+#   - Dropout probabilities
+#   - Maximum stochastic depth probability
+# The values in this config are based on my own experiments.
+#
+# For in-depth argument descriptions, see `src.models.encoder.MixTransformer`
+
+
+# -----------------------------------
+# Arguments
+# -----------------------------------
+# MiT-B0 -> MiT-B1 Changes:
+#   - feature_dims: [32, 64, 160, 256] -> [64, 128, 320, 512]
+#   - hid_dims: [256, 512, 640, 1024] -> [512, 1024, 1280, 2048]
+
+in_channels: 3                            # Number of input channels
+feature_dims: [64, 128, 320, 512]         # Number of output features 
+patch_sizes: [7, 3, 3, 3]                 # Patch sizes for patch embedding
+strides: [4, 2, 2, 2]                     # Strides for patch embedding
+num_blks: [2, 2, 2, 2]                    # Number of encoder blocks
+num_heads: [1, 2, 5, 8]                   # Number of attention heads for efficient self-attention
+reduce_ratios: [8, 4, 2, 1]               # Reduction ratio for efficient self-attention
+hid_dims: [512, 1024, 1280, 2048]         # Hidden dimensions for Mix-FFNs (feature_dims * expansion_ratio)
+activations: 'gelu'                       # Activations for Mix-FFNs; defaults to GELU
+ffn_dropout_probs: 0.05                   # Dropout probability for Mix-FFNs
+attn_dropout_probs: 0.05                  # Dropout probability for attention weights
+max_sdepth_prob: 0.1                      # Maximum stochastic depth probability

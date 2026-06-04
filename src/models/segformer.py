@@ -66,7 +66,7 @@ class SegFormerDefault(EncoderDecoder):
         in_channels (int): Number of input channels.
 
         feature_dims (Sequence[int]): 
-            Dimension of output features (channels or embeddings) in each encoder stage.
+            Number of output features (channels or embeddings) in each encoder stage.
         patch_sizes (Sequence[SpatialSize]): 
             Patch size for the patch embedding in each encoder stage.
         strides (Sequence[SpatialSize]): 

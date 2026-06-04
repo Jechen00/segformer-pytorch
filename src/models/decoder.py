@@ -29,7 +29,7 @@ class MLPDecoder(nn.Module):
             Activation function for the convolutional layer used to fuse encoder feature maps.
             Default is `None`.
         channel_dropout_prob (PythonNum): 
-            Probability of channelwise dropout applied after fusing encoder feature maps.
+            Probability of channel-wise dropout applied after fusing encoder feature maps.
             Entire feature channels are randomly zeroed during training.
             Default is `0.0`.
     '''

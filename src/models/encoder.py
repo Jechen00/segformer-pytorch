@@ -27,7 +27,7 @@ class EncoderBlock(nn.Module):
         
     Args:
         feature_dim (int): 
-            Dimension of input and output features (channels for feature maps or embeddings for tokens).
+            Number of input and output features (channels for feature maps or embeddings for tokens).
         num_heads (int): 
             Number of attention heads for efficient self-attention.
         reduce_ratio (int): 
@@ -97,7 +97,7 @@ class EncoderStage(nn.Module):
         in_channels (int): 
             Number of input channels.
         feature_dim (int): 
-            Dimension of output features (channels for feature maps or embeddings for tokens).
+            Number of output features (channels for feature maps or embeddings for tokens).
         patch_size (int or tuple(int, int)): 
             Spatial size of each patch region used to compute a embedding.
             This is the kernel size of a convolutional layer.
@@ -191,7 +191,7 @@ class MixTransformer(nn.Module):
         in_channels (int): 
             Number of input channels.
         feature_dims (Sequence[int]): 
-            Dimension of output features (channels or embeddings) in each encoder stage.
+            Number of output features (channels or embeddings) in each encoder stage.
         patch_sizes (Sequence[SpatialSize]): 
             Patch size for the patch embedding in each encoder stage.
         strides (Sequence[SpatialSize]): 

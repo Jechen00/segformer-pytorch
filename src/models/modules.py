@@ -8,6 +8,15 @@ import torch.nn.functional as F
 from typing import Optional
 from src.ml_types import PythonNum
 
+ACTIVATIONS = {
+    'relu': nn.ReLU,
+    'leaky_relu': nn.LeakyReLU,
+    'mish': nn.Mish,
+    'silu': nn.SiLU,
+    'gelu': nn.GELU,
+    'sigmoid': nn.Sigmoid
+}
+
 
 #####################################
 # Classes
@@ -114,7 +123,7 @@ class EfficientSelfAttention(nn.Module):
         num_heads (int): 
             Number of attention heads.
         feature_dim (int): 
-            Dimension of features (channels for feature maps or embeddings for tokens).
+            Number of features (channels for feature maps or embeddings for tokens).
         reduce_ratio (int): 
             Ratio used to reduce the spatial resolution (sequence length) of the keys/values
             before computing attention. 
@@ -190,7 +199,7 @@ class MixFFN(nn.Module):
     
     Args:
         feature_dim (int): 
-            Dimension of features (channels for feature maps or embeddings for tokens).
+            Number of features (channels for feature maps or embeddings for tokens).
         hid_dim (int): 
             Number of hidden channels in intermediate layers.
             In the original SegFormer paper, 
