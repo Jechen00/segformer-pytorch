@@ -51,6 +51,10 @@ class ConvBNAct(nn.Module):
                  include_bn: bool = False, 
                  activation: Optional[nn.Module] = None):
         super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.include_bn = include_bn
+
         include_bias = not include_bn
         layers = [nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias = include_bias)]
         
@@ -83,6 +87,7 @@ class ChannelwiseLayerNorm(nn.Module):
     '''
     def __init__(self, num_channels: int, eps: float = 1e-6):
         super().__init__()
+        self.num_channels = num_channels
 
         self.eps = eps
         self.weights = nn.Parameter(torch.ones(1, num_channels, 1, 1))
@@ -222,6 +227,8 @@ class MixFFN(nn.Module):
         super().__init__()
         if activation is None:
             activation = nn.GELU()
+
+        self.feature_dim = feature_dim
 
         self.mix_ffn = nn.Sequential(
             nn.Conv2d(feature_dim, hid_dim, kernel_size = 1), # First linear layer

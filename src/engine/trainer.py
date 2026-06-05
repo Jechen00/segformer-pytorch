@@ -20,9 +20,9 @@ from src.logging.formatting import (
 from src.metrics.ops import Metric
 from src.metrics.types import MetricResults
 from src.engine.checkpoint import load_checkpoint, save_checkpoint
-from src.engine.trainer_configs import (
-    SchedulerConfig, EvalConfig, 
-    SaveConfig, PerformanceConfig, LogConfig
+from src.engine.trainer_settings import (
+    SchedulerSettings, EvalSettings, 
+    SaveSettings, PerformanceSettings, LogSettings
 )
 from src.engine.measure_policy import MeasurePolicy
 
@@ -84,11 +84,11 @@ class ModelTrainer():
             and return a scalar value.
         optimizer (Optimizer):
             Optimizer used to update `model` weights based on the loss computed by `loss_fn`.
-        scheduler_cfg (optional, SchedulerConfig):
-            Configuration for the learning rate scheduler.
+        sched_sett (optional, SchedulerSettings):
+            Settings for the learning rate scheduler.
             If not provided, the learning rate of `optimizer` will remain constant during training.
-        eval_cfg (optional, EvalConfig):
-            Configuration for validation metric evaluations.
+        eval_sett (optional, EvalSettings):
+            Settings for validation metric evaluations.
             If not provided, validation metrics will not be computed during training
             and `val_history` will only track the epoch loss.
         measure_policy (optional, MeasurePolicy):
@@ -96,16 +96,16 @@ class ModelTrainer():
             used to determine model improvement during training.
             If not provided, improvements are not tracked,
             early stopping is disabled, and best-model saving is disabled.
-        save_cfg (optional, SaveConfig):
-            Configuration for saving the training checkpoint 
+        save_sett (optional, SaveSettings):
+            Settings for saving the training checkpoint 
             and an optional best model (requires `measure_policy` to be provided).
             If not provided, saving will be disabled.
-        log_cfg (optional, LogConfig):
-            Configuration for log formatting.
-            If not provided, a default `LogConfig()` instance is used.
-        perf_cfg (optional, PerformanceConfig):
-            Configuration for performance settings.
-            If not provided, a default `PerformanceConfig()` instance is used,
+        log_sett (optional, LogSettings):
+            Settings for log formatting.
+            If not provided, a default `LogSettings()` instance is used.
+        perf_sett (optional, PerformanceSettings):
+            Settings for training performance.
+            If not provided, a default `PerformanceSettings()` instance is used,
             which includes training on CPU.
     '''
     def __init__(
@@ -116,23 +116,23 @@ class ModelTrainer():
         targ_key: str,
         loss_fn: nn.Module,
         optimizer: Optimizer,
-        scheduler_cfg: Optional[SchedulerConfig] = None,
-        eval_cfg: Optional[EvalConfig] = None,
+        sched_settings: Optional[SchedulerSettings] = None,
+        eval_settings: Optional[EvalSettings] = None,
         measure_policy: Optional[MeasurePolicy] = None,
-        save_cfg: Optional[SaveConfig] = None,
-        log_cfg: Optional[LogConfig] = None,
-        perf_cfg: Optional[PerformanceConfig] = None
+        save_settings: Optional[SaveSettings] = None,
+        log_settings: Optional[LogSettings] = None,
+        perf_settings: Optional[PerformanceSettings] = None
     ):
-        self.scheduler_cfg = scheduler_cfg
-        self.eval_cfg = eval_cfg
-        self.save_cfg = save_cfg
-        self.perf_cfg = PerformanceConfig() if perf_cfg is None else perf_cfg
-        self.log_cfg = LogConfig() if log_cfg is None else log_cfg
+        self.sched_settings = sched_settings
+        self.eval_settings = eval_settings
+        self.save_settings = save_settings
+        self.perf_settings = PerformanceSettings() if perf_settings is None else perf_settings
+        self.log_settings = LogSettings() if log_settings is None else log_settings
 
-        device = self.perf_cfg.device # Should already be noramlized to a torch.device
+        device = self.perf_settings.device # Should already be noramlized to a torch.device
         self.model = model.to(
             device = device,
-            memory_format = self.perf_cfg.memory_format
+            memory_format = self.perf_settings.memory_format
         )
 
         self.train_loader = train_loader
@@ -154,14 +154,14 @@ class ModelTrainer():
         self.start_epoch = 0
 
         # GradScaler is used for CUDA mixed-precision training (AMP).
-        # On other devices, perf_cfg.use_amp must be False, so this is a no-op
+        # On other devices, perf_settings.use_amp must be False, so this is a no-op
         self.scaler = torch.amp.GradScaler(
             device = device,
-            enabled = self.perf_cfg.use_amp
+            enabled = self.perf_settings.use_amp
         )
 
-        self.log_sec_div = SEC_DIV_CHAR * self.log_cfg.logbox_len
-        self.log_end_div = EPOCH_FILL_CHAR * self.log_cfg.logbox_len
+        self.log_sec_div = SEC_DIV_CHAR * self.log_settings.logbox_len
+        self.log_end_div = EPOCH_FILL_CHAR * self.log_settings.logbox_len
 
     def load_checkpoint(self, resume_path: Union[str, Path]) -> None:
         '''
@@ -184,7 +184,7 @@ class ModelTrainer():
             val_history = self.val_history,
             scheduler = self.scheduler,
             measure_policy = self.measure_policy,
-            device = self.perf_cfg.device
+            device = self.perf_settings.device
         )
         self.start_epoch = ckpt_epoch + 1
         print(
@@ -224,22 +224,22 @@ class ModelTrainer():
             train_loss = self._train_step()
             train_time = time.time() - train_start
 
-            cfg = self.scheduler_cfg
-            if (cfg is not None) and (cfg.step_freq == 'epoch'):
-                cfg.scheduler.step() # Update optimizer learning rates per epoch
+            s_setts = self.sched_settings
+            if (s_setts is not None) and (s_setts.step_freq == 'epoch'):
+                s_setts.scheduler.step() # Update optimizer learning rates per epoch
           
             # ------------------------------------
             # Validation step
             # ------------------------------------
             val_start = time.time()
-            cfg = self.eval_cfg
+            e_setts = self.eval_settings
             should_eval = (
-                (cfg is not None)
-                and (epoch % cfg.eval_interval == 0) 
+                (e_setts is not None)
+                and (epoch % e_setts.eval_interval == 0) 
                 and (epoch != 0) # Skip evaluation on zeroth epoch
             )
             val_results = self._val_step(
-                metrics = cfg.metrics if should_eval else None
+                metrics = e_setts.metrics if should_eval else None
             )
             val_time = time.time() - val_start
 
@@ -258,7 +258,7 @@ class ModelTrainer():
                     scheduler = self.scheduler,
                     measure_policy = self.measure_policy,
                     checkpoint_epoch = epoch,
-                    save_path = self.save_cfg.ckpt_path
+                    save_path = self.save_settings.ckpt_path
                 )
 
             # ------------------------------------
@@ -288,7 +288,7 @@ class ModelTrainer():
 
                 # Save best model
                 if self.should_save_best_model:
-                    torch.save(self.model.state_dict(), self.save_cfg.best_model_path)
+                    torch.save(self.model.state_dict(), self.save_settings.best_model_path)
 
             # Early stopping check
             if should_stop:
@@ -318,21 +318,21 @@ class ModelTrainer():
 
         self.model.train()
         for batch in self.train_loader:
-            pcfg = self.perf_cfg
-            device = pcfg.device
+            p_setts = self.perf_settings
+            device = p_setts.device
             scaler = self.scaler
 
-            imgs = batch['image'].to(device, memory_format = pcfg.memory_format)
+            imgs = batch['image'].to(device, memory_format = p_setts.memory_format)
             targs = batch[self.targ_key].to(device)
             
             self.optimizer.zero_grad() # Zero parameter gradients
 
             # The AMP context is only relevant for CUDA. 
-            # It is disabled for other devices (pcfg.use_amp = False)
+            # It is disabled for other devices (p_setts.use_amp = False)
             with torch.autocast(
                 device_type = device.type, 
-                dtype = pcfg.amp_dtype, 
-                enabled = pcfg.use_amp
+                dtype = p_setts.amp_dtype, 
+                enabled = p_setts.use_amp
             ):
                 # Compute batch loss
                 logits = self.model(imgs)
@@ -342,9 +342,9 @@ class ModelTrainer():
             scaler.step(self.optimizer) # Update parameters
             scaler.update() # Update grad scalar
 
-            scfg = self.scheduler_cfg
-            if (scfg is not None) and (scfg.step_freq == 'optim_step'):
-                scfg.scheduler.step() # Update learning rates per optimizer step
+            s_setts = self.scheduler_settings
+            if (s_setts is not None) and (s_setts.step_freq == 'optim_step'):
+                s_setts.scheduler.step() # Update learning rates per optimizer step
                 
             loss_sum += loss.detach() # Update running sum loss
 
@@ -387,19 +387,19 @@ class ModelTrainer():
         # Start step loop  
         self.model.eval()
         for batch in self.val_loader:
-            pcfg = self.perf_cfg
-            device = pcfg.device
+            p_setts = self.perf_settings
+            device = p_setts.device
 
-            imgs = batch['image'].to(device, memory_format = pcfg.memory_format)
+            imgs = batch['image'].to(device, memory_format = p_setts.memory_format)
             targs = batch[self.targ_key].to(device)
 
             with torch.inference_mode():
                 # The AMP context is only relevant for CUDA. 
-                # It is disabled for other devices (pcfg.use_amp = False)
+                # It is disabled for other devices (p_setts.use_amp = False)
                 with torch.autocast(
                     device_type = device.type, 
-                    dtype = pcfg.amp_dtype, 
-                    enabled = pcfg.use_amp
+                    dtype = p_setts.amp_dtype, 
+                    enabled = p_setts.use_amp
                 ):
                     # Compute batch loss
                     logits = self.model(imgs)
@@ -451,15 +451,16 @@ class ModelTrainer():
             val_time (float):
                 Computation time for the validation phase of the epoch.
         '''
+        setts = self.log_settings
         log_kwargs = {
-            'logbox_len': self.log_cfg.logbox_len,
-            'max_row_entries': self.log_cfg.max_row_entries,
-            'num_decimals': self.log_cfg.num_decimals
+            'logbox_len': setts.logbox_len,
+            'max_row_entries': setts.max_row_entries,
+            'num_decimals': setts.num_decimals
         }
 
         # List to store all logging sections
         epoch_log_secs = [
-            make_epoch_header(epoch, self.log_cfg.logbox_len), 
+            make_epoch_header(epoch, setts.logbox_len), 
             self.log_sec_div
         ]
 
@@ -484,7 +485,7 @@ class ModelTrainer():
         if (rec_val_metrics is not None) and (self.should_log_metrics):
             metric_log_sec = make_metric_log_sec(
                 metric_results = rec_val_metrics,
-                metric_specs = self.eval_cfg.log_metric_specs,
+                metric_specs = self.eval_settings.log_metric_specs,
                 **log_kwargs
             )
             epoch_log_secs.extend([metric_log_sec, self.log_end_div])
@@ -507,16 +508,16 @@ class ModelTrainer():
         '''
         Validates the configuration of the model trainer.
         '''    
-        # Check if eval_cfg is provided when measure_info = 'metric'
+        # Check if eval_settings is provided when measure_info = 'metric'
         mp = self.measure_policy
         metric_policy_no_eval = (
             (mp is not None)
             and (mp.measure_info == 'metric')
-            and (self.eval_cfg is None)
+            and (self.eval_settings is None)
         )
         if metric_policy_no_eval:
             warnings.warn(
-                "measure_policy.measure_info = 'metric', but no eval_cfg was provided."
+                "measure_policy.measure_info = 'metric', but no eval_settings was provided."
                 'measure_policy will be ignored.'
             )
         
@@ -525,14 +526,14 @@ class ModelTrainer():
         Prints information about where the training checkpoint and the best model will be saved.
         Prints warnings if checkpoint or best-model saving is disabled.
         '''
-        cfg = self.save_cfg
+        setts = self.save_settings
         if not self.should_save_ckpt:
             warnings.warn(
                 f'No checkpoint save path provided. Training checkpoint will not be saved.',
                 UserWarning
             )
         else:
-            print(f'{BOLD_ON}[NOTE]{BOLD_OFF} Training checkpoint will be saved at: {cfg.ckpt_path}')
+            print(f'{BOLD_ON}[NOTE]{BOLD_OFF} Training checkpoint will be saved at: {setts.ckpt_path}')
 
         if self.measure_policy is not None:
             if not self.should_save_best_model:
@@ -542,7 +543,7 @@ class ModelTrainer():
                     UserWarning
                 )
             else:
-                print(f'{BOLD_ON}[NOTE]{BOLD_OFF} Best model will be saved at: {cfg.best_model_path}')
+                print(f'{BOLD_ON}[NOTE]{BOLD_OFF} Best model will be saved at: {setts.best_model_path}')
         print() # Adds an extra spacing at the end
 
     @property
@@ -553,43 +554,43 @@ class ModelTrainer():
         Note: During training, saving a best model is only ever considered if
               `measure_policy` was provided at initialization.
         '''
-        cfg = self.save_cfg
-        return (cfg is not None) and (cfg.best_model_name is not None)
+        setts = self.save_settings
+        return (setts is not None) and (setts.best_model_name is not None)
 
     @property
     def should_save_ckpt(self) -> bool:
         '''
         Whether checkpoint saving is available.
         '''
-        cfg = self.save_cfg
-        return (cfg is not None) and (cfg.ckpt_name is not None)
+        setts = self.save_settings
+        return (setts is not None) and (setts.ckpt_name is not None)
 
     @property
     def should_log_metrics(self) -> bool:
         '''
         Whether logging evaluation metrics is available.
         '''
-        cfg = self.eval_cfg
-        return(cfg is not None) and (cfg.log_metric_specs is not None)
+        setts = self.eval_settings
+        return(setts is not None) and (setts.log_metric_specs is not None)
     
     @property
     def scheduler(self) -> Optional[lr_scheduler._LRScheduler]:
         '''
         Learning rate scheduler.
-        Returns `None` if `scheduler_cfg` was not provided at initialization.
+        Returns `None` if `scheduler_settings` was not provided at initialization.
         '''
-        if self.scheduler_cfg is None:
+        if self.scheduler_settings is None:
             return None
         else:
-            return self.scheduler_cfg.scheduler
+            return self.scheduler_settings.scheduler
         
     @property
     def metrics(self) -> Optional[Dict[str, Metric]]:
         '''
         Metrics used to evaluate the model on the validation dataset.
-        Returns `None` if `eval_cfg` was not provided at initialization.
+        Returns `None` if `eval_settings` was not provided at initialization.
         '''
-        if self.eval_cfg is None:
+        if self.eval_settings is None:
             return None
         else:
-            return self.eval_cfg.metrics
+            return self.eval_settings.metrics

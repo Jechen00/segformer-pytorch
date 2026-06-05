@@ -1,5 +1,5 @@
 '''
-Configuration dataclasses for `src.trainer.ModelTrainer`.
+Setting dataclasses used in `src.trainer.ModelTrainer`.
 
 Each dataclass in this module corresponds to an argument 
 in `src.trainer.ModelTrainer` and is used 
@@ -33,9 +33,9 @@ from src.utils import format_file_path
 # Data Classes
 #####################################
 @dataclass
-class SchedulerConfig():
+class SchedulerSettings():
     '''
-    Configuration for the learning rate scheduler.
+    Settings for the learning rate scheduler.
 
     Attributes:
         scheduler (lr_scheduler._LRScheduler):
@@ -52,11 +52,11 @@ class SchedulerConfig():
 
 
 @dataclass
-class EvalConfig():
+class EvalSettings():
     '''
-    Configuration for validation metric evaluation.
+    Settings for validation metric evaluation.
 
-    Attribute:
+    Attributes:
         metrics (Dict[str, Metric]):
             Dictionary mapping task names to metric objects used during evalutation.
             Each metric object must implement the `Metric` protocol (see `src.metrics.ops` for details).
@@ -107,9 +107,9 @@ class EvalConfig():
 
 
 @dataclass
-class PerformanceConfig():
+class PerformanceSettings():
     '''
-    Configuration for training performance settings.
+    Settings for training performance
 
     Attributes:
         device (Union[str, torch.device]):
@@ -162,9 +162,9 @@ class PerformanceConfig():
         self.device = device
 
 @dataclass
-class SaveConfig():
+class SaveSettings():
     '''
-    Configuration for save paths of the training checkpoint 
+    Settings for save paths of the training checkpoint 
     and the best-model state dictionary.
 
     Notes on Filename Arguments:
@@ -220,7 +220,7 @@ class SaveConfig():
     def __post_init__(self):
         if (self.ckpt_name is None) and (self.best_model_name is None):
             raise ValueError(
-                'SaveConfig requires at least one of ckpt_name or best_model_name to be provided.'
+                'SaveSettings requires at least one of ckpt_name or best_model_name to be provided.'
             )
 
         for name_attr in ['ckpt_name', 'best_model_name']:
@@ -263,9 +263,9 @@ class SaveConfig():
     
 
 @dataclass
-class LogConfig():
+class LogSettings():
     '''
-    Configuration for training log formatting.
+    Settings for training log formatting.
     See `src.logging.formatting` for details on logging.
 
     Attributes:

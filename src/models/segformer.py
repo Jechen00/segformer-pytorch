@@ -56,9 +56,9 @@ class EncoderDecoder(nn.Module):
         return X
     
 
-class SegFormerDefault(EncoderDecoder):
+class SegFormer(EncoderDecoder):
     '''
-    Default SegFormer model with a Mix Transformer (Mit) encoder 
+    SegFormer model with a Mix Transformer (Mit) encoder 
     and a multi-layer perceptron (MLP) decoder.
     The architecture follows the SegFormer paper: https://arxiv.org/abs/2105.15203
 
@@ -134,6 +134,10 @@ class SegFormerDefault(EncoderDecoder):
         dec_activation: Optional[nn.Module] = None,
         channel_dropout_prob: PythonNum = 0.0
     ):
+        self.in_channels = in_channels
+        self.feature_dims = feature_dims
+        self.num_classes = num_classes
+        
         encoder = MixTransformer(in_channels, feature_dims, patch_sizes, strides,
                                  num_blks, num_heads, reduce_ratios, hid_dims,
                                  enc_activations, ffn_dropout_probs, 

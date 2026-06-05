@@ -25,19 +25,19 @@ class MiTClassification(nn.Module):
     Args:
         mit (MixTransformer): 
             The MiT backbone.
-        mit_channels (int): 
-            Number of channels in the final stage output of `mit`.
         num_classes (int): 
             Number of classes.
     '''
-    def __init__(self, mit: MixTransformer, mit_channels: int, num_classes: int):
+    def __init__(self, mit: MixTransformer, num_classes: int):
         super().__init__()
         self.num_classes = num_classes
         self.mit = mit
+        self.mit_channels = mit.feature_dims[-1] # Number of output channels in final stage of MiT
+
         self.classifier = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
-            nn.Linear(mit_channels, num_classes)
+            nn.Linear(self.mit_channels, num_classes)
         )
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
@@ -69,12 +69,13 @@ class MiTClassification(nn.Module):
         torch.save(self.mit.state_dict(), save_path)
 
     @classmethod
-    def from_config(cls, mit_kwargs: Dict[str, Any], num_classes: int) -> 'MiTClassification':
+    def from_mit_config(cls, mit_config: Dict[str, Any], num_classes: int) -> 'MiTClassification':
         '''
-        Instantiate a `MiTClassification` model from a configuration dictionary.
+        Instantiate a `MiTClassification` model using a keyword/configuration dictionary
+        for the `MixTransformer`.
 
         Args:
-            mit_kwargs (Dict[str, Any]):  
+            mit_config (Dict[str, Any]):  
                 Dictionary of keyword arguments for the `MixTransformer` backbone. 
                 The required arguments for the `MixTransformer` can be found in
                 `src.models.encoder.MixTransformer`.
@@ -85,5 +86,5 @@ class MiTClassification(nn.Module):
             MiTClassification: 
                 An instance of `MiTClassification`.
         '''
-        mit = MixTransformer(**mit_kwargs)
-        return MiTClassification(mit, mit_kwargs['feature_dims'][-1], num_classes)
+        mit = MixTransformer(**mit_config)
+        return MiTClassification(mit, num_classes)

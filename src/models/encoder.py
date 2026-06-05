@@ -59,6 +59,8 @@ class EncoderBlock(nn.Module):
         sdepth_prob: PythonNum = 0.0
     ):
         super().__init__()
+        self.feature_dim = feature_dim
+
         self.seq_attn = nn.Sequential(
             ChannelwiseLayerNorm(feature_dim),
             EfficientSelfAttention(num_heads, feature_dim, reduce_ratio, attn_dropout_prob)
@@ -152,6 +154,9 @@ class EncoderStage(nn.Module):
         elif len(sdepth_probs) != num_blks:
             raise ValueError('Length of sdepth_probs must equal num_blks.')
             
+        self.in_channels = in_channels
+        self.feature_dim = feature_dim
+
         patch_size = make_tuple(patch_size)
         self.patch_embed = nn.Conv2d(in_channels, feature_dim, 
                                      kernel_size = patch_size, stride = stride, 
@@ -206,7 +211,7 @@ class MixTransformer(nn.Module):
             Hidden dimension of the mix-FFN in each encoder stage.
             In the original SegFormer paper, 
             this is equal to `feature_dims` multiplied by some expansion ratio.
-        activations (optional, Union[nn.Module, Sequence[nn.Module]]): 
+        enc_activations (optional, Union[nn.Module, Sequence[nn.Module]]): 
             Activation functions for the mix-FFN in each encoder stage.
             Supports:
                 - `Sequence[nn.Module]`: Sequence containing one activation per encoder stage.
@@ -240,17 +245,20 @@ class MixTransformer(nn.Module):
         num_heads: Sequence[int],
         reduce_ratios: Sequence[int],
         hid_dims: Sequence[int],
-        activations: Optional[Union[nn.Module, Sequence[nn.Module]]] = None,
+        enc_activations: Optional[Union[nn.Module, Sequence[nn.Module]]] = None,
         ffn_dropout_probs: Union[PythonNum, Sequence[PythonNum]] = 0.0,
         attn_dropout_probs: Union[PythonNum, Sequence[PythonNum]] = 0.0,
         max_sdepth_prob: PythonNum = 0.0
     ):
         super().__init__()
+        self.in_channels = in_channels
+        self.feature_dims = feature_dims
+
         num_stages = len(feature_dims)
-        if activations is None:
-            activations = [nn.GELU() for _ in range(num_stages)]
-        elif isinstance(activations, nn.Module):
-            activations = [copy.deepcopy(activations) for _ in range(num_stages)]
+        if enc_activations is None:
+            enc_activations = [nn.GELU() for _ in range(num_stages)]
+        elif isinstance(enc_activations, nn.Module):
+            enc_activations = [copy.deepcopy(enc_activations) for _ in range(num_stages)]
             
         if isinstance(ffn_dropout_probs, PythonNum):
             ffn_dropout_probs = [ffn_dropout_probs] * num_stages
@@ -267,7 +275,7 @@ class MixTransformer(nn.Module):
             ('num_heads', num_heads),
             ('reduce_ratios', reduce_ratios),
             ('hid_dims', hid_dims),
-            ('activations', activations),
+            ('enc_activations', enc_activations),
             ('ffn_dropout_probs', ffn_dropout_probs),
             ('attn_dropout_probs', attn_dropout_probs)
         ]

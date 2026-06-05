@@ -42,7 +42,9 @@ class MLPDecoder(nn.Module):
         channel_dropout_prob: PythonNum = 0.0
     ):
         super().__init__()
+        self.feature_dims = feature_dims
         self.num_classes = num_classes
+
         self.stage_convs = nn.ModuleList([
             nn.Conv2d(in_channels, fused_channels, kernel_size = 1)
             for in_channels in feature_dims
