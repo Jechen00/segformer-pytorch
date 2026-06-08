@@ -16,7 +16,7 @@ from src.visualize.figures import (
     make_cls_figure, make_seg_figure_collage, make_seg_figure_overlay
 )
 from src.data_setup.transforms.functional import reverse_letterbox_numpy
-from src.utils import inverse_mapping
+from src.utils.data_utils import inverse_mapping
 
 from src.ml_types import PythonNum, ImageInput, ImageLabel, RGBTuple
 

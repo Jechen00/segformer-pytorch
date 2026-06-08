@@ -4,7 +4,8 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from torch.optim import Optimizer, lr_scheduler
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
 import time
 from pathlib import Path
@@ -96,17 +97,17 @@ class ModelTrainer():
             used to determine model improvement during training.
             If not provided, improvements are not tracked,
             early stopping is disabled, and best-model saving is disabled.
-        save_sett (optional, SaveSettings):
+        save_settings (optional, SaveSettings):
             Settings for saving the training checkpoint 
             and an optional best model (requires `measure_policy` to be provided).
             If not provided, saving will be disabled.
-        log_sett (optional, LogSettings):
-            Settings for log formatting.
-            If not provided, a default `LogSettings()` instance is used.
-        perf_sett (optional, PerformanceSettings):
+        perf_settings (optional, PerformanceSettings):
             Settings for training performance.
             If not provided, a default `PerformanceSettings()` instance is used,
             which includes training on CPU.
+        log_settings (optional, LogSettings):
+            Settings for log formatting.
+            If not provided, a default `LogSettings()` instance is used.
     '''
     def __init__(
         self,
@@ -120,8 +121,8 @@ class ModelTrainer():
         eval_settings: Optional[EvalSettings] = None,
         measure_policy: Optional[MeasurePolicy] = None,
         save_settings: Optional[SaveSettings] = None,
-        log_settings: Optional[LogSettings] = None,
-        perf_settings: Optional[PerformanceSettings] = None
+        perf_settings: Optional[PerformanceSettings] = None,
+        log_settings: Optional[LogSettings] = None
     ):
         self.sched_settings = sched_settings
         self.eval_settings = eval_settings
@@ -210,7 +211,7 @@ class ModelTrainer():
         Returns:
             train_history (TrainHistory):
                 Training-phase history containing the epoch losses.
-                Can also be accessed from the `train_history` attribute.
+                Can also be accessed from the `train_history` attribute. 
             val_history (ValHistory):
                 Validation-phase history containing the epoch losses
                 and optional metric values (computed per evaluation interval).
@@ -342,7 +343,7 @@ class ModelTrainer():
             scaler.step(self.optimizer) # Update parameters
             scaler.update() # Update grad scalar
 
-            s_setts = self.scheduler_settings
+            s_setts = self.sched_settings
             if (s_setts is not None) and (s_setts.step_freq == 'optim_step'):
                 s_setts.scheduler.step() # Update learning rates per optimizer step
                 
@@ -574,15 +575,15 @@ class ModelTrainer():
         return(setts is not None) and (setts.log_metric_specs is not None)
     
     @property
-    def scheduler(self) -> Optional[lr_scheduler._LRScheduler]:
+    def scheduler(self) -> Optional[LRScheduler]:
         '''
         Learning rate scheduler.
-        Returns `None` if `scheduler_settings` was not provided at initialization.
+        Returns `None` if `sched_settings` was not provided at initialization.
         '''
-        if self.scheduler_settings is None:
+        if self.sched_settings is None:
             return None
         else:
-            return self.scheduler_settings.scheduler
+            return self.sched_settings.scheduler
         
     @property
     def metrics(self) -> Optional[Dict[str, Metric]]:

@@ -9,7 +9,7 @@ from typing import (
     Any, Callable, TypeAlias
 )
 
-from src.utils import make_range
+from src.utils.data_utils import make_range
 from src.data_setup.transforms import functional
 from src.data_setup.types import SampleDict, SampleListDict
 from src.ml_types import SpatialSize, FillValue, ImageInput

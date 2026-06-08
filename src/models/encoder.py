@@ -11,7 +11,7 @@ from itertools import islice
 from typing import Sequence, Union, List, Optional
 
 from src.ml_types import PythonNum, SpatialSize 
-from src.utils import make_tuple
+from src.utils.data_utils import make_tuple
 from src.models.modules import ChannelwiseLayerNorm, EfficientSelfAttention, MixFFN
 
 

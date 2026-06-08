@@ -11,7 +11,7 @@ from typing import (
 
 from src.data_setup.types import SampleDict
 from src.ml_types import SpatialSize, ImageInput
-from src.utils import make_tuple
+from src.utils.data_utils import make_tuple
 
 
 #####################################

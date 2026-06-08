@@ -11,7 +11,7 @@ from typing import Union, Optional, Dict, Any, Literal, Iterable, TypeAlias, get
 
 from src.logging.history import TrainHistory, ValHistory
 from src.engine.measure_policy import MeasurePolicy
-from src.utils import recursive_to_cpu, format_file_path, all_or_none
+from src.utils import file_utils, data_utils, ml_utils
 
 Components: TypeAlias = Literal['model', 'optimizer', 'scaler', 'scheduler', 'measure_policy', 'histories']
 ComponentInput: TypeAlias = Union[Components, Iterable[Components]]
@@ -70,7 +70,7 @@ def save_checkpoint(
     '''
 
     # Validate save_path and create directory if it doesn't exist
-    save_path = format_file_path(save_path, 'save_path')
+    save_path = file_utils.format_file_path(save_path, 'save_path')
     save_path.parent.mkdir(parents = True, exist_ok = True)
 
     # Create checkpoint dictionary and save
@@ -165,7 +165,7 @@ def load_checkpoint(
         training_comps[key].load_state_dict(checkpoint[key])
     
     for key in valid_history_keys:
-        history_comps[key].load_state_dict(recursive_to_cpu(checkpoint[key]))
+        history_comps[key].load_state_dict(ml_utils.recursive_to_cpu(checkpoint[key]))
 
     return checkpoint['checkpoint_epoch']
 
@@ -202,7 +202,7 @@ def separate_checkpoint(
             where `num = checkpoint['checkpoint_epoch']`.
     '''
     # Check provided checkpoint and load it in if needed
-    if all_or_none(checkpoint, checkpoint_path):
+    if data_utils.all_or_none(checkpoint, checkpoint_path):
         raise ValueError('Exactly one of checkpoint and checkpoint_path must be provided.')
     if checkpoint_path is not None:
         checkpoint = torch.load(checkpoint_path, map_location = 'cpu')

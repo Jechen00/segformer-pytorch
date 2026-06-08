@@ -22,8 +22,8 @@ from typing import (
 
 from src.data_setup.transforms.ops import ImageTransform, ToImageAndMask
 from src.masks import is_rgb_tuple, rgb_to_idx_mask
-from src.tensor_shapes import _validate_channel_size, _validate_ndim
-from src.utils import transpose_list_dict, format_idxs, all_or_none
+from src.utils.shape_utils import _validate_channel_size, _validate_ndim
+from src.utils.data_utils import transpose_list_dict, format_idxs, all_or_none
 from src.ml_types import RGBTuple, IndexLike
 from src.data_setup.types import SegSample, SegSampleList
 

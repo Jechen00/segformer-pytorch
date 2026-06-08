@@ -18,7 +18,7 @@ This includes:
 # Imports & Dependencies
 #####################################
 import torch
-from torch.optim import lr_scheduler
+from torch.optim.lr_scheduler import LRScheduler
 
 from pathlib import Path
 from dataclasses import dataclass
@@ -26,7 +26,7 @@ from typing import Optional, Dict, Literal, Union
 
 from src.metrics.ops import Metric
 from src.metrics.postprocess import MetricSpecLike, format_metric_spec
-from src.utils import format_file_path
+from src.utils.file_utils import format_file_path
 
 
 #####################################
@@ -38,17 +38,16 @@ class SchedulerSettings():
     Settings for the learning rate scheduler.
 
     Attributes:
-        scheduler (lr_scheduler._LRScheduler):
+        scheduler (LRScheduler):
             The learning rate scheduler to use during training.
         step_freq (Literal['epoch', 'optim_step']):
             Step/update frequency for `scheduler`.
                 - epoch: The scheduler is stepped/updated once per epoch,
                          after the training loop finishes.
                 - optim_step: The scheduler is stepped/updated after each optimizer step.
-            Default is `optim_step`.
     '''
-    scheduler: lr_scheduler._LRScheduler
-    step_freq: Literal['epoch', 'optim_step'] = 'optim_step'
+    scheduler: LRScheduler
+    step_freq: Literal['epoch', 'optim_step']
 
 
 @dataclass
@@ -62,9 +61,9 @@ class EvalSettings():
             Each metric object must implement the `Metric` protocol (see `src.metrics.ops` for details).
             Example:
                 {
-                    'cls': `src.metrics.ops.ClassificationMetrics`,
-                    'seg': `src.metrics.ops.SegmentationMetrics`,
-                    'acc': `torchmetrics.Accuracy`
+                    'cls': `src.metrics.ops.ClassificationMetrics(...)`,
+                    'seg': `src.metrics.ops.SegmentationMetrics(...)`,
+                    'acc': `torchmetrics.Accuracy()`
                 }
         eval_interval (int):
             Interval (in epochs) to compute evaluation metrics on the validation dataset.

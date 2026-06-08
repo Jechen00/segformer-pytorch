@@ -9,7 +9,8 @@ from dataclasses import dataclass
 from typing import Union, Optional
 
 from typing import List, TypedDict, NotRequired, TypeAlias, get_args
-from src.utils import nested_extract, apply_agg, format_idxs
+from src.utils.ml_utils import apply_agg
+from src.utils.data_utils import nested_extract, format_idxs
 
 from src.ml_types import IndexLike, Aggregation
 from src.metrics.types import MeasureValue, MetricResults, MeasureSeries, MetricSeriesResults

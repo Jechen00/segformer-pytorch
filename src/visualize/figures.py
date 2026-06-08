@@ -11,7 +11,7 @@ import numpy as np
 from typing import List, Optional, Union, Tuple, Dict
 
 from src.ml_types import PythonNum, RGBTuple
-from src.utils import make_tuple
+from src.utils.data_utils import make_tuple
 from src.visualize.format_plot_inputs import NPImageList, IntLabelList
 
 #####################################

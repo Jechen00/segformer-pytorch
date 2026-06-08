@@ -9,10 +9,10 @@ from PIL import Image
 from typing import Union, List, Optional
 
 from src.data_setup.types import SampleDict, Sample, MultiSamples
-from src.tensor_shapes import (
+from src.utils.shape_utils import (
     ensure_batched, _validate_same_shape, _validate_ndim
 )
-from src.utils import transpose_list_dict
+from src.utils.data_utils import transpose_list_dict
 
 
 #####################################

@@ -3,81 +3,17 @@
 #####################################
 import torch
 
-import os
-from pathlib import Path
-import random
 import numpy as np 
 from PIL import Image
 
-from typing import Union, Any, Literal, Optional, List, Dict, Tuple
+from typing import Union, Any, Literal, List, Dict, Tuple
 
-from src.ml_types import PythonNum, ImageInput, Aggregation, IndexLike
+from src.ml_types import PythonNum, ImageInput, IndexLike
 
 
 #####################################
 # Functions
 #####################################
-def set_seed(seed: int = 0) -> None:
-    '''
-    Sets random seed and deterministic settings 
-    for reproducibility across:
-        - PyTorch
-        - NumPy
-        - Python's random module
-        - CUDA
-    
-    Args:
-        seed (int): 
-            The seed value to set.
-    '''
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    
-    torch.use_deterministic_algorithms(True, warn_only = True)
-    os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
-
-
-def get_device() -> torch.device:
-    '''
-    Returns the best available computation device.
-    '''
-    if torch.cuda.is_available():
-        device = torch.device('cuda')
-    elif torch.backends.mps.is_available():
-        device = torch.device('mps')
-    else:
-        device = torch.device('cpu')
-    return device
-
-
-def recursive_to_cpu(x: Any) -> Any:
-    '''
-    Recursively moves all tensors in a nested dictionary/list structure to the CPU.
-    Other objects (e.g. floats, ints, ndarrays) remain unchanged.
-    
-    Args:
-        x (Any): 
-            Any Python object. Tensors are moved to CPU.
-            Dictionaries and lists are traversed recursively.
-        
-    Returns:
-        Any: 
-            A version of `x`, but with tensors
-            and tensors contained in nested dictionaries/lists 
-            recursively moved to CPU.
-    '''
-    if isinstance(x, torch.Tensor):
-        return x.cpu()
-    elif isinstance(x, dict):
-        return {key: recursive_to_cpu(value) for key, value in x.items()}
-    elif isinstance(x, list):
-        return [recursive_to_cpu(value) for value in x]
-    else:
-        return x
-    
-
 def make_tuple(x: Union[Any, tuple], num_rep: int = 2) -> tuple:
     '''
     Converts a non-tuple input into a repeated tuple.
@@ -139,39 +75,6 @@ def get_img_size(img: ImageInput) -> Tuple[int, int]:
         raise TypeError(f'Expected PIL image or tensor. Got: {type(img)}')
     
     return (h, w)
-
-
-def format_file_path(file_path: Union[str, Path], path_name: Optional[str] = None) -> Path:
-    '''
-    Formats and validate a file path.
-    This converts all `path` inputs into `pathlib.Path` objects.
-    It also checks that `path` contains a file extension 
-    and does not end with a path separator ('/' or '\\').
-
-    Args:
-        file_path (Union[str, Path]): 
-            The path to format and validate.
-        path_name (optional, str): 
-            Name of `file_path` to use for error messages.
-
-    Returns:
-        Path: 
-            The validated `pathlib.Path` object.
-    '''
-    path_name = 'path' if path_name is None else path_name
-
-    path = Path(file_path)
-    if str(path).endswith(('/', '\\')):
-        raise ValueError(
-            f"{path_name} must not end with a path separator ('/' or '\\'). Got: {file_path}"
-        )
-    
-    if path.suffix == '':
-        raise ValueError(
-            f'{path_name} must end with a file extension. Got: {file_path}'
-        )
-    
-    return path
 
 
 def format_idxs(idxs: IndexLike) -> Union[int, List[int]]:
@@ -342,30 +245,3 @@ def nested_extract(nested_dict: dict, key_path: str, strict: bool = True, defaul
     return value
 
 
-def apply_agg(x: torch.Tensor, agg: Aggregation) -> torch.Tensor:
-    '''
-    Applies an aggregation function `(mean, median, min, max)` to a tensor.
-
-    Args:
-        x (torch.Tensor): 
-            The tensor to aggregate.
-        agg (Aggregation): 
-            The aggregation function to apply.
-            Supports: `mean`, `median`, `min`, `max`.
-
-    Returns:
-        torch.Tensor: 
-            The aggregated value from applying `agg` to `x`.
-    '''
-    x = x.float() # Ensure float
-
-    if agg == 'mean':
-        return x.mean()
-    elif agg == 'median':
-        return x.median()
-    elif agg == 'min':
-        return x.min()
-    elif agg == 'max':
-        return x.max()
-    else:
-        raise ValueError(f'Unknown aggregation: {agg}')

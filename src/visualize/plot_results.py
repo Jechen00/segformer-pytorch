@@ -10,7 +10,7 @@ from typing import Optional, Tuple, List, Dict
 
 from src.logging.history import TrainHistory, ValHistory
 from src.visualize.figures import make_grid
-from src.utils import nested_extract
+from src.utils.data_utils import nested_extract
 from src.metrics.postprocess import (
     MetricSpecLike, format_metric_spec, select_and_agg_scalar_metric
 )

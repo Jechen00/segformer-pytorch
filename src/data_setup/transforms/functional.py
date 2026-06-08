@@ -13,7 +13,7 @@ import math
 
 from typing import Sequence, Union, Optional, Tuple, Literal
 
-from src.utils import make_tuple, make_range, get_img_size
+from src.utils.data_utils import make_tuple, make_range, get_img_size
 from src.ml_types import SpatialSize, ImageInput, FillValue
 
 

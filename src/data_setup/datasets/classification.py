@@ -13,8 +13,8 @@ from datasets import ClassLabel
 from pathlib import Path
 from typing import Optional, Literal, List, Union, Callable, Sequence
 
-from src.tensor_shapes import _validate_ndim
-from src.utils import transpose_list_dict, format_idxs, all_or_none
+from src.utils.shape_utils import _validate_ndim
+from src.utils.data_utils import transpose_list_dict, format_idxs, all_or_none
 from src.ml_types import ImageInput, ImageLabel, IndexLike
 from src.data_setup.types import ClsSample, ClsSampleList
 

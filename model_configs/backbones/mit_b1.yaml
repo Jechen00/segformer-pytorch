@@ -30,7 +30,7 @@ num_blks: [2, 2, 2, 2]                    # Number of encoder blocks
 num_heads: [1, 2, 5, 8]                   # Number of attention heads for efficient self-attention
 reduce_ratios: [8, 4, 2, 1]               # Reduction ratio for efficient self-attention
 hid_dims: [512, 1024, 1280, 2048]         # Hidden dimensions for Mix-FFNs (feature_dims * expansion_ratio)
-enc_activations: 'gelu'                   # Activations for Mix-FFNs (can be a sequence)
+enc_activations: gelu                     # Activations for Mix-FFNs (can be a sequence)
 ffn_dropout_probs: 0.05                   # Dropout probability for Mix-FFNs (can be a sequence)
 attn_dropout_probs: 0.05                  # Dropout probability for attention weights (can be a sequence)
 max_sdepth_prob: 0.1                      # Maximum stochastic depth probability

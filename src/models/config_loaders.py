@@ -2,10 +2,10 @@
 # Imports & Dependencies
 #####################################
 from torch import nn
-import yaml
 from pathlib import Path
 from typing import Union, Dict, Any
 
+from src.utils.file_utils import load_yaml_config
 from src.models.modules import ACTIVATIONS
 
 SUPPORTED_ACTIVATIONS = ', '.join(ACTIVATIONS.keys())
@@ -62,8 +62,7 @@ def load_mit_config(config_file: Union[str, Path]) -> Dict[str, Any]:
         >>> config = load_mit_config(config_file)
         >>> mit = MixTransformer(**config)
     '''
-    with open(config_file, 'r') as f:
-        config = yaml.safe_load(f)
+    config = load_yaml_config(config_file)
     
     enc_activation = config.get('enc_activations', None)
     if enc_activation is None:
@@ -101,8 +100,7 @@ def load_segformer_config(config_file: Union[str, Path]) -> Dict[str, Any]:
         >>> config = load_segformer_config(config_file)
         >>> segformer = SegFormer(**config)
     '''
-    with open(config_file, 'r') as f:
-        config = yaml.safe_load(f)
+    config = load_yaml_config(config_file)
 
     # Get encoder activation function
     enc_activation = config.get('enc_activations')

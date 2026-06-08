@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Union, Dict, Any
 
 from src.models.encoder import MixTransformer
-from src.utils import format_file_path
+from src.utils.file_utils import format_file_path
 
 
 #####################################
