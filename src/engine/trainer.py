@@ -12,6 +12,13 @@ from pathlib import Path
 import warnings
 from typing import Optional, Union, Dict, Tuple, TypedDict
 
+from src.engine.trainer_settings import (
+    SchedulerSettings, EvalSettings, 
+    SaveSettings, PerformanceSettings, LogSettings
+)
+from src.engine.measure_policy import MeasurePolicy
+from src.engine.checkpoint import load_checkpoint, save_checkpoint
+
 from src.logging.history import TrainHistory, ValHistory
 from src.logging.formatting import (
     BOLD_ON, BOLD_OFF, EPOCH_FILL_CHAR, SEC_DIV_CHAR,
@@ -20,12 +27,6 @@ from src.logging.formatting import (
 
 from src.metrics.ops import Metric
 from src.metrics.types import MetricResults
-from src.engine.checkpoint import load_checkpoint, save_checkpoint
-from src.engine.trainer_settings import (
-    SchedulerSettings, EvalSettings, 
-    SaveSettings, PerformanceSettings, LogSettings
-)
-from src.engine.measure_policy import MeasurePolicy
 
 
 #####################################

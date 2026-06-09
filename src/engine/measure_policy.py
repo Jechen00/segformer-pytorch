@@ -9,6 +9,7 @@ from typing import Optional, Literal, Tuple, TypedDict, NotRequired
 from src.metrics.postprocess import (
     MetricSpecLike, format_metric_spec, select_and_agg_scalar_metric
 )
+
 from src.metrics.types import MeasureResult
 from src.ml_types import IndexLike, Aggregation
 

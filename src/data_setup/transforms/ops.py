@@ -9,10 +9,11 @@ from typing import (
     Any, Callable, TypeAlias
 )
 
-from src.utils.data_utils import make_range
 from src.data_setup.transforms import functional
 from src.data_setup.types import SampleDict, SampleListDict
-from src.ml_types import SpatialSize, FillValue, ImageInput
+
+from src.utils.data_utils import make_range, make_tuple
+from src.ml_types import SpatialSize, FillValue
 
 TransformLike: TypeAlias = Union[Callable, List[Callable], Tuple[Callable, ...]] 
 
@@ -437,7 +438,7 @@ class SegLetterbox(SegTransformBase):
         mask_fill: FillValue = 255
     ):
         super().__init__(seg_transform = functional.seg_letterbox)
-        self.size = size
+        self.size = make_tuple(size)
         self.img_interpolation = img_interpolation
         self.img_fill = img_fill
         self.mask_fill = mask_fill
@@ -488,7 +489,7 @@ class SegResize(SegTransformBase):
         img_interpolation: Union[InterpolationMode, int] = InterpolationMode.BILINEAR
     ):
         super().__init__(seg_transform = functional.seg_resize)
-        self.size = size
+        self.size = make_tuple(size)
         self.img_interpolation = img_interpolation
 
     @property

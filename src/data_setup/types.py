@@ -10,8 +10,6 @@ from typing import (
 
 from src.ml_types import ImageInput, ImageLabel
 
-from typing import Generic, TypeVar
-
 
 #####################################
 # TypeVars and Generics

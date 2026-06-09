@@ -26,6 +26,7 @@ from typing import Optional, Dict, Literal, Union
 
 from src.metrics.ops import Metric
 from src.metrics.postprocess import MetricSpecLike, format_metric_spec
+
 from src.utils.file_utils import format_file_path
 
 
@@ -217,6 +218,8 @@ class SaveSettings():
     ignore_exists: bool = False
 
     def __post_init__(self):
+        self.save_dir = Path(self.save_dir) # Normalize to a path object
+
         if (self.ckpt_name is None) and (self.best_model_name is None):
             raise ValueError(
                 'SaveSettings requires at least one of ckpt_name or best_model_name to be provided.'
@@ -233,7 +236,7 @@ class SaveSettings():
                 raise ValueError(f'{name_attr} must be a single file name. Got: {name}')
 
             # Check that the path will not unintentionally overwrite a file
-            name_path = Path(self.save_dir) / name
+            name_path = self.save_dir / name
             if (not self.ignore_exists) and (name_path.exists()):
                 raise FileExistsError(
                     f'A file already exists at save_dir/{name_attr}: {str(name_path)}. '
@@ -248,7 +251,7 @@ class SaveSettings():
         '''
         if self.ckpt_name is None:
             return None
-        return Path(self.save_dir) / self.ckpt_name
+        return self.save_dir / self.ckpt_name
 
     @property
     def best_model_path(self) -> Optional[Path]:
@@ -258,7 +261,7 @@ class SaveSettings():
         '''
         if self.best_model_name is None:
             return None
-        return Path(self.save_dir) / self.best_model_name
+        return self.save_dir / self.best_model_name
     
 
 @dataclass

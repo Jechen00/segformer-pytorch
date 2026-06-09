@@ -8,9 +8,10 @@ from torch.utils.data import SequentialSampler, RandomSampler
 import warnings
 from typing import List, Union, Optional, Literal, Literal, Callable
 
+from src.data_setup.multiscale import MultiScaleBatchSampler, MultiScaleWrapper
+
 from src.ml_types import SpatialSize
 from src.utils.data_utils import all_or_none
-from src.data_setup.multiscale import MultiScaleBatchSampler, MultiScaleWrapper
 
 
 #####################################

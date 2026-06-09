@@ -1,10 +1,11 @@
 # -----------------------------------
 # Notes
 # -----------------------------------
-# This config assumes:
-#   - RGB input images (`in_channels = 3`)
-#   - binary segmentation (`num_classes = 2`)
-# If training on a dataset with a different structure, change these arguments accordingly.
+# This config file comments out the task-specific arguments: 
+#   - `in_channels`
+#   - `num_classes`
+# They are shown for illustrative purposes only.
+# To instantiate a `SegFormer` model, these arguments should be specified elsewhere.
 #
 # Sequence-valued arguments are per encoder stage (4 stages in total).
 #
@@ -21,7 +22,7 @@
 # Arguments
 # -----------------------------------
 # MiT-B0 Encoder
-in_channels: 3                            # Number of input channels
+# in_channels: 3                            # Number of input channels
 feature_dims: [32, 64, 160, 256]          # Number of output features 
 patch_sizes: [7, 3, 3, 3]                 # Patch sizes for patch embedding
 strides: [4, 2, 2, 2]                     # Strides for patch embedding
@@ -36,6 +37,6 @@ max_sdepth_prob: 0.1                      # Maximum stochastic depth probability
 
 # MLP Decoder
 fused_channels: 256                       # Number of channels when unifying encoder feature maps
-num_classes: 2                            # Number of output classes
+# num_classes: 2                            # Number of output classes
 dec_activation: relu                      # Activation applied before last MLP layer
 channel_dropout_prob: 0.1                 # Channel-wise dropout probability applied after activation

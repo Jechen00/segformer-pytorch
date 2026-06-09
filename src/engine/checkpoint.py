@@ -9,8 +9,9 @@ from torch.optim import Optimizer, lr_scheduler
 from pathlib import Path
 from typing import Union, Optional, Dict, Any, Literal, Iterable, TypeAlias, get_args
 
-from src.logging.history import TrainHistory, ValHistory
 from src.engine.measure_policy import MeasurePolicy
+from src.logging.history import TrainHistory, ValHistory
+
 from src.utils import file_utils, data_utils, ml_utils
 
 Components: TypeAlias = Literal['model', 'optimizer', 'scaler', 'scheduler', 'measure_policy', 'histories']

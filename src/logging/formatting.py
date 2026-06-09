@@ -5,8 +5,8 @@ import math
 
 from typing import Optional, Sequence, TypeAlias, Union, Dict
 
-from src.metrics.types import MetricResults
 from src.metrics.postprocess import MetricSpec, select_and_agg_scalar_metric
+from src.metrics.types import MetricResults
 
 
 BOLD_ON = '\033[1m'

@@ -8,16 +8,18 @@ from torchvision.transforms import v2
 import cv2
 import numpy as np
 from matplotlib.figure import Figure
+
 from typing import List, Optional, Union, Tuple, Literal, Dict
 
-from src.inference import preprocess_and_predict
 from src.visualize.format_plot_inputs import format_cls, format_seg
 from src.visualize.figures import (
     make_cls_figure, make_seg_figure_collage, make_seg_figure_overlay
 )
-from src.data_setup.transforms.functional import reverse_letterbox_numpy
-from src.utils.data_utils import inverse_mapping
 
+from src.inference import preprocess_and_predict
+from src.data_setup.transforms.functional import reverse_letterbox_numpy
+
+from src.utils.data_utils import inverse_mapping
 from src.ml_types import PythonNum, ImageInput, ImageLabel, RGBTuple
 
 

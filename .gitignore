@@ -5,3 +5,4 @@ __pycache__/
 test_notebooks/
 saved_checkpoints/
 saved_models/
+test_training/

@@ -6,11 +6,12 @@ from torchvision.transforms.v2 import functional as F
 
 import numpy as np
 from PIL import Image
+
 from typing import Dict, List, Literal, Optional, Union, Tuple, TypeAlias
 
 from src.masks import idx_to_rgb_mask, rgb_to_visibility_mask
-from src.utils.shape_utils import ensure_batched, _validate_channel_size, _validate_ndim
 from src.utils.data_utils import all_or_none
+from src.utils.shape_utils import ensure_batched, _validate_channel_size, _validate_ndim
 from src.ml_types import ImageInput, ImageLabel, RGBTuple
 
 NPImageList: TypeAlias = List[np.ndarray]

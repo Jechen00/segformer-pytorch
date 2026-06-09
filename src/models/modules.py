@@ -6,6 +6,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from typing import Optional
+
 from src.ml_types import PythonNum
 
 ACTIVATIONS = {

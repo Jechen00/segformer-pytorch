@@ -4,6 +4,7 @@
 import torch
 
 from typing import Protocol, Union, Optional
+
 from src.metrics.types import MeasureValue, MetricGroup
 
 

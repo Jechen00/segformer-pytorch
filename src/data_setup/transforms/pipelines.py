@@ -7,12 +7,13 @@ from torchvision.transforms import InterpolationMode
 
 from typing import List, Tuple, Literal, Union, Optional, TypeAlias, Sequence
 
-from src.utils.data_utils import all_or_none
-from src.ml_types import FillValue, SpatialSize
 from src.data_setup.transforms.ops import (
     ImageTransform, SegRandomAffine, SegLetterbox, 
     SegResize, ToImageAndMask
 )
+
+from src.utils.data_utils import all_or_none
+from src.ml_types import FillValue, SpatialSize
 
 SizingType: TypeAlias = Literal['letterbox', 'resize']
 TransformType: TypeAlias = Literal['phot', 'geo']

@@ -14,26 +14,31 @@ from src.ml_types import PythonNum, ImageInput, IndexLike
 #####################################
 # Functions
 #####################################
-def make_tuple(x: Union[Any, tuple], num_rep: int = 2) -> tuple:
+def make_tuple(x: Union[Any, List, tuple], num_rep: int = 2) -> tuple:
     '''
     Converts a non-tuple input into a repeated tuple.
     If input is a tuple, it is unchanged.
+    If input is a list, it is converted to a tuple with `tuple(x)`.
 
     Args:
-        x (Union[Any, tuple]): 
-            Input value. If not a tuple, it will be repeated.
+        x (Union[Any, List, tuple]): 
+            Input value. If not a tuple or list, it will be repeated.
         num_rep (int): 
-            Number of repetitions for the output tuple, when `x` is a not a tuple.
+            Number of repetitions for the output tuple, 
+            when `x` is a not a tuple or list.
 
     Returns:
         tuple: 
             If `x` is not a tuple, returns `(x, x, ..., x)` of length `num_rep`
             If `x` is a tuple, returns `x` unchanged.
+            If `x` is a list, returns `tuple(x)`.
     '''
-    if not isinstance(x, tuple):
-        return (x,) * num_rep
-    else:
+    if isinstance(x, tuple):
         return x
+    elif isinstance(x, list):
+        return tuple(x)
+    else:
+        return (x,) * num_rep
 
 
 def make_range(x: Any) -> Union[Tuple[PythonNum, PythonNum], Any]:

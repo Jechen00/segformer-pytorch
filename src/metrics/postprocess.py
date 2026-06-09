@@ -6,14 +6,12 @@
 import torch
 
 from dataclasses import dataclass
-from typing import Union, Optional
+from typing import Union, Optional, List, TypedDict, NotRequired, TypeAlias, get_args
 
-from typing import List, TypedDict, NotRequired, TypeAlias, get_args
-from src.utils.ml_utils import apply_agg
 from src.utils.data_utils import nested_extract, format_idxs
-
-from src.ml_types import IndexLike, Aggregation
+from src.utils.ml_utils import apply_agg
 from src.metrics.types import MeasureValue, MetricResults, MeasureSeries, MetricSeriesResults
+from src.ml_types import IndexLike, Aggregation
 
 
 #####################################
@@ -56,7 +54,6 @@ class MetricSpec():
         agg = self.agg
         if (agg is not None) and (agg not in valid_aggs):
             raise ValueError(f'agg must be one of {valid_aggs}. Got: {agg}')
-
 
 class MetricSpecDict(TypedDict):
     key_path: str

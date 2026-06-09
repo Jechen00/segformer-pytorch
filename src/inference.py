@@ -6,13 +6,15 @@ from torch import nn
 from torchvision.transforms import v2
 
 from PIL import Image
+
 from typing import Union, List, Optional
 
 from src.data_setup.types import SampleDict, Sample, MultiSamples
+
+from src.utils.data_utils import transpose_list_dict
 from src.utils.shape_utils import (
     ensure_batched, _validate_same_shape, _validate_ndim
 )
-from src.utils.data_utils import transpose_list_dict
 
 
 #####################################
