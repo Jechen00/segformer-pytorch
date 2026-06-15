@@ -30,7 +30,7 @@ def plot_cls_preds(
     model: nn.Module,
     imgs: Union[ImageInput, List[ImageInput]],
     class_names: List[str],
-    targ_labels: Union[ImageLabel, List[ImageLabel]] = None,
+    targ_labels: Optional[Union[ImageLabel, List[ImageLabel]]] = None,
     transforms: Optional[v2.Compose] = None,
     memory_format: Optional[torch.memory_format] = None,
     nrows: Optional[int] = None,
@@ -57,7 +57,7 @@ def plot_cls_preds(
                 - A batched 4D tensor of shape (batch_size, channels, height, width)
         class_names (List[str]): 
             List of class names.
-        targ_labels (Union[ImageLabel, List[ImageLabel]]): 
+        targ_labels (optional, Union[ImageLabel, List[ImageLabel]]): 
             Target labels for `imgs`.
             This supports:
                 - A single integer

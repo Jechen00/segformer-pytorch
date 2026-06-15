@@ -1,0 +1,175 @@
+# -----------------------------------
+# Notes
+# -----------------------------------
+# Config file for `run_training.py` (in the same directory)
+# All file paths are written relative to the config directory.
+#
+#
+# Training setup:
+#   - Task: Image Classification
+#
+#   - Dataset: Mini-ImageNet
+#       - Transforms: General pipeline from `transforms.get_transforms`
+#
+#   - Model: `MiTClassification`
+#
+#   - Loss Function: Cross Entropy
+#   - Optimizer: AdamW
+#   - LR Scheduler: Cosine Annealing
+#   - Metric Dictionary: 
+#       - cls: `ClassificationMetrics`
+
+
+# -----------------------------------
+# Runtime Config
+# -----------------------------------
+device: cuda                                      # Device to compute on. If null, will use utils.get_device().
+num_epochs: 50                                    # Number of epochs to train for
+
+
+# -----------------------------------
+# Transform Config
+# -----------------------------------
+# See `transforms.get_transforms` for details
+transforms:
+  # Train transform arguments
+  train:
+    tf_types: [geo, phot]                         # Required argument
+    include_geo_augs: True
+
+  # Validation transform arguments
+  val:
+    tf_types: [geo]                               # Required argument
+    include_geo_augs: False
+  
+  # Common arguments between train and val transforms
+  common_args:
+    size: [512, 512]
+    sizing_mode: letterbox
+    img_interpolation: 2                            # 2 = InterpolationMode.BILINEAR
+    img_fill: 114
+
+
+# -----------------------------------
+# Dataset and Dataloader Config
+# -----------------------------------
+# Dataset Config (Mini-ImageNet)
+dataset:
+  # Information/metadata
+  info:
+    in_channels: 3                                 # Images are RGB
+    num_classes: 100                               # 100 classes with 500 images each
+    targ_key: label                                # Key to access target tensor from samples
+    
+  # Arguments
+  # See `datasets.MiniImageNetDataset` for details
+  args:
+    root: ../../data                               # Required argument
+    to_tensor: True
+    norm_mean: [0.485, 0.456, 0.406]
+    norm_std: [0.229, 0.224, 0.225]
+
+
+# Common Dataloader Config
+# See `dataloader_utils.build_dataloader` for details
+dataloader:
+  batch_size: 64                                   # Required argument
+  num_workers: 10
+  drop_last: False
+
+
+# -----------------------------------
+# Model, Loss, and Optimizer Config
+# -----------------------------------
+# MiT Backbone Config
+# Classification model is `MiTClassification`
+mit_config_file: ../../model_configs/backbones/mit_b1.yaml
+
+
+# Loss Config (Cross Entropy)
+# See `torch.nn.CrossEntropy` for details
+loss:
+  reduction: mean
+  label_smoothing: 0.05
+
+
+# Optimizer Config (AdamW)
+# See `torch.optim.AdamW` for details
+optimizer:
+  lr: 2.0e-4
+  betas: [0.9, 0.999]
+  weight_decay: 0.01
+
+
+# -----------------------------------
+# Optional Settings Config
+# -----------------------------------
+# Scheduler Settings (Cosine Annealing)
+# See `torch.optim.lr_scheduler.CosineAnnealingLR` for details
+sched_settings:
+  # Static scheduler arguments
+  sched_static_args:
+    eta_min: 5.0e-6
+
+  # Timing-related scheduler arguments
+  sched_timing_args:
+    T_max: 50
+  
+  step_freq: optim_step                            # Step/update frequency
+
+
+# Evaluation Settings
+# Assumes the `metrics` dictionary contains:
+#   {
+#     cls: ClassificationMetrics(num_classes)
+#   }
+# See `engine.trainer_settings.EvalSettings` for details
+eval_settings:
+  eval_interval: 1
+  log_metric_specs:
+    Accuracy:
+      key_path: cls.accuracy
+    Recall (Mean):
+      key_path: cls.mean_recall
+    Precision (Mean):
+      key_path: cls.mean_precision
+    F1-score (Mean):
+      key_path: cls.mean_f1_score
+    Recall (Min):
+      key_path: cls.recall
+      agg: min
+    Precision (Min):
+      key_path: cls.precision
+      agg: min
+    F1-score (Min):
+      key_path: cls.f1_score
+      agg: min
+
+
+# Measure Policy Config
+# See `engine.measure_policy.MeasurePolicy` for details
+measure_policy:
+  measure_type: metric
+  metric_spec:
+    key_path: cls.mean_f1_score
+  mode: max
+  min_delta: 1.0e-3
+  patience: 5
+
+
+# Performance Settings
+# See `engine.trainer_settings.PerformanceSettings` for details
+perf_settings:
+  memory_format: channels_last
+  use_amp: True
+  amp_dtype: float16
+
+
+# Save Settings
+# See `engine.trainer_settings.SaveSettings` for details
+save_settings:
+  save_dir: ../../saved_models/backbone_pretrain/mini_imagenet/mit_b1
+  ckpt_name: checkpoint.pth
+  best_model_name: best_cls_mod.pth
+  ignore_exists: False
+  

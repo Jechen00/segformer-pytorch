@@ -1,0 +1,190 @@
+# -----------------------------------
+# Notes
+# -----------------------------------
+# Config file for `run_training.py` (in the same directory)
+# All file paths are written relative to the config directory.
+#
+#
+# Training setup:
+#   - Task: Semantic Segmentation
+#
+#   - Dataset: partial Supervisely Person
+#       - Phot Transforms: General pipeline from `transforms.get_phot_transforms`
+#       - Geo Transforms: General pipeline from `transforms.get_geo_transforms`
+#
+#   - Model: `SegFormer`
+#
+#   - Loss Function: Focal-Dice
+#   - Optimizer: AdamW
+#   - LR Scheduler: Cosine Annealing
+#   - Metric Dictionary: 
+#       - seg: `SegmentationMetrics`
+
+
+# -----------------------------------
+# Runtime Config
+# -----------------------------------
+device: cuda                                      # Device to compute on. If null, will use utils.get_device().
+num_epochs: 100                                   # Number of epochs to train for
+
+
+# -----------------------------------
+# Transform Config
+# -----------------------------------
+# See `transforms.get_phot_transforms` for details on photometric transforms
+# See `transforms.get_geo_transforms` for details on geometric transforms
+transforms:
+  include_train_phot: True                        # Whether to include phot transforms for training
+
+  # Training Geo transform arguments
+  train_geo:
+    include_augs: True
+
+  include_val_phot: False                         # Whether to include phot transforms for validation (usually should be False)
+
+  # Validation geo transform arguments
+  val_geo:
+    include_augs: False
+
+  # Common geo transform arguments between train and val
+  common_geo:
+    size: [512, 512]
+    sizing_mode: letterbox
+    img_interpolation: 2                          # 2 = InterpolationMode.BILINEAR
+    img_fill: 114
+    mask_fill: 114
+
+
+# -----------------------------------
+# Dataset and Dataloader Config
+# -----------------------------------
+# Dataset Config (partial Supervisely Person)
+dataset:
+  # Information/metadata
+  info:
+    in_channels: 3                                 # Images are RGB
+    num_classes: 2                                 # 2 classes: background, human
+    targ_key: mask                                 # Key to access target tensor from samples
+
+  # Arguments 
+  # See `datasets.SuperviselyPerson` for details
+  args:
+    root: ../../data
+    to_tensor: True
+    norm_mean: [0.485, 0.456, 0.406]
+    norm_std: [0.229, 0.224, 0.225]
+    ignore_encoding: 
+      idx: -100
+      rgb: [114, 114, 114]
+
+
+# Common Dataloader Config
+# See `dataloader_utils.build_dataloader` for details
+dataloader:
+  batch_size: 32
+  num_workers: 10
+  drop_last: False
+
+
+# -----------------------------------
+# Model, Loss, and Optimizer Config
+# -----------------------------------
+# SegFormer-B1 Config
+# Model is `Segformer`
+# Pretrained MiT weights are applied if provided (not null)
+model:
+  segformer_config_file: ../../model_configs/segformer/segformer_b1.yaml
+  mit_weights: ../../saved_models/backbone_pretrain/mini_imagenet/mit_b1/best_backbone.pth
+
+
+# Loss Config (Focal-Dice)
+# See `loss.FocalDice` for details
+# Ignore index comes from dataset (train_dataset.ignore_index)
+loss:
+  lambda_dice: 3.0
+  lambda_focal: 1.0
+  alpha_focal: 0.75
+  gamma_focal: 2.0
+  exclude_bg_idx: 0 # Exclude background class from Dice loss
+
+
+# Optimizer Config (AdamW)
+# See `torch.optim.AdamW` for details
+optimizer:
+  lr: 2.5e-4
+  betas: [0.9, 0.999]
+  weight_decay: 0.01
+
+
+# -----------------------------------
+# Optional Settings Config
+# -----------------------------------
+# Scheduler Settings (Cosine Annealing)
+# See `torch.optim.lr_scheduler.CosineAnnealingLR` for details
+sched_settings:
+  # Static scheduler arguments
+  sched_static_args:
+    eta_min: 1.0e-6
+    
+  # Timing-related scheduler arguments
+  sched_timing_args:
+    T_max: 100
+
+  step_freq: optim_step                            # Step/update frequency
+
+
+# Evaluation Settings
+# Assumes the `metrics` dictionary contains:
+#   {
+#     seg: SegmentationMetrics(num_classes, ignore_idx)
+#   }
+# See `engine.trainer_settings.EvalSettings` for details
+eval_settings:
+  eval_interval: 1
+  log_metric_specs:
+    Accuracy:
+      key_path: seg.accuracy
+    Dice (Mean):
+      key_path: seg.mean_dice
+    IoU (Mean):
+      key_path: seg.mean_iou
+    Dice (Min):
+      key_path: seg.dice
+      agg: min
+    IoU (Min):
+      key_path: seg.iou
+      agg: min
+    Dice (Human):
+      key_path: seg.dice
+      class_idxs: 1
+    IoU (Human):
+      key_path: seg.iou
+      class_idxs: 1
+
+
+# Measure Policy Config
+# See `engine.measure_policy.MeasurePolicy` for details
+measure_policy:
+  measure_type: metric
+  metric_spec:
+    key_path: seg.mean_iou
+  mode: max
+  min_delta: 1.0e-4
+  patience: 15
+
+
+# Performance Settings
+# See `engine.trainer_settings.PerformanceSettings` for details
+perf_settings:
+  memory_format: channels_last
+  use_amp: True
+  amp_dtype: float16
+
+
+# Save Settings
+# See `engine.trainer_settings.SaveSettings` for details
+save_settings:
+  save_dir: ../../saved_models/segformer/supervisely_person/segformer_b1
+  ckpt_name: checkpoint.pth
+  best_model_name: best_cls_mod.pth
+  ignore_exists: False

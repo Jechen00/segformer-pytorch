@@ -402,7 +402,7 @@ class SegmentationDatasetBase(ABC, Dataset):
             rgb (RGBTuple):
                 RGB tuple from `spec`.
         '''
-        idx, rgb = spec['idx'], spec['rgb']
+        idx, rgb = spec['idx'], tuple(spec['rgb'])
 
         if (type(idx) is not int):
             raise TypeError(

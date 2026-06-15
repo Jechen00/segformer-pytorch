@@ -86,10 +86,10 @@ class ModelTrainer():
             and return a scalar value.
         optimizer (Optimizer):
             Optimizer used to update `model` weights based on the loss computed by `loss_fn`.
-        sched_sett (optional, SchedulerSettings):
+        sched_settings (optional, SchedulerSettings):
             Settings for the learning rate scheduler.
             If not provided, the learning rate of `optimizer` will remain constant during training.
-        eval_sett (optional, EvalSettings):
+        eval_settings (optional, EvalSettings):
             Settings for validation metric evaluations.
             If not provided, validation metrics will not be computed during training
             and `val_history` will only track the epoch loss.

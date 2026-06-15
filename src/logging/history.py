@@ -375,7 +375,7 @@ class ValHistory(PhaseHistory):
 
     Important attributes:
         - `loss.values` (MeasureSeries): Series of recorded loss values.
-        - `loss.epochs` (List[int]): Series of epochs corresponding to `self.loss.values`.
+        - `loss.epochs` (List[int]): Series of epochs corresponding to `loss.values`.
 
         - `metrics.values` (MetricSeriesGroup): Dictionary containing series of recorded metric values.
         - `metrics.epochs` (List[int]): Series of epochs corresponding to `metrics.values`.

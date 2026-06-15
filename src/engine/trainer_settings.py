@@ -109,7 +109,7 @@ class EvalSettings():
 @dataclass
 class PerformanceSettings():
     '''
-    Settings for training performance
+    Settings for training performance.
 
     Attributes:
         device (Union[str, torch.device]):

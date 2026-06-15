@@ -68,3 +68,60 @@ def load_yaml_config(config_file: Union[str, Path]) -> Dict[str, Any]:
         raise ValueError('Config file is empty.')
 
     return config
+
+
+def resolve_path(path: Union[str, Path], base_dir: Optional[Union[str, Path]] = None) -> Path:
+    '''
+    Resolves a file/directory path to an absolute path.
+
+    If `path` is absolute, it is returned as a `Path` object.
+    If `path` is relative, it is resolved to an absolute path 
+    using the following assumptions:
+        - If `base_dir` is provided, `path` is assumed relative to `base_dir`.
+        - If `base_dir` is not provided, `path` is assumed relative to the current working directory.
+
+    Args:
+        path (Union[str, Path]):
+            The path to resolve into an absolute path.
+        base_dir (optional, Union[str, Path]):
+            Base directory used as a reference point when `path` is a relative path.
+            If not provided, the reference point is set to the current working directory.
+
+    Returns:
+        Path: 
+            The resolved absolute path.
+    '''
+    path = Path(path)
+
+    if path.is_absolute() or base_dir is None:
+        return path.resolve()
+    else:
+        return (Path(base_dir) / path).resolve()
+
+
+
+# def find_repo_root(start_path: Union[str, Path]) -> Path:
+#     '''
+#     Finds the root directory of a Git repository
+#     given a starting path within the repository.
+
+#     This is done by finding the parent directory which contains the '.git' directory.
+
+#     Args:
+#         start_path: Union[str, Path]: The file/directory path within the repository.
+
+#     Returns:
+#         Path: The absolute path to the root directory of the repository.
+#     '''
+#     start_path = Path(start_path).resolve() # Normalize to path object
+    
+#     # Loop through parents and search for .git
+#     for p in [start_path, *start_path.parents]:
+#         if (p / '.git').exists():
+#             return p
+        
+#     raise ValueError(
+#         "Could not find repo root. "
+#         "Please ensure you are inside the repo and "
+#         "that the repo contains a '.git' directory."
+#     )
