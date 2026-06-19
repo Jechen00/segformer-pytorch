@@ -30,8 +30,8 @@ def plot_cls_preds(
     model: nn.Module,
     imgs: Union[ImageInput, List[ImageInput]],
     class_names: List[str],
-    targ_labels: Optional[Union[ImageLabel, List[ImageLabel]]] = None,
     transforms: Optional[v2.Compose] = None,
+    targ_labels: Optional[Union[ImageLabel, List[ImageLabel]]] = None,
     memory_format: Optional[torch.memory_format] = None,
     nrows: Optional[int] = None,
     ncols: Optional[int] = None,
@@ -49,25 +49,25 @@ def plot_cls_preds(
         model (nn.Module):
             Image classification model used to make prediction labels for `imgs`.
         imgs (Union[ImageInput, List[ImageInput]]): 
-            Images to prediction on and plot.
+            Images to predict on and plot.
             This supports:
                 - A single PIL image
-                - A single 3D tensor of shape (channels, height, width)
+                - A single 3D tensor of shape `(channels, height, width)`
                 - A list of images (each element is a PIL image or 3D tensor)
-                - A batched 4D tensor of shape (batch_size, channels, height, width)
+                - A batched 4D tensor of shape `(batch_size, channels, height, width)`
         class_names (List[str]): 
             List of class names.
+        transforms (optional, v2.Compose): 
+            Transforms used to preprocess `imgs` before passing them into `model`.
+            If provided, ensure that the `imgs` are transformed to a tensor by the end of the pipeline.
+            If not provided, ensure that `imgs` are already tensors.
         targ_labels (optional, Union[ImageLabel, List[ImageLabel]]): 
             Target labels for `imgs`.
             This supports:
                 - A single integer
                 - A single-element tensor
                 - A list of labels (each element is an integer or single-element tensor)
-                - A batched 1D tensor of shape (batch_size,)
-        transforms (optional, v2.Compose): 
-            Transforms used to preprocess `imgs` before passing them into `model`.
-            If provided, ensure that the `imgs` are transformed to a tensor by the end of the pipeline.
-            If not provided, ensure that `imgs` are already tensors.
+                - A batched 1D tensor of shape `(batch_size,)`
         memory_format (optional, torch.memory_format): 
             The memory format to convert `imgs` to before predicting.
             This should ideally be the same memory format as `model`,
@@ -138,6 +138,12 @@ def plot_seg_preds_collage(
 
     If multiple input images are provided, each result is shown on a separate row of the figure.
 
+    Target and Mapping Notes:
+        If target masks (`targ_masks`) are provided and are in RGB format, 
+        the mappings `idx_to_rgb` and `rgb_to_class` must use the same color encoding as target masks.
+        Otherwise, the target and predicted masks will not show consistent colors 
+        and the legend will also be incorrect.
+
     Args:
         model (nn.Module):
             Segmentation model used to make prediction masks for `imgs`.
@@ -145,9 +151,9 @@ def plot_seg_preds_collage(
             Images to prediction on and plot.
             This supports:
                 - A single PIL image
-                - A single 3D tensor of shape (channels, height, width)
+                - A single 3D tensor of shape `(channels, height, width)`
                 - A list of images (each element is a PIL image or 3D tensor)
-                - A batched 4D tensor of shape (batch_size, channels, height, width)
+                - A batched 4D tensor of shape `(batch_size, channels, height, width)`
         idx_to_rgb (Dict[int, RGBTuple]):
             Dictionary mapping integer indices to RGB tuples.
             This mapping should be one-to-one (injective) and the RGB values should be in [0, 255].
@@ -167,14 +173,14 @@ def plot_seg_preds_collage(
             This supports:
                 - A single PIL image
                 - A tensor of a single mask:
-                    - RGB mode: shape must be (3, height, width)
-                    - Index mode: shape must be (height, width)
+                    - RGB mode: Shape must be `(3, height, width)`
+                    - Index mode: Shape must be `(height, width)`
                 - A list of masks: Each element is a single mask (PIL image or tensor), following the rules above.
                 - A batched tensor of multiple masks:
-                    - RGB mode: shape must be (batch_size, 3, height, width)
-                    - Index mode: shape must be (batch_size, height, width)
+                    - RGB mode: Shape must be (`batch_size, 3, height, width)`
+                    - Index mode: Shape must be `(batch_size, height, width)`
             This argument is required if `targ_mode` is provided.
-        targ_mode (optional, Literal[rgb', 'index']): 
+        targ_mode (optional, Literal['rgb', 'index']): 
             The mode of the target masks.
                 - 'rgb': Target masks are expected to be RGB masks.
                 - 'index': Target masks are expected to be index masks.
@@ -295,9 +301,9 @@ def plot_seg_preds_overlay(
             Images to prediction on and plot.
             This supports:
                 - A single PIL image
-                - A single 3D tensor of shape (channels, height, width)
+                - A single 3D tensor of shape `(channels, height, width)`
                 - A list of images (each element is a PIL image or 3D tensor)
-                - A batched 4D tensor of shape (batch_size, channels, height, width)
+                - A batched 4D tensor of shape `(batch_size, channels, height, width)`
         idx_to_rgb (Dict[int, RGBTuple]):
             Dictionary mapping integer indices to RGB tuples.
             This mapping should be one-to-one (injective) and the RGB values should be in [0, 255].
@@ -335,6 +341,8 @@ def plot_seg_preds_overlay(
             This should ideally be the same memory format as `model`,
             but it is not required.
             If not provided, no memory format conversion is applied.
+        pred_alpha (PythonNum):
+            The alpha value used for the overlaid prediction masks. Default is `0.5`.
         nrows (optional, int): 
             Nunber of rows in the figure.
             If not provided, it is set to `math.ceil(num_imgs / ncols)`.
@@ -349,8 +357,6 @@ def plot_seg_preds_overlay(
             Figure size in the form of a tuple (width, height).
             If not provided, defaults to `5 * ncols, 5 * len(imgs)`, where `ncols` is `2` or `3`. 
             Note that `len(imgs)` is computed after internally converting `imgs` to a list.
-        title_fontsize (PythonNum): 
-            Fontsize for the titles of each subplot/panel. Default is `18`.
 
     Returns:
         Figure:

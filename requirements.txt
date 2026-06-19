@@ -1,0 +1,11 @@
+matplotlib==3.11.0
+numpy==2.4.6
+opencv_python==4.13.0.92
+pandas==3.0.3
+Pillow==12.2.0
+PyYAML==6.0.3
+Requests==2.34.2
+seaborn==0.13.2
+torch==2.11.0
+torchvision==0.26.0
+transformers==5.8.1

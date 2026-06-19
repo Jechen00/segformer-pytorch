@@ -215,7 +215,7 @@ class SegmentationMetrics(ConfusionMatrix):
                 - mean_dice (torch.Tensor): Mean Dice across all classes 
                                             with at least one target or predicted element.
                                             This is a scalar tensor.
-                - iou (torch.Tensor): Per-class Iou tensor of shape `(num_classes,)`.
+                - iou (torch.Tensor): Per-class IoU tensor of shape `(num_classes,)`.
                 - mean_iou (torch.Tensor): Mean IoU across all classes 
                                           with at least one target or predicted element.
                                            This is a scalar tensor.                  

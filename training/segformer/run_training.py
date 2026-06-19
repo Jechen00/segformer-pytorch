@@ -30,7 +30,7 @@ from src.data_setup.datasets import SuperviselyPersonDataset
 from src.data_setup.dataloader_utils import build_dataloader
 from src.data_setup.transforms.pipelines import get_phot_transforms, get_geo_transforms
 
-from src.loss import FocalDiceLoss
+from src.losses import FocalDiceLoss
 from src.metrics.ops import SegmentationMetrics
 from src.engine.measure_policy import MeasurePolicy
 
