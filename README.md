@@ -2,8 +2,8 @@
 This project uses the PyTorch framework to reimplement the SegFormer architecture from the paper [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://arxiv.org/abs/2105.15203). Additionally, it provides a flexible training framework that supports both encoder pretraining and full SegFormer model training.
 
 <p align = 'center'>
-  <img src = 'images/demo_image_1.png' alt = 'SegFormer Demo 1' height = 320/>
-  <img src = 'images/demo_image_2.png' alt = 'SegFormer Demo 2' height = 320/>
+  <img src = 'images/demo_image_1.png' alt = 'SegFormer Demo 1' width = 49%/>
+  <img src = 'images/demo_image_2.png' alt = 'SegFormer Demo 2' width = 49%/>
 </p>
 
 ## Table of Contents
