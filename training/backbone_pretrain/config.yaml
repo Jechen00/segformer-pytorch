@@ -62,7 +62,7 @@ dataset:
     targ_key: label                                # Key to access target tensor from samples
     
   # Arguments
-  # See `datasets.MiniImageNetDataset` for details
+  # See `datasets.MiniImageNet` for details
   args:
     root: ../../data                               # Required argument
     to_tensor: True

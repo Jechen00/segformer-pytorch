@@ -42,7 +42,7 @@ class ValResults(TypedDict):
 #####################################
 class ModelTrainer():
     '''
-    Implements a training pipeline for supervised learning tasks
+    Implements a training pipeline for supervised single-label vision tasks
     (e.g. image classification or semantic segmentation).
 
     This trains a model on a training dataset and evaluates it on a validation dataset.
@@ -51,7 +51,7 @@ class ModelTrainer():
     Task Notes:
         - The trainer predicts labels by applying `argmax` to the
           class dimension of the model logits (assumed dimension 1).
-          Consequently, each target elements must only have a **single** label.
+          Consequently, each target element must only have a **single** label.
           For example:
             - Image classification must have one class label per image.
             - Semantic segmentation must have one class label per pixel.

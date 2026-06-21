@@ -1,4 +1,4 @@
 from .base import ClassificationDatasetBase
-from .hf import HFClassificationDataset
+from .hf import HFClassification
 
-__all__ = ['ClassificationDatasetBase', 'HFClassificationDataset']
+__all__ = ['ClassificationDatasetBase', 'HFClassification']

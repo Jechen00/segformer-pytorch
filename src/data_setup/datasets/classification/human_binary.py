@@ -5,13 +5,13 @@ import datasets
 from pathlib import Path
 from typing import Optional, Literal, Union, Callable, Sequence
 
-from src.data_setup.datasets.classification import HFClassificationDataset
+from src.data_setup.datasets.classification import HFClassification
 
 
 #####################################
 # Dataset Class
 #####################################
-class HumanBinaryDataset(HFClassificationDataset):
+class HumanBinary(HFClassification):
     '''
     Wraps the Human-Nonhuman binary classification dataset from 
     https://huggingface.co/datasets/prithivMLmods/Human-vs-NonHuman
@@ -93,7 +93,7 @@ class HumanBinaryDataset(HFClassificationDataset):
         dataset_split = hf_dataset.train_test_split(test_size = (1 - train_frac), seed = split_seed)
         dataset_split_key = 'test' if split == 'val' else split # train -> train and val -> test
         
-        # Initialize HFClassificationDataset
+        # Initialize HFClassification
         super().__init__(
             hf_dataset = dataset_split[dataset_split_key],
             transforms = transforms,

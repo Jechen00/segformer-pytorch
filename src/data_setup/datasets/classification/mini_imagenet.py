@@ -7,14 +7,14 @@ import datasets
 from pathlib import Path
 from typing import Optional, Literal, List, Union, Callable, Sequence
 
-from src.data_setup.datasets.classification import HFClassificationDataset
+from src.data_setup.datasets.classification import HFClassification
 from src.data_setup.types import ClsSample
 
 
 #####################################
 # Dataset Class
 #####################################
-class MiniImageNetDataset(HFClassificationDataset):
+class MiniImageNet(HFClassification):
     '''
     Wraps the Mini-ImageNet HF dataset from https://huggingface.co/datasets/timm/mini-imagenet.
 
@@ -79,7 +79,7 @@ class MiniImageNetDataset(HFClassificationDataset):
 
         class_names = self._get_class_names()
 
-        # Initialize HFClassificationDataset
+        # Initialize HFClassification
         super().__init__(
             hf_dataset = self.hf_dataset,
             class_names = class_names,

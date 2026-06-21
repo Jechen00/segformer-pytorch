@@ -75,7 +75,7 @@ See [Example Training](#example-training) for links to the Jupyter notebooks use
 
 ## Example Training
 ### Training Scripts
-Example training scripts for encoder pretraining and full SegFormer training can be found in the [`training/backbone_pretrain`](./training/backbone_pretrain) and [`training/segformer`](./training/segformer) folders, respectively. The example encoder pretraining script pretrains a MiT-B1 encoder on the [Mini-ImageNet](https://huggingface.co/datasets/timm/mini-imagenet) dataset. The example SegFromer training script trains a SegFormer-B1 model on a [subset of the Supervisely Person dataset](https://www.kaggle.com/datasets/tapakah68/supervisely-filtered-segmentation-person-dataset), which is a binary segmentation dataset that contains human and background classes.
+Example training scripts for encoder pretraining and full SegFormer training can be found in the [`training/backbone_pretrain`](./training/backbone_pretrain) and [`training/segformer`](./training/segformer) folders, respectively. The example encoder pretraining script pretrains a MiT-B1 encoder on the [Mini-ImageNet](https://huggingface.co/datasets/timm/mini-imagenet) dataset. The example SegFromer training script trains a SegFormer-B1 model on the [filtered Supervisely Person dataset](https://www.kaggle.com/datasets/tapakah68/supervisely-filtered-segmentation-person-dataset), which is a binary segmentation dataset that contains human and background classes.
 
 To run these scripts:
   1. If necessary, edit the `config.yaml` file to your specifications. Note that if you are using the segformer training script, you will need to download the MiT-B1 pretrained weights (see [Download Pretrained Backbone Weights](#4-optional-download-pretrained-backbone-weights)) and update the `mit_weights` field of `config.yaml` to point to the location of the downloaded weights.
@@ -89,7 +89,7 @@ To run these scripts:
  ### Jupyter Notebooks
   - MiT-B0 Pretraining on Mini-ImageNet: [mit_b0_pretraining.ipynb](./notebooks/mit_b0_pretraining.ipynb)
   - MiT-B1 Pretraining on Mini-ImageNet: [mit_b1_pretraining.ipynb](./notebooks/mit_b1_pretraining.ipynb)
-  - SegFormer-B1 Training on Subset of Supervisely Person: [segformer_b1_training.ipynb](./notebooks/segformer_b1_training.ipynb)
+  - SegFormer-B1 Training on Filtered Supervisely Person: [segformer_b1_training.ipynb](./notebooks/segformer_b1_training.ipynb)
 
 ## References
 Xie, Enze, et al. "SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers." _arXiv_, 31 May 2021, [https://arxiv.org/abs/2105.15203](https://arxiv.org/abs/2105.15203).

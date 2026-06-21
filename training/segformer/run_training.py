@@ -1,6 +1,6 @@
 '''
 Script to train a `SegFormer` model 
-on a semantic segmentation dataset (e.g. partial Supervisely Person).
+on a semantic segmentation dataset (e.g. filtered Supervisely Person).
 
 Example usage:
     `python run_training.py config.yaml`
@@ -26,7 +26,7 @@ sys.path.append(str(repo_root))
 from src.models.segformer import SegFormer
 from src.models.config_loaders import load_segformer_config
 
-from src.data_setup.datasets import SuperviselyPersonDataset
+from src.data_setup.datasets import SuperviselyPersonFiltered
 from src.data_setup.dataloader_utils import build_dataloader
 from src.data_setup.transforms.pipelines import get_phot_transforms, get_geo_transforms
 
@@ -47,7 +47,7 @@ from src.utils.file_utils import load_yaml_config, resolve_path
 #####################################
 if __name__ == '__main__':
     # Setup parser and load config
-    parser = ArgumentParser(description = 'Train SegFormer model on the partial Supervisely Person dataset.')
+    parser = ArgumentParser(description = 'Train SegFormer model on the filtered Supervisely Person dataset.')
     parser.add_argument(
         'config_file', 
         help = 'Path to the YAML configuration file.',
@@ -105,12 +105,12 @@ if __name__ == '__main__':
     dataset_args = dataset_cfg['args']
     dataset_args['root'] = resolve_path(dataset_args['root'], cfg_dir)
 
-    train_dataset = SuperviselyPersonDataset(
+    train_dataset = SuperviselyPersonFiltered(
         split = 'train',
         **train_tf,
         **dataset_args
     )
-    val_dataset = SuperviselyPersonDataset(
+    val_dataset = SuperviselyPersonFiltered(
         split = 'val',
         **val_tf,
         **dataset_args

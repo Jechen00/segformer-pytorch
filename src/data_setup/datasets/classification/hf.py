@@ -12,7 +12,7 @@ from src.data_setup.types import ClsSample
 #####################################
 # Hugging Face Dataset Wrapper
 #####################################
-class HFClassificationDataset(ClassificationDatasetBase):
+class HFClassification(ClassificationDatasetBase):
     '''
     `ClassificationDatasetBase` wrapper around a Hugging Face classification dataset.
     This allows for optional per-sample image transforms.

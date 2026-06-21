@@ -8,7 +8,7 @@
 # Training setup:
 #   - Task: Semantic Segmentation
 #
-#   - Dataset: partial Supervisely Person
+#   - Dataset: filtered Supervisely Person
 #       - Phot Transforms: General pipeline from `transforms.get_phot_transforms`
 #       - Geo Transforms: General pipeline from `transforms.get_geo_transforms`
 #
@@ -58,7 +58,7 @@ transforms:
 # -----------------------------------
 # Dataset and Dataloader Config
 # -----------------------------------
-# Dataset Config (partial Supervisely Person)
+# Dataset Config (filtered Supervisely Person)
 dataset:
   # Information/metadata
   info:
@@ -67,7 +67,7 @@ dataset:
     targ_key: mask                                 # Key to access target tensor from samples
 
   # Arguments 
-  # See `datasets.SuperviselyPerson` for details
+  # See `datasets.SuperviselyPersonFiltered` for details
   args:
     root: ../../data
     to_tensor: True
@@ -184,7 +184,7 @@ perf_settings:
 # Save Settings
 # See `engine.trainer_settings.SaveSettings` for details
 save_settings:
-  save_dir: ../../saved_models/segformer/supervisely_person/segformer_b1
+  save_dir: ../../saved_models/segformer/supervisely_person_filtered/segformer_b1
   ckpt_name: checkpoint.pth
   best_model_name: best_cls_mod.pth
   ignore_exists: False

@@ -19,9 +19,9 @@ from src.data_setup.types import SegSample
 #####################################
 # Dataset Class
 #####################################
-class SuperviselyPersonDataset(SegmentationDatasetBase):
+class SuperviselyPersonFiltered(SegmentationDatasetBase):
     '''
-    Implements a dataset class for the partial Supervisely Person dataset from
+    Implements a dataset class for the filtered Supervisely Person dataset from
     https://www.kaggle.com/datasets/tapakah68/supervisely-filtered-segmentation-person-dataset
 
     Dataset Notes:
@@ -40,7 +40,7 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
     Args:
         root (Union[str, Path]): 
             Root directory to download the dataset in.
-            The dataset will be stored in `root/supervisely_person`.
+            The dataset will be stored in `root/supervisely_person_filtered`.
         split (Literal['train', 'val']):
             Whether to construct the training dataset (`train`) or the validation dataset (`val`).
         geo_transforms (optional, Callable):
@@ -94,7 +94,7 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
         split_seed: int = 0
     ):
         self.root = Path(root)
-        self.data_dir = self.root / 'supervisely_person'
+        self.data_dir = self.root / 'supervisely_person_filtered'
         self.split = split
         self.train_frac = train_frac
         self.split_seed = split_seed
@@ -124,7 +124,7 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
     
     def get_base_item(self, idx: int) -> SegSample:
         '''
-        Gets a single-sample dictionary from the Supervisely Person dataset.
+        Gets a single-sample dictionary from the filtered Supervisely Person dataset.
         All images and masks are converted to RGB format.
 
         Args:
@@ -134,7 +134,7 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
         Returns:
             SegSample:
                 Single-sample dictionary containing (non-exhaustive):
-                    - image (ImageInput): Image sample from the Supervisely Person dataset.
+                    - image (ImageInput): Image sample from the filtered Supervisely Person dataset.
                                           This is a RGB PIL image.
                     - mask (ImageInput): Segmentation mask for the image.
                                          This is a RGB PIL image.
@@ -146,7 +146,7 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
     
     def _setup_dataset(self) -> None:
         '''
-        Downloads and prepares the Supervisely Person dataset.
+        Downloads and prepares the filtered Supervisely Person dataset.
 
         Note: The images and masks are downloaded as PNG files.
 
@@ -163,8 +163,8 @@ class SuperviselyPersonDataset(SegmentationDatasetBase):
         if data_dir.is_dir():
             # Dataset directory already exists
             warnings.warn(
-                f'A supervisely_person directory already exists at the root {self.root}. '
-                'Supervisely Person dataset will not be downloaded.',
+                f'A supervisely_person_filtered directory already exists at the root {self.root}. '
+                'The filtered Supervisely Person dataset will not be downloaded.',
                 UserWarning
             )
             

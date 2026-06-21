@@ -1,8 +1,8 @@
-from .classification.mini_imagenet import MiniImageNetDataset
-from .classification.human_binary import HumanBinaryDataset
-from .segmentation.supervisely_person import SuperviselyPersonDataset
+from .classification.mini_imagenet import MiniImageNet
+from .classification.human_binary import HumanBinary
+from .segmentation.supervisely_person_filtered import SuperviselyPersonFiltered
 
 __all__ = [
-    'MiniImageNetDataset', 'HumanBinaryDataset',
-    'SuperviselyPersonDataset'
+    'MiniImageNet', 'HumanBinary',
+    'SuperviselyPersonFiltered'
 ]

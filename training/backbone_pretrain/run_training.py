@@ -24,7 +24,7 @@ sys.path.append(str(repo_root))
 from src.models import MiTClassification
 from src.models.config_loaders import load_mit_config
 
-from src.data_setup.datasets import MiniImageNetDataset
+from src.data_setup.datasets import MiniImageNet
 from src.data_setup.dataloader_utils import build_dataloader
 from src.data_setup.transforms.pipelines import get_transforms
 
@@ -94,12 +94,12 @@ if __name__ == '__main__':
     dataset_args = dataset_cfg['args']
     dataset_args['root'] = resolve_path(dataset_args['root'], cfg_dir)
 
-    train_dataset = MiniImageNetDataset(
+    train_dataset = MiniImageNet(
         split = 'train',
         transforms = train_tf,
         **dataset_args
     )
-    val_dataset = MiniImageNetDataset(
+    val_dataset = MiniImageNet(
         split = 'val',
         transforms = val_tf,
         **dataset_args
